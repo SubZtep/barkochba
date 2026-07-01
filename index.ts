@@ -1,10 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { z } from "zod";
 
-const client = new Anthropic({
+const client = new OpenAI({
   apiKey: process.env.FIREWORKS_API_KEY,
-  baseURL: "https://api.fireworks.ai/inference",
+  baseURL: "https://api.fireworks.ai/inference/v1",
 });
 
 const MODEL = "accounts/fireworks/models/minimax-m3"; // swap freely
@@ -30,36 +32,31 @@ STRATEGY
 - Always use earlier answers. Never ask something already settled or implied.
 - Track how many questions remain. Don't waste them on low-information questions.
 - When the field is narrow or budget is low, commit to a guess instead of probing further.
-- Treat "Sometimes" / "Unknown" as weak signal, not a dead end.
+- Treat "Sometimes" / "Unknown" as weak signal, not a dead end.`;
 
-OUTPUT — respond with ONLY a JSON object, no markdown, no extra text:
-{"reasoning":"brief deduction from answers so far","type":"question"|"guess","text":"your question or your single guess"}`;
+const ReplySchema = z.object({
+  reasoning: z.string(),
+  type: z.enum(["question", "guess"]),
+  text: z.string(),
+});
+type Reply = z.infer<typeof ReplySchema>;
 
-type Reply = { reasoning?: string; type: "question" | "guess"; text: string };
-
-function parse(raw: string): Reply {
-  const cleaned = raw.replace(/```json|```/g, "").trim();
-  return JSON.parse(cleaned) as Reply;
-}
-
-async function model(messages: Anthropic.MessageParam[]): Promise<Reply> {
-  const res = await client.messages.create({
+async function model(messages: OpenAI.ChatCompletionMessageParam[]): Promise<Reply> {
+  const res = await client.chat.completions.parse({
     model: MODEL,
     max_tokens: 500,
-    system: SYSTEM,
-    messages,
+    messages: [{ role: "system", content: SYSTEM }, ...messages],
+    response_format: zodResponseFormat(ReplySchema, "reply"),
   });
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-  return parse(text);
+  const parsed = res.choices[0]?.message.parsed;
+  if (!parsed) throw new Error("Model returned no parsed content");
+  return parsed;
 }
 
 async function main() {
   const rl = readline.createInterface({ input, output });
   const ask = (q: string) => rl.question(q);
-  const messages: Anthropic.MessageParam[] = [
+  const messages: OpenAI.ChatCompletionMessageParam[] = [
     { role: "user", content: "I've thought of something. Start asking." },
   ];
 
@@ -95,4 +92,3 @@ async function main() {
 }
 
 main().catch(console.error);
-

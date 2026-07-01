@@ -1,10 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { z } from "zod";
 
-const client = new Anthropic({
+const client = new OpenAI({
   apiKey: process.env.FIREWORKS_API_KEY,
-  baseURL: "https://api.fireworks.ai/inference",
+  baseURL: "https://api.fireworks.ai/inference/v1",
 });
 
 const MODEL = "accounts/fireworks/models/minimax-m3";
@@ -30,41 +32,54 @@ STRATEGY
 - Always use earlier answers. Never ask something already settled or implied.
 - Track how many questions remain. Don't waste them on low-information questions.
 - When the field is narrow or budget is low, commit to a guess instead of probing further.
-- Treat "Sometimes" / "Unknown" as weak signal, not a dead end.
+- Treat "Sometimes" / "Unknown" as weak signal, not a dead end.`;
 
-OUTPUT — respond with ONLY a JSON object, no markdown, no extra text:
-{"reasoning":"brief deduction from answers so far","type":"question"|"guess","text":"your question or your single guess"}`;
+const GuesserSchema = z.object({
+  reasoning: z.string(),
+  type: z.enum(["question", "guess"]),
+  text: z.string(),
+});
+type GuesserReply = z.infer<typeof GuesserSchema>;
+
+const AnswerSchema = z.object({
+  answer: z.enum(["Yes", "No", "Sometimes", "Unknown"]),
+});
 
 const answererSystem = (secret: string) =>
   `You are the ANSWERER in a game of Twenty Questions. The secret thing is: "${secret}".
 
 RULES
 - Answer every yes/no question truthfully and concisely about "${secret}".
-- Reply with exactly one of: Yes / No / Sometimes / Unknown
+- Reply with one of: Yes / No / Sometimes / Unknown
   - "Sometimes" if it's situational or partially true.
   - "Unknown" only if genuinely unanswerable.
-- When asked to confirm a guess, reply with "Yes" if it matches "${secret}" (case-insensitive, close synonyms count), otherwise "No".
-- Output ONLY the single word answer, nothing else.`;
+- When asked to confirm a guess, reply Yes if it matches "${secret}" (case-insensitive, close synonyms count), otherwise No.`;
 
-type Reply = { reasoning?: string; type: "question" | "guess"; text: string };
-
-function parseGuesser(raw: string): Reply {
-  const cleaned = raw.replace(/```json|```/g, "").trim();
-  return JSON.parse(cleaned) as Reply;
-}
-
-async function callModel(messages: Anthropic.MessageParam[], system: string): Promise<string> {
-  const res = await client.messages.create({
+async function callGuesser(messages: OpenAI.ChatCompletionMessageParam[]): Promise<GuesserReply> {
+  const res = await client.chat.completions.parse({
     model: MODEL,
     max_tokens: 500,
-    system,
-    messages,
+    messages: [{ role: "system", content: GUESSER_SYSTEM }, ...messages],
+    response_format: zodResponseFormat(GuesserSchema, "reply"),
   });
-  return res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
+  const parsed = res.choices[0]?.message.parsed;
+  if (!parsed) throw new Error("Guesser returned no parsed content");
+  return parsed;
+}
+
+async function callAnswerer(
+  messages: OpenAI.ChatCompletionMessageParam[],
+  system: string,
+): Promise<string> {
+  const res = await client.chat.completions.parse({
+    model: MODEL,
+    max_tokens: 100,
+    messages: [{ role: "system", content: system }, ...messages],
+    response_format: zodResponseFormat(AnswerSchema, "answer"),
+  });
+  const parsed = res.choices[0]?.message.parsed;
+  if (!parsed) throw new Error("Answerer returned no parsed content");
+  return parsed.answer;
 }
 
 async function main() {
@@ -76,25 +91,24 @@ async function main() {
 
   console.log(`\nSecret: "${secret}" — starting game...\n`);
 
-  const guesserMessages: Anthropic.MessageParam[] = [
+  const answSys = answererSystem(secret);
+  const guesserMessages: OpenAI.ChatCompletionMessageParam[] = [
     { role: "user", content: "I've thought of something. Start asking." },
   ];
-  const answererMessages: Anthropic.MessageParam[] = [];
+  const answererMessages: OpenAI.ChatCompletionMessageParam[] = [];
 
   let asked = 0;
 
   while (true) {
-    const rawGuesser = await callModel(guesserMessages, GUESSER_SYSTEM);
-    const reply = parseGuesser(rawGuesser);
-    guesserMessages.push({ role: "assistant", content: rawGuesser });
+    const reply = await callGuesser(guesserMessages);
+    guesserMessages.push({ role: "assistant", content: JSON.stringify(reply) });
 
     if (reply.type === "guess") {
-      // Ask answerer to confirm
       answererMessages.push({ role: "user", content: `Is the answer "${reply.text}"?` });
-      const confirmation = await callModel(answererMessages, answererSystem(secret));
-      answererMessages.push({ role: "assistant", content: confirmation });
+      const confirmation = await callAnswerer(answererMessages, answSys);
+      answererMessages.push({ role: "assistant", content: JSON.stringify({ answer: confirmation }) });
 
-      const correct = confirmation.toLowerCase().startsWith("y");
+      const correct = confirmation === "Yes";
       console.log(`Guess: ${reply.text} → ${confirmation}`);
 
       if (correct) {
@@ -109,10 +123,9 @@ async function main() {
     }
 
     asked++;
-    // Ask answerer
     answererMessages.push({ role: "user", content: reply.text });
-    const answer = await callModel(answererMessages, answererSystem(secret));
-    answererMessages.push({ role: "assistant", content: answer });
+    const answer = await callAnswerer(answererMessages, answSys);
+    answererMessages.push({ role: "assistant", content: JSON.stringify({ answer }) });
 
     console.log(`Q${asked}/${MAX_Q}: ${reply.text}`);
     console.log(`  → ${answer}`);
@@ -123,12 +136,11 @@ async function main() {
 
     if (asked >= MAX_Q) {
       guesserMessages.push({ role: "user", content: "That was question 20. Output a final guess now." });
-      const rawFinal = await callModel(guesserMessages, GUESSER_SYSTEM);
-      const final = parseGuesser(rawFinal);
+      const final = await callGuesser(guesserMessages);
 
       answererMessages.push({ role: "user", content: `Is the answer "${final.text}"?` });
-      const confirmation = await callModel(answererMessages, answererSystem(secret));
-      const correct = confirmation.toLowerCase().startsWith("y");
+      const confirmation = await callAnswerer(answererMessages, answSys);
+      const correct = confirmation === "Yes";
 
       console.log(`Final guess: ${final.text} → ${confirmation}`);
       console.log(correct ? "\nGuesser wins on the wire!" : "\nAnswerer wins.");
