@@ -7,7 +7,7 @@ export const log = pino(
 	{ level: process.env.LOG_LEVEL ?? "info", base: undefined },
 	pretty({
 		ignore: "pid,hostname",
-		translateTime: "SYS:HH:MM",
+		translateTime: "SYS:HH:MM:ss.l",
 		levelFirst: true,
 		singleLine: true,
 		colorize: true,

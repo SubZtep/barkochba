@@ -1,4 +1,7 @@
 {
+	"files": {
+		"includes": ["**", "!.claude"]
+	},
 	"javascript": {
 		"formatter": {
 			"semicolons": "asNeeded",

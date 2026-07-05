@@ -14,17 +14,22 @@ bun run index.ts
 
 This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
 
-## Voice assistant (talk.ts)
+## Voice apps
 
-Speak into the mic, hear the LLM answer: mic → speaches STT → Fireworks LLM → speaches TTS (Kokoro) → speakers. Built from the `lib/` modules (`stt`, `llm`, `tts`, `logger`).
+Three entry points share the same pipeline (mic → speaches STT → Fireworks LLM → speaches TTS → speakers), built from the `lib/` modules (`stt`, `llm`, `tts`, `voice`, `brain`, `logger`):
 
 ```bash
 curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16  # one-time TTS model download
-bun talk.ts                # converse; Ctrl+C to stop
-bun talk.ts some-audio.wav # feed a file as your turn (testing)
+bun run talk   # general voice chat
+bun run game   # barkochba: think of something, answer its yes/no questions aloud
+bun run care   # self-care companion that remembers past sessions (brain.sqlite)
 ```
 
-The mic is muted while the assistant speaks (half-duplex). Config via `.env`: `LLM_MODEL`, `TTS_MODEL`, `TTS_VOICE` (Kokoro voices: `af_heart`, `af_bella`, ... — see `GET /v1/registry?task=text-to-speech`). Warm Kokoro synthesis runs about realtime on CPU; if it's too slow, install a piper voice from the registry and set it as `TTS_MODEL`.
+Each also accepts an audio file argument as a fake user turn for testing. Ctrl+C to stop.
+
+Latency tricks: replies stream sentence-by-sentence into TTS (speech starts ~1s after the LLM begins answering, synthesis runs one sentence ahead of playback), and STT/TTS models are pre-warmed on startup. The mic is muted while the assistant speaks (half-duplex).
+
+Config via `.env`: `LLM_MODEL`, `TTS_MODEL`, `TTS_VOICE` (Kokoro voices: `af_heart`, `af_bella`, ... — see `GET /v1/registry?task=text-to-speech`), `BRAIN_DB`. If Kokoro is too slow, install a piper voice from the registry and set it as `TTS_MODEL`.
 
 ## Speech-to-text (stt.ts)
 

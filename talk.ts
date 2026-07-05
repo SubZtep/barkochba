@@ -6,12 +6,10 @@
 // Pipeline: mic → speaches STT → Fireworks LLM → speaches TTS → speakers.
 
 import { createChat } from "./lib/llm"
-import { log } from "./lib/logger"
 import { createStt } from "./lib/stt"
-import { speak } from "./lib/tts"
+import { runVoiceLoop } from "./lib/voice"
 
 const stt = createStt({ inputFile: process.argv[2] })
-const chat = createChat()
 
 const shutdown = () => {
 	stt.stop()
@@ -20,16 +18,5 @@ const shutdown = () => {
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
-for await (const text of stt.utterances) {
-	stt.pause() // half-duplex: don't transcribe our own voice
-	log.info({ you: text }, "turn")
-	try {
-		const reply = await chat.ask(text)
-		log.info({ assistant: reply }, "turn")
-		await speak(reply)
-	} catch (err) {
-		log.error(err, "turn failed")
-	}
-	stt.resume()
-}
+await runVoiceLoop(stt, createChat())
 process.exit(0)

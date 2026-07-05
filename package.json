@@ -18,6 +18,9 @@
 	},
 	"scripts": {
 		"start": "bun run stt.ts",
+		"talk": "bun run talk.ts",
+		"game": "bun run voice-game.ts",
+		"care": "bun run care.ts",
 		"test": "bun test",
 		"lint": "bunx --bun @biomejs/biome check --config-path=. --write --unsafe"
 	}

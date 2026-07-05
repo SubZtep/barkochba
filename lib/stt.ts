@@ -30,6 +30,43 @@ export interface SttOptions {
 	inputFile?: string
 }
 
+/** Load the STT model server-side so the first real phrase doesn't pay for it. */
+export async function warmupStt(): Promise<void> {
+	try {
+		const httpBase = BASE.replace(/^ws/, "http")
+		const form = new FormData()
+		form.append("file", new Blob([silenceWav()]), "warmup.wav")
+		form.append("model", MODEL)
+		const res = await fetch(`${httpBase}/v1/audio/transcriptions`, {
+			method: "POST",
+			body: form
+		})
+		if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+		log.debug("stt: warmed up")
+	} catch (err) {
+		log.warn(err, "stt: warmup failed")
+	}
+}
+
+// Minimal mono 16-bit PCM WAV of silence.
+function silenceWav(seconds = 0.3, rate = 16000): Uint8Array {
+	const dataSize = Math.floor(seconds * rate) * 2
+	const buf = Buffer.alloc(44 + dataSize)
+	buf.write("RIFF", 0)
+	buf.writeUInt32LE(36 + dataSize, 4)
+	buf.write("WAVEfmt ", 8)
+	buf.writeUInt32LE(16, 16) // fmt chunk size
+	buf.writeUInt16LE(1, 20) // PCM
+	buf.writeUInt16LE(1, 22) // mono
+	buf.writeUInt32LE(rate, 24)
+	buf.writeUInt32LE(rate * 2, 28) // byte rate
+	buf.writeUInt16LE(2, 32) // block align
+	buf.writeUInt16LE(16, 34) // bits per sample
+	buf.write("data", 36)
+	buf.writeUInt32LE(dataSize, 40)
+	return buf
+}
+
 export function createStt({ inputFile }: SttOptions = {}): Stt {
 	// --- transcript queue, consumed via the `utterances` async iterable ---
 	const queue: string[] = []
@@ -43,13 +80,15 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 
 	async function* utterances() {
 		while (true) {
-			while (queue.length === 0 && !ended) {
-				await new Promise<void>((resolve) => {
-					wakeConsumer = resolve
-				})
+			const next = queue.shift()
+			if (next !== undefined) {
+				yield next
+				continue
 			}
-			if (queue.length === 0 && ended) return
-			yield queue.shift()!
+			if (ended) return
+			await new Promise<void>((resolve) => {
+				wakeConsumer = resolve
+			})
 		}
 	}
 
@@ -58,7 +97,9 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 		"-hide_banner",
 		"-loglevel",
 		"error",
-		...(inputFile ? ["-re", "-i", inputFile] : ["-f", "pulse", "-i", "default"]),
+		...(inputFile
+			? ["-re", "-i", inputFile]
+			: ["-f", "pulse", "-i", "default"]),
 		"-ac",
 		"1",
 		"-ar",
@@ -140,10 +181,15 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 		log.debug({ event: ev.type }, "stt: server event")
 		switch (ev.type) {
 			case "session.created":
-				log.info({ model: MODEL, language: LANGUAGE }, "stt: connected — configuring session")
+				log.info(
+					{ model: MODEL, language: LANGUAGE },
+					"stt: connected — configuring session"
+				)
 				break
 			case "session.updated":
-				log.info(inputFile ? `stt: streaming ${inputFile}` : "stt: listening — speak")
+				log.info(
+					inputFile ? `stt: streaming ${inputFile}` : "stt: listening — speak"
+				)
 				break
 			case "input_audio_buffer.speech_started":
 				speechStartMs = ev.audio_start_ms ?? 0
@@ -175,14 +221,18 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 				const msg = ev.error?.message ?? JSON.stringify(ev)
 				// The server flags prefix_padding_ms as unsupported even though its own
 				// schema requires it in session.update; harmless, so don't surface it.
-				if (!msg.includes("prefix_padding_ms")) log.error({ src: "server" }, msg)
+				if (!msg.includes("prefix_padding_ms"))
+					log.error({ src: "server" }, msg)
 				break
 			}
 		}
 	}
 
 	ws.onerror = () => {
-		log.error({ url }, "stt: connection failed — is the speaches container running?")
+		log.error(
+			{ url },
+			"stt: connection failed — is the speaches container running?"
+		)
 	}
 	ws.onclose = stop
 
