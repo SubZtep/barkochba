@@ -74,10 +74,10 @@ export function createLocalSink(): AudioSink {
 					"-autoexit",
 					"-f",
 					"s16le",
-					"-ar",
+					"-sample_rate",
 					String(SAMPLE_RATE),
-					"-ac",
-					"1",
+					"-ch_layout",
+					"mono",
 					"-"
 				],
 				{ stdin: "pipe", stdout: "ignore", stderr: "ignore" }

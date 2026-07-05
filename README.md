@@ -30,7 +30,7 @@ Discord's voice servers now require the DAVE (E2EE) protocol — a plain connect
 
 Latency tricks: replies stream sentence-by-sentence into TTS, and the PCM audio streams straight into one long-lived `ffplay` sink as it is synthesized — speech starts ~1s after the LLM begins answering and sentences play gaplessly, with no per-sentence player spawn. STT/TTS models are pre-warmed on startup. The mic is muted while the assistant speaks (half-duplex); playback end is computed from the PCM byte count, so listening resumes right as the speakers go quiet. If audio ever stutters mid-sentence, Kokoro is running slower than realtime on your CPU — switch `TTS_MODEL` to a piper voice.
 
-Config via `.env`: `LLM_MODEL`, `TTS_MODEL`, `TTS_VOICE` (Kokoro voices: `af_heart`, `af_bella`, ... — see `GET /v1/registry?task=text-to-speech`), `BRAIN_DB`. If Kokoro is too slow, install a piper voice from the registry and set it as `TTS_MODEL`.
+Config via `.env`: `OPENAI_API_MODEL`, `TTS_MODEL`, `TTS_VOICE` (Kokoro voices: `af_heart`, `af_bella`, ... — see `GET /v1/registry?task=text-to-speech`), `BRAIN_DB`. If Kokoro is too slow, install a piper voice from the registry and set it as `TTS_MODEL`.
 
 ## Speech-to-text (stt.ts)
 

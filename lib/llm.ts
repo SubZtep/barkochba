@@ -8,7 +8,7 @@
 import OpenAI from "openai"
 import { log } from "./logger"
 
-const MODEL = process.env.LLM_MODEL ?? "accounts/fireworks/models/minimax-m3"
+const MODEL = process.env.OPENAI_API_MODEL!
 
 // Replies are read aloud by TTS, so keep them short and speakable.
 const VOICE_SYSTEM = `You are a friendly voice assistant. Your replies are read aloud
@@ -40,7 +40,7 @@ export function createChat(
 ) {
 	const client = new OpenAI({
 		apiKey: process.env.FIREWORKS_API_KEY,
-		baseURL: "https://api.fireworks.ai/inference/v1"
+		baseURL: process.env.OPENAI_API_BASE_URL
 	})
 	const messages: OpenAI.ChatCompletionMessageParam[] = [
 		{ role: "system", content: system },
