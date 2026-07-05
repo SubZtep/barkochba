@@ -4,6 +4,7 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
+		"@biomejs/biome": "2.5.2",
 		"@types/bun": "latest",
 		"pino-pretty": "^13.1.3"
 	},
