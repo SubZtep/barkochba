@@ -147,7 +147,7 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 					type: "server_vad",
 					threshold: 0.5,
 					prefix_padding_ms: 0, // required by the schema but not configurable server-side
-					silence_duration_ms: 700,
+					silence_duration_ms: 500,
 					create_response: false
 				},
 				input_audio_transcription: { model: MODEL, language: LANGUAGE }

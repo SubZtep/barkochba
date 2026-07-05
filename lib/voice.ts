@@ -1,14 +1,15 @@
 // The voice-assistant loop shared by talk.ts, voice-game.ts and care.ts:
 // listen → send to LLM → speak the reply → listen again.
 //
-// Replies are spoken sentence by sentence as they stream from the LLM, and the
-// next sentence is synthesized while the previous one is still playing.
+// Replies are spoken sentence by sentence as they stream from the LLM; speak()
+// streams audio to the speakers while it's still being synthesized and keeps
+// concurrent calls in order, so sentences are just fired off as they arrive.
 
 import type { createChat } from "./llm"
 import { log } from "./logger"
 import type { Stt } from "./stt"
 import { warmupStt } from "./stt"
-import { play, synthesize, warmupTts } from "./tts"
+import { speak, warmupTts } from "./tts"
 
 type Chat = ReturnType<typeof createChat>
 
@@ -30,17 +31,13 @@ export async function runVoiceLoop(
 		stt.pause() // half-duplex: don't transcribe our own voice
 		log.info({ you: text }, "turn")
 		try {
-			// Synthesis runs one sentence ahead of playback; playback stays in order.
-			let synthChain: Promise<unknown> = Promise.resolve()
-			let playChain: Promise<void> = Promise.resolve()
 			const sentences: string[] = []
+			const speaking: Promise<void>[] = []
 			for await (const sentence of chat.stream(text)) {
 				sentences.push(sentence)
-				const audio = synthChain.then(() => synthesize(sentence))
-				synthChain = audio
-				playChain = playChain.then(async () => play(await audio))
+				speaking.push(speak(sentence))
 			}
-			await playChain
+			await Promise.all(speaking)
 			log.info({ assistant: sentences.join(" ") }, "turn")
 			onTurn?.(text, sentences.join(" "))
 		} catch (err) {
