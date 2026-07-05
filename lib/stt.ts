@@ -1,33 +1,33 @@
-// Speech-to-text: microphone (or audio file) → speaches realtime API → text.
+// Speech-to-text: an AudioSource (mic, Discord, ...) → speaches realtime API → text.
 //
 // Usage:
-//   const stt = createStt({})
+//   const stt = createStt({ source: createLocalSource() })
 //   for await (const text of stt.utterances) console.log(text)
 //
 // Requires the speaches container running on SPEACHES_URL (default localhost:8000).
 // LOG_LEVEL=debug logs every server event.
 
+import type { AudioSource } from "./audio"
+import { createAsyncQueue, SAMPLE_RATE } from "./audio"
 import { log } from "./logger"
 
 const MODEL = process.env.STT_MODEL ?? "Systran/faster-distil-whisper-small.en"
 const LANGUAGE = process.env.STT_LANGUAGE ?? "en"
 const BASE = process.env.SPEACHES_URL ?? "ws://localhost:8000"
 
-const SAMPLE_RATE = 24000 // dictated by the OpenAI realtime API spec (pcm16 mono)
-
 export interface Stt {
 	/** Final transcripts, one per spoken phrase. Empty/noise segments are filtered out. */
 	utterances: AsyncIterable<string>
-	/** Stop feeding mic audio to the server (e.g. while TTS is playing, so we don't hear ourselves). */
+	/** Stop feeding source audio to the server (e.g. while TTS is playing, so we don't hear ourselves). */
 	pause(): void
 	resume(): void
-	/** Kill ffmpeg, close the connection and end the utterances iterable. */
+	/** Stop the source, close the connection and end the utterances iterable. */
 	stop(): void
 }
 
 export interface SttOptions {
-	/** Transcribe this audio file at realtime speed instead of the microphone (useful for testing). */
-	inputFile?: string
+	/** Where the user's speech comes from (pcm16 mono 24kHz). */
+	source: AudioSource
 }
 
 /** Load the STT model server-side so the first real phrase doesn't pay for it. */
@@ -67,64 +67,12 @@ function silenceWav(seconds = 0.3, rate = 16000): Uint8Array {
 	return buf
 }
 
-export function createStt({ inputFile }: SttOptions = {}): Stt {
-	// --- transcript queue, consumed via the `utterances` async iterable ---
-	const queue: string[] = []
-	let ended = false
-	let wakeConsumer: (() => void) | undefined
-
-	function push(text: string) {
-		queue.push(text)
-		wakeConsumer?.()
-	}
-
-	async function* utterances() {
-		while (true) {
-			const next = queue.shift()
-			if (next !== undefined) {
-				yield next
-				continue
-			}
-			if (ended) return
-			await new Promise<void>((resolve) => {
-				wakeConsumer = resolve
-			})
-		}
-	}
-
-	// --- audio capture: ffmpeg emits raw pcm16 mono 24kHz on stdout ---
-	const ffmpegArgs = [
-		"-hide_banner",
-		"-loglevel",
-		"error",
-		...(inputFile
-			? ["-re", "-i", inputFile]
-			: ["-f", "pulse", "-i", "default"]),
-		"-ac",
-		"1",
-		"-ar",
-		String(SAMPLE_RATE),
-		"-f",
-		"s16le",
-		"-"
-	]
-	const ffmpeg = Bun.spawn(["ffmpeg", ...ffmpegArgs], {
-		stdout: "pipe",
-		stderr: "pipe"
-	})
+export function createStt({ source }: SttOptions): Stt {
+	// Final transcripts, consumed via the `utterances` async iterable.
+	const transcripts = createAsyncQueue<string>()
 
 	let stopping = false
 	let paused = false
-
-	// Surface ffmpeg errors (e.g. no mic found), but drop the muxer noise it
-	// emits when Ctrl+C signals it alongside us.
-	;(async () => {
-		for await (const chunk of ffmpeg.stderr) {
-			if (stopping) continue
-			const text = new TextDecoder().decode(chunk).trim()
-			if (text) log.error({ src: "ffmpeg" }, text)
-		}
-	})()
 
 	// --- speaches realtime session ---
 	const url = `${BASE}/v1/realtime?model=${encodeURIComponent(MODEL)}`
@@ -154,7 +102,7 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 			}
 		})
 
-		for await (const chunk of ffmpeg.stdout) {
+		for await (const chunk of source.chunks) {
 			if (ws.readyState !== WebSocket.OPEN) break
 			if (paused) continue
 			send({
@@ -162,13 +110,16 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 				audio: Buffer.from(chunk).toBase64()
 			})
 		}
-		if (inputFile && ws.readyState === WebSocket.OPEN) {
-			// Trailing silence so VAD closes the last segment, then give it time to flush.
+		// A live source (mic, Discord) only ends via stop(); a finite one (file)
+		// ends on its own — append trailing silence so VAD closes the last
+		// segment, then give it time to flush. 3s: the server's VAD needs well
+		// over silence_duration_ms of tail audio before it emits speech_stopped.
+		if (!stopping && ws.readyState === WebSocket.OPEN) {
 			send({
 				type: "input_audio_buffer.append",
-				audio: Buffer.alloc(SAMPLE_RATE * 2).toBase64()
+				audio: Buffer.alloc(SAMPLE_RATE * 2 * 3).toBase64()
 			})
-			log.info("stt: end of file — waiting for final transcription")
+			log.info("stt: end of input — waiting for final transcription")
 			setTimeout(stop, 8000)
 		}
 	}
@@ -187,9 +138,7 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 				)
 				break
 			case "session.updated":
-				log.info(
-					inputFile ? `stt: streaming ${inputFile}` : "stt: listening — speak"
-				)
+				log.info("stt: listening — speak")
 				break
 			case "input_audio_buffer.speech_started":
 				speechStartMs = ev.audio_start_ms ?? 0
@@ -211,7 +160,7 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 				// VAD can fire on ambient noise, yielding empty transcripts — skip those.
 				if (text) {
 					log.info({ took_s }, "stt: segment transcribed")
-					push(text)
+					transcripts.push(text)
 				} else {
 					log.info({ took_s }, "stt: empty transcript (noise) — skipped")
 				}
@@ -239,14 +188,13 @@ export function createStt({ inputFile }: SttOptions = {}): Stt {
 	function stop() {
 		if (stopping) return
 		stopping = true
-		ffmpeg.kill()
+		source.stop()
 		if (ws.readyState === WebSocket.OPEN) ws.close()
-		ended = true
-		wakeConsumer?.()
+		transcripts.end()
 	}
 
 	return {
-		utterances: utterances(),
+		utterances: transcripts,
 		pause() {
 			paused = true
 			// Drop any partly captured audio so it isn't transcribed on resume.

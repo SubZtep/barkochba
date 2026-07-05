@@ -7,8 +7,10 @@
 // Memory lives in brain.sqlite (override with BRAIN_DB).
 
 import { recall, remember } from "./lib/brain"
+import { createLocalFrontend } from "./lib/frontends/local"
 import { createChat } from "./lib/llm"
 import { createStt } from "./lib/stt"
+import { createTts } from "./lib/tts"
 import { runVoiceLoop } from "./lib/voice"
 
 const CARE_SYSTEM = `You are a warm, grounded self-care companion. The user tells you
@@ -22,14 +24,20 @@ stories from their life — situations, how they behaved, and how things turned 
 Your words are read aloud by text-to-speech: one to three short plain sentences,
 no markdown, no lists, no emoji.`
 
-const stt = createStt({ inputFile: process.argv[2] })
+const frontend = createLocalFrontend({ inputFile: process.argv[2] })
+const stt = createStt({ source: frontend.source })
+const { speak } = createTts(frontend.sink)
 
 const shutdown = () => {
 	stt.stop()
+	frontend.stop()
 	process.exit(0)
 }
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
-await runVoiceLoop(stt, createChat(CARE_SYSTEM, recall()), { onTurn: remember })
+await runVoiceLoop(stt, createChat(CARE_SYSTEM, recall()), {
+	speak,
+	onTurn: remember
+})
 process.exit(0)

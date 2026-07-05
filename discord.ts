@@ -1,17 +1,18 @@
-// Voice assistant: speak into the mic, hear the LLM's answer.
+// Voice assistant in a Discord voice channel: the bot joins the configured
+// channel, listens to the configured user, and speaks the LLM's answers.
 //
-//   bun talk.ts              converse via the microphone
-//   bun talk.ts <audiofile>  feed an audio file as the user's turn (for testing)
+//   bun discord.ts
 //
-// Pipeline: mic → speaches STT → Fireworks LLM → speaches TTS → speakers.
+// Pipeline: Discord voice → speaches STT → Fireworks LLM → speaches TTS → Discord voice.
+// Env: DISCORD_TOKEN, DISCORD_GUILD_ID, DISCORD_CHANNEL_ID, DISCORD_USER_ID.
 
-import { createLocalFrontend } from "./lib/frontends/local"
+import { createDiscordFrontend } from "./lib/frontends/discord"
 import { createChat } from "./lib/llm"
 import { createStt } from "./lib/stt"
 import { createTts } from "./lib/tts"
 import { runVoiceLoop } from "./lib/voice"
 
-const frontend = createLocalFrontend({ inputFile: process.argv[2] })
+const frontend = await createDiscordFrontend()
 const stt = createStt({ source: frontend.source })
 const { speak } = createTts(frontend.sink)
 

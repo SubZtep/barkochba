@@ -5,8 +5,10 @@
 //
 // Say anything to start — the guesser asks its first question.
 
+import { createLocalFrontend } from "./lib/frontends/local"
 import { createChat } from "./lib/llm"
 import { createStt } from "./lib/stt"
+import { createTts } from "./lib/tts"
 import { runVoiceLoop } from "./lib/voice"
 
 const GUESSER_SYSTEM = `You are the GUESSER in a spoken game of Twenty Questions (barkochba).
@@ -30,14 +32,17 @@ answer already settled; commit to a guess when the field is narrow or budget is 
 
 The user's first utterance just means they are ready — respond with question one.`
 
-const stt = createStt({ inputFile: process.argv[2] })
+const frontend = createLocalFrontend({ inputFile: process.argv[2] })
+const stt = createStt({ source: frontend.source })
+const { speak } = createTts(frontend.sink)
 
 const shutdown = () => {
 	stt.stop()
+	frontend.stop()
 	process.exit(0)
 }
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
-await runVoiceLoop(stt, createChat(GUESSER_SYSTEM))
+await runVoiceLoop(stt, createChat(GUESSER_SYSTEM), { speak })
 process.exit(0)

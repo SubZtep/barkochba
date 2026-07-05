@@ -5,9 +5,12 @@
 //
 // Transcripts go to stdout; logs go to stderr (LOG_LEVEL=error for transcript-only).
 
+import { createLocalSource } from "./lib/frontends/local"
 import { createStt } from "./lib/stt"
 
-const stt = createStt({ inputFile: process.argv[2] })
+const stt = createStt({
+	source: createLocalSource({ inputFile: process.argv[2] })
+})
 
 const shutdown = () => {
 	stt.stop()
