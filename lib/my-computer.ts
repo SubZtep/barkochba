@@ -21,6 +21,29 @@ export function playSound(sound: keyof typeof soundFile) {
 	])
 }
 
+export async function runProposedCommand(
+	command: string,
+	explanation: string,
+	speak: (text: string) => Promise<void>
+) {
+	console.log(`\n[proposed command] ${command}\n[explanation] ${explanation}`)
+	await speak(explanation)
+	const answer = prompt(`Run this command? (y/N)\n${command}`) ?? ""
+	if (!/^y(es)?$/i.test(answer.trim())) {
+		return "User declined to run the command."
+	}
+	const proc = Bun.spawn(["sh", "-c", command], {
+		stdout: "pipe",
+		stderr: "pipe"
+	})
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+		proc.exited
+	])
+	return JSON.stringify({ exitCode, stdout, stderr })
+}
+
 export async function saySomething(text: string) {
 	const res = await fetchSpeech(text)
 	console.log(`TTS: ${text}`, res)
