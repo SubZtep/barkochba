@@ -15,6 +15,7 @@
 
 import type { AudioSink } from "./audio"
 import { log } from "./logger"
+import { warmupStt } from "./stt"
 
 const MODEL = process.env.TTS_MODEL ?? "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
 const VOICE = process.env.TTS_VOICE ?? "af_heart"
@@ -32,6 +33,15 @@ export async function fetchSpeech(text: string): Promise<Response> {
 			model: MODEL,
 			voice: VOICE,
 			input: text,
+			warmupTts: true,
+			warmupStt: true,
+			onmessage: (msg: any) => {
+				if (msg.type === "warmup_done") {
+					log.debug("tts: warmup done")
+				} else if (msg.type === "warmup_error") {
+					log.warn({ msg }, "tts: warmup error")
+				}
+			},
 			response_format: "pcm" // s16le mono 24kHz (its wav output minus the header)
 		})
 	})

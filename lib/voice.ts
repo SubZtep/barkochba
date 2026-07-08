@@ -26,8 +26,8 @@ export async function runVoiceLoop(
 	{ speak, onTurn }: VoiceLoopOptions
 ) {
 	// Load the models server-side while the user draws breath for the first phrase.
-	void warmupStt()
-	void warmupTts()
+	// void warmupStt()
+	// void warmupTts()
 
 	for await (const first of stt.utterances) {
 		stt.pause() // half-duplex: don't transcribe our own voice
