@@ -29,6 +29,28 @@ const systemInfoCategories = [
 const sink = createLocalSink()
 const { speak } = createTts(sink)
 
+const exampleQuestions = [
+	"Mennyi helyem van?",
+	"Hol van a hattérképem Omarchyn?",
+	"Hány darab fájl van a home könyvtáramban?",
+	"Mennyi egy meg egy?",
+	"What is the current weather in London?",
+	"Milyen az időjárás Pesten?",
+	"Milyen az időjárás?",
+	"Mennyi az annyi brarrararaoe?",
+	"Mi lesz ma este a tévében?",
+	"Hol tudok ma este akciofilmet nezni?"
+]
+
+function pickQuestion(): string {
+	console.log("\nPick a question:")
+	for (const [i, q] of exampleQuestions.entries()) {
+		console.log(`${i + 1}. ${q}`)
+	}
+	const choice = Number(prompt("\n> "))
+	return exampleQuestions[choice - 1] ?? exampleQuestions[0]!
+}
+
 const tools: ChatCompletionTool[] = [
 	{
 		type: "function",
@@ -129,16 +151,7 @@ Hard rules, always in force:
 	},
 	{
 		role: "user",
-		content: process.argv[2] ?? "Mennyi helyem van?"
-		// content: process.argv[2] ?? "Hol van a hattérképem Omarchyn?"
-		// content: process.argv[2] ?? "Hány darab fájl van a home könyvtáramban?"
-		// content: process.argv[2] ?? "Mennyi egy meg egy?"
-		// content: process.argv[2] ?? "What is the current weather in London?"
-		// content: process.argv[2] ?? "Milyen az időjárás Pesten?"
-		// content: process.argv[2] ?? "Milyen az időjárás?"
-		// content: process.argv[2] ?? "Mennyi az annyi brarrararaoe?"
-		// content: process.argv[2] ?? "Mi lesz ma este a tévében?"
-		// content: process.argv[2] ?? "Hol tudok ma este akciofilmet nezni?"
+		content: process.argv[2] ?? pickQuestion()
 	}
 ]
 
@@ -158,7 +171,7 @@ for (let turn = 0; turn < 10; turn++) {
 
 	if (!message.tool_calls?.length) {
 		// log.debug({ message }, "No tool calls, final response")
-		log.debug({ messages }, "Messages log")
+		// log.debug({ messages }, "Messages log")
 		console.log(`\n${message.content}`)
 		await speak(message.content || "Közöd?")
 		sink.stop()

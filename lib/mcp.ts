@@ -8,7 +8,11 @@ const filesystemClient = new Client({ name: "barkochba", version: "1.0.0" })
 await filesystemClient.connect(
 	new StdioClientTransport({
 		command: "bunx",
-		args: ["--bun", "@modelcontextprotocol/server-filesystem", process.env.HOME!]
+		args: [
+			"--bun",
+			"@modelcontextprotocol/server-filesystem",
+			process.env.HOME!
+		]
 	})
 )
 
