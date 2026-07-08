@@ -29,8 +29,12 @@ export async function runVoiceLoop(
 	void warmupStt()
 	void warmupTts()
 
-	for await (const text of stt.utterances) {
+	for await (const first of stt.utterances) {
 		stt.pause() // half-duplex: don't transcribe our own voice
+		// Segments transcribed behind this one (VAD split a phrase, or the user
+		// kept talking while a slow model churned) belong to the same turn —
+		// answering them one by one would replay stale input.
+		const text = [first, ...stt.drainPending()].join(" ")
 		log.info({ you: text }, "turn")
 		try {
 			const sentences: string[] = []

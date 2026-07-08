@@ -18,6 +18,8 @@ const BASE = process.env.SPEACHES_URL ?? "ws://localhost:8000"
 export interface Stt {
 	/** Final transcripts, one per spoken phrase. Empty/noise segments are filtered out. */
 	utterances: AsyncIterable<string>
+	/** Remove and return transcripts that are queued but not yet consumed. */
+	drainPending(): string[]
 	/** Stop feeding source audio to the server (e.g. while TTS is playing, so we don't hear ourselves). */
 	pause(): void
 	resume(): void
@@ -72,7 +74,11 @@ export function createStt({ source }: SttOptions): Stt {
 	const transcripts = createAsyncQueue<string>()
 
 	let stopping = false
-	let paused = false
+	// Half-duplex has two mute reasons: the consumer asked (TTS is playing) and
+	// a segment is being transcribed (speech now would only queue behind the
+	// answer). Either one silences the mic.
+	let pausedByUser = false
+	let transcribing = false
 
 	// --- speaches realtime session ---
 	const url = `${BASE}/v1/realtime?model=${encodeURIComponent(MODEL)}`
@@ -104,7 +110,7 @@ export function createStt({ source }: SttOptions): Stt {
 
 		for await (const chunk of source.chunks) {
 			if (ws.readyState !== WebSocket.OPEN) break
-			if (paused) continue
+			if (pausedByUser || transcribing) continue
 			send({
 				type: "input_audio_buffer.append",
 				audio: Buffer.from(chunk).toBase64()
@@ -152,11 +158,20 @@ export function createStt({ source }: SttOptions): Stt {
 				break
 			case "input_audio_buffer.committed":
 				transcribeStart = Date.now()
+				// Mute the mic until the transcript lands: on a slow model the user
+				// tends to repeat themselves, and those repeats would queue up as
+				// extra turns. Clear so a partly captured phrase doesn't linger.
+				transcribing = true
+				send({ type: "input_audio_buffer.clear" })
 				log.info("stt: transcribing")
 				break
 			case "conversation.item.input_audio_transcription.completed": {
 				const took_s = +((Date.now() - transcribeStart) / 1000).toFixed(1)
 				const text = (ev.transcript ?? "").trim()
+				// Un-mute here rather than in resume(): consumers that never call
+				// pause() (stt.ts) must keep hearing the mic. A pause()ing consumer
+				// reacts to the push before the next mic chunk can slip through.
+				transcribing = false
 				// VAD can fire on ambient noise, yielding empty transcripts — skip those.
 				if (text) {
 					log.info({ took_s }, "stt: segment transcribed")
@@ -195,14 +210,17 @@ export function createStt({ source }: SttOptions): Stt {
 
 	return {
 		utterances: transcripts,
+		drainPending() {
+			return transcripts.drain()
+		},
 		pause() {
-			paused = true
+			pausedByUser = true
 			// Drop any partly captured audio so it isn't transcribed on resume.
 			send({ type: "input_audio_buffer.clear" })
 			log.debug("stt: paused")
 		},
 		resume() {
-			paused = false
+			pausedByUser = false
 			log.debug("stt: resumed")
 		},
 		stop

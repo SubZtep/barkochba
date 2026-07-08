@@ -26,6 +26,19 @@ describe("createAsyncQueue", () => {
 		expect(await consumed).toEqual(["a", "b"])
 	})
 
+	test("drain removes queued items without ending the queue", async () => {
+		const q = createAsyncQueue<number>()
+		q.push(1)
+		q.push(2)
+		expect(q.drain()).toEqual([1, 2])
+		expect(q.drain()).toEqual([])
+		q.push(3)
+		q.end()
+		const items: number[] = []
+		for await (const item of q) items.push(item)
+		expect(items).toEqual([3])
+	})
+
 	test("push after end is a no-op", async () => {
 		const q = createAsyncQueue<number>()
 		q.push(1)

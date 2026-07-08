@@ -53,6 +53,10 @@ export function createAsyncQueue<T>() {
 			ended = true
 			wakeConsumer?.()
 		},
+		/** Remove and return everything queued but not yet consumed. */
+		drain() {
+			return items.splice(0)
+		},
 		async *[Symbol.asyncIterator]() {
 			while (true) {
 				const next = items.shift()
