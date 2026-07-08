@@ -57,3 +57,22 @@ self-care chatbot app:
 
 there is a feature when you tell a story with behviour and outcome to the global brain.
 
+## Daemon
+
+```
+# ~/.config/systemd/user/barkochba.service
+[Unit]
+Description=Barkochba bot
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Code/barkochba
+ExecStart=/usr/bin/bun run index.ts
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+
+Then systemctl --user enable --now barkochba and
+```

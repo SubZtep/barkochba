@@ -104,3 +104,9 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+
+# External Documentation
+
+Please read and reference these files for syntax and API patterns:
+
+- [Fireworks AI](https://docs.fireworks.ai/llms-full.txt)

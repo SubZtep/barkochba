@@ -24,7 +24,7 @@ const BASE = (process.env.SPEACHES_URL ?? "ws://localhost:8000").replace(
 	"http"
 )
 
-async function fetchSpeech(text: string): Promise<Response> {
+export async function fetchSpeech(text: string): Promise<Response> {
 	const res = await fetch(`${BASE}/v1/audio/speech`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
