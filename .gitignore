@@ -29,6 +29,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # local conversation memory (care.ts)
 brain.sqlite*
 
+# per-run decision-tree diagrams (search.ts)
+flows
+
 # caches
 .eslintcache
 .cache
@@ -40,5 +43,6 @@ brain.sqlite*
 # Finder (MacOS) folder config
 .DS_Store
 
-assets
+assets/magyar.wav
+assets/notes.txt
 models.json

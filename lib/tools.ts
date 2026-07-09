@@ -37,9 +37,10 @@ export async function rerank(
 	query: string,
 	documents: string[],
 	topN = 5
-): Promise<number[]> {
+): Promise<{ index: number; score: number }[]> {
 	playSound("magic")
-	if (documents.length <= topN) return documents.map((_, i) => i)
+	if (documents.length <= topN)
+		return documents.map((_, i) => ({ index: i, score: 1 }))
 	const res = await fetch("https://api.fireworks.ai/inference/v1/rerank", {
 		method: "POST",
 		headers: {
@@ -58,7 +59,7 @@ export async function rerank(
 		throw new Error(`Rerank failed: ${res.status} ${await res.text()}`)
 	const data = (await res.json()) as any
 	// log.debug({ query, data }, "Rerank results")
-	return data.data.map((d: any) => d.index)
+	return data.data.map((d: any) => ({ index: d.index, score: d.relevance_score }))
 }
 
 export async function isAnswerSatisfactory(
