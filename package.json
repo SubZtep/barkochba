@@ -1,5 +1,6 @@
 {
 	"name": "barkochba",
+	"version": "0.0.1",
 	"module": "talk.ts",
 	"type": "module",
 	"private": true,

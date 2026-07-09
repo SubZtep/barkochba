@@ -17,7 +17,7 @@ export interface VoiceLoopOptions {
 	/** Speak one sentence; resolves when it has audibly finished (see createTts). */
 	speak: (text: string) => Promise<void>
 	/** Called after each completed exchange, e.g. to persist it. */
-	onTurn?: (you: string, assistant: string) => void
+	onTurn?: (you: string, assistant: string) => void | Promise<void>
 }
 
 export async function runVoiceLoop(
@@ -45,7 +45,7 @@ export async function runVoiceLoop(
 			}
 			await Promise.all(speaking)
 			log.info({ assistant: sentences.join(" ") }, "turn")
-			onTurn?.(text, sentences.join(" "))
+			await onTurn?.(text, sentences.join(" "))
 		} catch (err) {
 			log.error(err, "turn failed")
 		}

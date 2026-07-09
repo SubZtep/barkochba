@@ -3,6 +3,7 @@ import type {
 	ChatCompletionTool
 } from "openai/resources/chat/completions"
 import si from "systeminformation"
+import { recallRelevant, remember } from "./lib/brain"
 import { createLocalSink } from "./lib/frontends/local"
 import { log } from "./lib/logger"
 import { callMcpTool, isMcpTool, mcpTools } from "./lib/mcp"
@@ -49,6 +50,76 @@ function pickQuestion(): string {
 	}
 	const choice = Number(prompt("\n> "))
 	return exampleQuestions[choice - 1] ?? exampleQuestions[0]!
+}
+
+type TraceNode = {
+	id: string
+	label: string
+	kind:
+		| "query"
+		| "memory"
+		| "sample"
+		| "winner"
+		| "tool_call"
+		| "tool_result"
+		| "brainstorm_candidate"
+		| "brainstorm_winner"
+		| "challenge"
+		| "final_answer"
+		| "ask_user"
+	from?: string[]
+	score?: number
+}
+const trace: TraceNode[] = []
+let nodeSeq = 0
+const nodeId = () => `n${nodeSeq++}`
+const truncate = (s: string, max = 80) =>
+	s.length > max ? `${s.slice(0, max)}…` : s
+const escapeLabel = (s: string) =>
+	truncate(s.replace(/"/g, "'").replace(/[\n\r|[\]{}]/g, " ").trim())
+
+function renderMermaid(nodes: TraceNode[]): string {
+	// Collapse nodes with identical kind+label into one, so retried tool calls,
+	// repeated samples, and repeated memory recalls render as a single box.
+	const canonical = new Map<string, TraceNode>() // "kind::label" -> first node seen
+	const redirect = new Map<string, string>() // duplicate id -> canonical id
+	for (const n of nodes) {
+		const key = `${n.kind}::${escapeLabel(n.label)}`
+		const existing = canonical.get(key)
+		if (existing) redirect.set(n.id, existing.id)
+		else canonical.set(key, n)
+	}
+	const resolve = (id: string) => redirect.get(id) ?? id
+
+	const lines = ["flowchart TD"]
+	for (const n of canonical.values()) {
+		const label = escapeLabel(n.label)
+		if (label) {
+			const shape =
+				n.kind === "query"
+					? `${n.id}(["${label}"])`
+					: n.kind === "final_answer"
+						? `${n.id}[["${label}"]]`
+						: n.kind === "ask_user"
+							? `${n.id}{{"${label}"}}`
+							: `${n.id}["${label}"]`
+			lines.push(`\t${shape}`)
+		}
+	}
+	const seenEdges = new Set<string>()
+	for (const n of nodes) {
+		for (const parent of n.from ?? []) {
+			const from = resolve(parent)
+			const to = resolve(n.id)
+			if (from === to) continue
+			const edgeLabel = n.score !== undefined ? `|${n.score.toFixed(2)}|` : ""
+			const edgeKey = `${from}->${to}->${edgeLabel}`
+			if (seenEdges.has(edgeKey)) continue
+			seenEdges.add(edgeKey)
+			lines.push(`\t${from} --> ${edgeLabel}${to}`)
+		}
+	}
+	return lines.join("\n")
 }
 
 const tools: ChatCompletionTool[] = [
@@ -177,6 +248,23 @@ const tools: ChatCompletionTool[] = [
 	...mcpTools
 ]
 
+const query = process.argv[2] ?? pickQuestion()
+const rootId = nodeId()
+trace.push({ id: rootId, label: query, kind: "query" })
+
+const recalled = await recallRelevant(query)
+const seenMemories = new Set<string>()
+const relevant = recalled.filter((m) => {
+	const key = `${m.role}:${m.content.trim()}`
+	if (seenMemories.has(key)) return false
+	seenMemories.add(key)
+	return true
+})
+for (const m of relevant) {
+	trace.push({ id: nodeId(), label: `${m.role}: ${m.content}`, kind: "memory", from: [rootId] })
+}
+let front = rootId
+
 const messages: ChatCompletionMessageParam[] = [
 	{
 		role: "system",
@@ -184,18 +272,18 @@ const messages: ChatCompletionMessageParam[] = [
 
 Hard rules, always in force:
 - Answer in a single short sentence, in the language of the question.
-- Don't share any filler words, unnecessary information, context, or disclaimers: straight to the point.
+- Don't share unnecessary information, context, or disclaimers just to fill words. Interestingly, concisely, and directly answer the question.
 - Read acronyms always as English letters, e.g. "AI" is "A I", "CPU" is "C P U".
 - The answer is read aloud by TTS: plain speakable text only. No markdown, parentheses, quotes, slashes, symbols, emojis, abbreviations.
 - Write units and numbers as spoken, e.g. "25 fok" not "25°C", "20 kilométer per óra" not "20 km/h".
 - Your text response is final and cannot be replied to: never ask a question in it, no follow-up offers.
 - If the question is ambiguous or missing information: when a reasonable person could guess likely intents, call brainstorm_options with a few concrete candidates first instead of guessing blindly — only call ask_user directly if no reasonable guess is possible, or if the ranked candidate from brainstorm_options still doesn't clearly fit.
 - For questions about this machine, answer via system_info instead of guessing.
-- Before propose_command, you MUST call system_info with category osInfo first, so you never propose a command for the wrong OS. Only call propose_command when the user wants the machine's state actually changed. Never run anything without going through it.`
+- Before propose_command, you MUST call system_info with category osInfo first, so you never propose a command for the wrong OS. Only call propose_command when the user wants the machine's state actually changed. Never run anything without going through it.${relevant.length ? `\n\nRelevant past exchanges with this user:\n${relevant.map((m) => `${m.role}: ${m.content}`).join("\n")}` : ""}`
 	},
 	{
 		role: "user",
-		content: process.argv[2] ?? pickQuestion()
+		content: query
 	}
 ]
 
@@ -224,17 +312,43 @@ for (let turn = 0; turn < 20; turn++) {
 				? `${call.function.name}\n${call.function.arguments}`
 				: c.message.content || ""
 		})
-		const rankedIdx = await rerank(messages[1]!.content as string, blobs, 1)
-		message = choices[rankedIdx[0]!]!.message
+		const sampleIds = blobs.map((blob) => {
+			const id = nodeId()
+			trace.push({ id, label: blob, kind: "sample", from: [front] })
+			return id
+		})
+		const ranked = await rerank(messages[1]!.content as string, blobs, 1)
+		message = choices[ranked[0]!.index]!.message
+		const winnerId = nodeId()
+		trace.push({
+			id: winnerId,
+			label: blobs[ranked[0]!.index]!,
+			kind: "winner",
+			from: [sampleIds[ranked[0]!.index]!],
+			score: ranked[0]!.score
+		})
+		front = winnerId
 	}
 	messages.push(message)
 
 	if (!message.tool_calls?.length) {
 		const query = messages[1]!.content as string
 		const answer = message.content || ""
-		if (await isAnswerSatisfactory(query, answer)) {
+		const satisfactory = await isAnswerSatisfactory(query, answer)
+		const challengeId = nodeId()
+		trace.push({
+			id: challengeId,
+			label: satisfactory ? "accepted" : `rejected #${rejectionCount + 1}`,
+			kind: "challenge",
+			from: [front]
+		})
+		front = challengeId
+		if (satisfactory) {
 			console.log(`\n${answer}`)
 			await speak(answer || "Közöd?")
+			await remember(query, answer)
+			const answerId = nodeId()
+			trace.push({ id: answerId, label: answer, kind: "final_answer", from: [front] })
 			sink.stop()
 			break
 		}
@@ -245,6 +359,11 @@ for (let turn = 0; turn < 20; turn++) {
 				"Nem tudom biztosan mit szeretnél, elmondanád pontosabban?"
 			await speak(question)
 			const reply = prompt(`\n${question}`) ?? ""
+			const askId = nodeId()
+			trace.push({ id: askId, label: question, kind: "ask_user", from: [front] })
+			const replyId = nodeId()
+			trace.push({ id: replyId, label: reply, kind: "query", from: [askId] })
+			front = replyId
 			messages.push({
 				role: "user",
 				content: reply
@@ -270,45 +389,86 @@ for (let turn = 0; turn < 20; turn++) {
 			continue
 		}
 		const args = JSON.parse(call.function.arguments)
+		const callId = nodeId()
+		trace.push({
+			id: callId,
+			label: `${call.function.name}(${call.function.arguments})`,
+			kind: "tool_call",
+			from: [front]
+		})
 		let content: string
-		if (call.function.name === "ask_user") {
-			await speak(args.question || "Mondj valamit")
-			content = prompt(`\n${args.question}`) ?? ""
-		} else if (call.function.name === "system_info") {
-			content = JSON.stringify(await si[args.category as (typeof systemInfoCategories)[number]]())
-		} else if (call.function.name === "propose_command") {
-			content = await runProposedCommand(args.command, args.explanation, speak)
-		} else if (call.function.name === "brainstorm_options") {
-			const candidates: { label: string; action_type: string; action: string }[] =
-				args.candidates
-			const rankedIdx = await rerank(
-				args.query,
-				candidates.map((c) => `${c.label}\n${c.action}`),
-				1
-			)
-			const winner = candidates[rankedIdx[0]!]!
-			const runnerUp = rankedIdx[1] !== undefined ? candidates[rankedIdx[1]] : null
+		try {
+			if (call.function.name === "ask_user") {
+				await speak(args.question || "Mondj valamit")
+				content = prompt(`\n${args.question}`) ?? ""
+			} else if (call.function.name === "system_info") {
+				content = JSON.stringify(await si[args.category as (typeof systemInfoCategories)[number]]())
+			} else if (call.function.name === "propose_command") {
+				content = await runProposedCommand(args.command, args.explanation, speak)
+			} else if (call.function.name === "brainstorm_options") {
+				const candidates: { label: string; action_type: string; action: string }[] =
+					args.candidates
+				const candidateIds = candidates.map((c) => {
+					const id = nodeId()
+					trace.push({
+						id,
+						label: `${c.label} (${c.action_type})`,
+						kind: "brainstorm_candidate",
+						from: [callId]
+					})
+					return id
+				})
+				const ranked = await rerank(
+					args.query,
+					candidates.map((c) => `${c.label}\n${c.action}`),
+					1
+				)
+				const winner = candidates[ranked[0]!.index]!
+				const runnerUp = ranked[1] !== undefined ? candidates[ranked[1].index] : null
+				const brainstormWinnerId = nodeId()
+				trace.push({
+					id: brainstormWinnerId,
+					label: winner.label,
+					kind: "brainstorm_winner",
+					from: [candidateIds[ranked[0]!.index]!],
+					score: ranked[0]!.score
+				})
+				front = brainstormWinnerId
+				content = JSON.stringify({
+					best_guess: winner,
+					runner_up: runnerUp,
+					instructions:
+						"Proceed using best_guess: if action_type is command, call propose_command with it (system_info osInfo first if not already called); if action_type is question, call ask_user with it; if action_type is answer, just answer directly. Only fall back to ask_user with a different question if none of the candidates fit."
+				})
+			} else if (isMcpTool(call.function.name)) {
+				content = await callMcpTool(call.function.name, args)
+			} else {
+				const result = await braveSearch(
+					args.query,
+					args.freshness,
+					args.search_lang
+				)
+				const ranked = await rerank(
+					args.query,
+					result.map((r: { title: string; description: string }) => `${r.title}\n${r.description}`)
+				)
+				const rankedResults = ranked.map((r) => result[r.index])
+				content = await summarize(args.query, rankedResults)
+			}
+		} catch (err) {
+			log.warn({ err, tool: call.function.name }, "Tool call failed")
 			content = JSON.stringify({
-				best_guess: winner,
-				runner_up: runnerUp,
-				instructions:
-					"Proceed using best_guess: if action_type is command, call propose_command with it (system_info osInfo first if not already called); if action_type is question, call ask_user with it; if action_type is answer, just answer directly. Only fall back to ask_user with a different question if none of the candidates fit."
+				error: `${call.function.name} failed: ${err instanceof Error ? err.message : String(err)}`
 			})
-		} else if (isMcpTool(call.function.name)) {
-			content = await callMcpTool(call.function.name, args)
-		} else {
-			const result = await braveSearch(
-				args.query,
-				args.freshness,
-				args.search_lang
-			)
-			const rankedIdx = await rerank(
-				args.query,
-				result.map((r: { title: string; description: string }) => `${r.title}\n${r.description}`)
-			)
-			const ranked = rankedIdx.map((i) => result[i])
-			content = await summarize(args.query, ranked)
 		}
+		const resultId = nodeId()
+		trace.push({
+			id: resultId,
+			label: content,
+			kind: "tool_result",
+			from: [call.function.name === "brainstorm_options" ? front : callId]
+		})
+		front = resultId
 		messages.push({
 			role: "tool",
 			tool_call_id: call.id,
@@ -316,6 +476,11 @@ for (let turn = 0; turn < 20; turn++) {
 		})
 	}
 }
+
+await Bun.$`mkdir -p flows`.quiet()
+const flowPath = `flows/${new Date().toISOString().replace(/[:.]/g, "-")}.md`
+await Bun.write(flowPath, renderMermaid(trace))
+console.log(`\nFlow diagram: ${flowPath}`)
 
 playSound("bell")
 process.exit()
