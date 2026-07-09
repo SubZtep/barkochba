@@ -30,6 +30,7 @@
 		"game": "bun run voice-game.ts",
 		"care": "bun run care.ts",
 		"discord": "bun run discord.ts",
+		"seed-slang": "bun run seed-slang.ts",
 		"test": "bun test",
 		"lint": "bunx --bun @biomejs/biome check --config-path=. --write --unsafe"
 	}
