@@ -113,7 +113,8 @@ export async function summarize(
 ) {
 	playSound("magic")
 	const completion = await client.chat.completions.create({
-		model: process.env.OPENAI_API_MODEL_SUMMARISE!,
+		model:
+			process.env.OPENAI_API_MODEL_SUMMARISE ?? process.env.OPENAI_API_MODEL!,
 		// model: "accounts/fireworks/models/deepseek-v4-flash",
 		messages: [
 			// {
