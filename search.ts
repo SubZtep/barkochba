@@ -9,7 +9,13 @@ import { log } from "./lib/logger"
 import { callMcpTool, isMcpTool, mcpTools } from "./lib/mcp"
 import { playSound, runProposedCommand } from "./lib/my-computer"
 import { client } from "./lib/openai"
-import { braveSearch, isAnswerSatisfactory, rerank, summarize } from "./lib/tools"
+import { lookupSlang } from "./lib/slang"
+import {
+	braveSearch,
+	isAnswerSatisfactory,
+	rerank,
+	summarize
+} from "./lib/tools"
 import { createTts } from "./lib/tts"
 
 const systemInfoCategories = [
@@ -76,7 +82,12 @@ const nodeId = () => `n${nodeSeq++}`
 const truncate = (s: string, max = 80) =>
 	s.length > max ? `${s.slice(0, max)}…` : s
 const escapeLabel = (s: string) =>
-	truncate(s.replace(/"/g, "'").replace(/[\n\r|[\]{}]/g, " ").trim())
+	truncate(
+		s
+			.replace(/"/g, "'")
+			.replace(/[\n\r|[\]{}]/g, " ")
+			.trim()
+	)
 
 function renderMermaid(nodes: TraceNode[]): string {
 	const lines = ["flowchart TD"]
@@ -156,7 +167,10 @@ const tools: ChatCompletionTool[] = [
 			parameters: {
 				type: "object",
 				properties: {
-					command: { type: "string", description: "The full shell command to run" },
+					command: {
+						type: "string",
+						description: "The full shell command to run"
+					},
 					explanation: {
 						type: "string",
 						description:
@@ -164,6 +178,24 @@ const tools: ChatCompletionTool[] = [
 					}
 				},
 				required: ["command", "explanation"]
+			}
+		}
+	},
+	{
+		type: "function",
+		function: {
+			name: "slang_lookup",
+			description:
+				"Look up Hungarian slang, idioms, or street expressions in a slang dictionary. Call this when the user uses or asks about an expression that sounds like slang and you're not fully sure of its meaning. Returns the closest dictionary entries with definitions, best match first.",
+			parameters: {
+				type: "object",
+				properties: {
+					phrase: {
+						type: "string",
+						description: "The slang expression to look up, as the user said it"
+					}
+				},
+				required: ["phrase"]
 			}
 		}
 	},
@@ -193,7 +225,8 @@ const tools: ChatCompletionTool[] = [
 				properties: {
 					query: {
 						type: "string",
-						description: "The user's original request, verbatim, used to rank candidates"
+						description:
+							"The user's original request, verbatim, used to rank candidates"
 					},
 					candidates: {
 						type: "array",
@@ -204,7 +237,8 @@ const tools: ChatCompletionTool[] = [
 							properties: {
 								label: {
 									type: "string",
-									description: "Short human-readable name for this interpretation"
+									description:
+										"Short human-readable name for this interpretation"
 								},
 								action_type: {
 									type: "string",
@@ -235,7 +269,12 @@ trace.push({ id: rootId, label: query, kind: "query" })
 
 const relevant = await recallRelevant(query)
 for (const m of relevant) {
-	trace.push({ id: nodeId(), label: `${m.role}: ${m.content}`, kind: "memory", from: [rootId] })
+	trace.push({
+		id: nodeId(),
+		label: `${m.role}: ${m.content}`,
+		kind: "memory",
+		from: [rootId]
+	})
 }
 let front = rootId
 
@@ -253,6 +292,7 @@ Hard rules, always in force:
 - Your text response is final and cannot be replied to: never ask a question in it, no follow-up offers.
 - If the question is ambiguous or missing information: when a reasonable person could guess likely intents, call brainstorm_options with a few concrete candidates first instead of guessing blindly — only call ask_user directly if no reasonable guess is possible, or if the ranked candidate from brainstorm_options still doesn't clearly fit.
 - For questions about this machine, answer via system_info instead of guessing.
+- When the user uses or asks about a Hungarian expression that might be slang or an idiom, call slang_lookup first, even if you think you already know it — everyday-sounding phrases often have a slang meaning that beats the literal one. Prefer a returned definition over your own guess when its meaning fits the conversation.
 - Before propose_command, you MUST call system_info with category osInfo first, so you never propose a command for the wrong OS. Only call propose_command when the user wants the machine's state actually changed. Never run anything without going through it.${relevant.length ? `\n\nRelevant past exchanges with this user:\n${relevant.map((m) => `${m.role}: ${m.content}`).join("\n")}` : ""}`
 	},
 	{
@@ -322,19 +362,32 @@ for (let turn = 0; turn < 20; turn++) {
 			await speak(answer || "Közöd?")
 			await remember(query, answer)
 			const answerId = nodeId()
-			trace.push({ id: answerId, label: answer, kind: "final_answer", from: [front] })
+			trace.push({
+				id: answerId,
+				label: answer,
+				kind: "final_answer",
+				from: [front]
+			})
 			sink.stop()
 			break
 		}
 		rejectionCount++
-		log.debug({ query, answer, rejectionCount }, "Answer rejected, looping again")
+		log.debug(
+			{ query, answer, rejectionCount },
+			"Answer rejected, looping again"
+		)
 		if (rejectionCount >= 3) {
 			const question =
 				"Nem tudom biztosan mit szeretnél, elmondanád pontosabban?"
 			await speak(question)
 			const reply = prompt(`\n${question}`) ?? ""
 			const askId = nodeId()
-			trace.push({ id: askId, label: question, kind: "ask_user", from: [front] })
+			trace.push({
+				id: askId,
+				label: question,
+				kind: "ask_user",
+				from: [front]
+			})
 			const replyId = nodeId()
 			trace.push({ id: replyId, label: reply, kind: "query", from: [askId] })
 			front = replyId
@@ -347,7 +400,9 @@ for (let turn = 0; turn < 20; turn++) {
 		}
 		const lastTool = [...messages].reverse().find((m) => m.role === "tool")
 		const alreadyActed =
-			lastTool && typeof lastTool.content === "string" && /"exitCode":0/.test(lastTool.content)
+			lastTool &&
+			typeof lastTool.content === "string" &&
+			/"exitCode":0/.test(lastTool.content)
 		messages.push({
 			role: "user",
 			content: alreadyActed
@@ -376,12 +431,23 @@ for (let turn = 0; turn < 20; turn++) {
 				await speak(args.question || "Mondj valamit")
 				content = prompt(`\n${args.question}`) ?? ""
 			} else if (call.function.name === "system_info") {
-				content = JSON.stringify(await si[args.category as (typeof systemInfoCategories)[number]]())
+				content = JSON.stringify(
+					await si[args.category as (typeof systemInfoCategories)[number]]()
+				)
+			} else if (call.function.name === "slang_lookup") {
+				content = JSON.stringify(await lookupSlang(args.phrase))
 			} else if (call.function.name === "propose_command") {
-				content = await runProposedCommand(args.command, args.explanation, speak)
+				content = await runProposedCommand(
+					args.command,
+					args.explanation,
+					speak
+				)
 			} else if (call.function.name === "brainstorm_options") {
-				const candidates: { label: string; action_type: string; action: string }[] =
-					args.candidates
+				const candidates: {
+					label: string
+					action_type: string
+					action: string
+				}[] = args.candidates
 				const candidateIds = candidates.map((c) => {
 					const id = nodeId()
 					trace.push({
@@ -398,7 +464,8 @@ for (let turn = 0; turn < 20; turn++) {
 					1
 				)
 				const winner = candidates[ranked[0]!.index]!
-				const runnerUp = ranked[1] !== undefined ? candidates[ranked[1].index] : null
+				const runnerUp =
+					ranked[1] !== undefined ? candidates[ranked[1].index] : null
 				const brainstormWinnerId = nodeId()
 				trace.push({
 					id: brainstormWinnerId,
@@ -424,7 +491,10 @@ for (let turn = 0; turn < 20; turn++) {
 				)
 				const ranked = await rerank(
 					args.query,
-					result.map((r: { title: string; description: string }) => `${r.title}\n${r.description}`)
+					result.map(
+						(r: { title: string; description: string }) =>
+							`${r.title}\n${r.description}`
+					)
 				)
 				const rankedResults = ranked.map((r) => result[r.index])
 				content = await summarize(args.query, rankedResults)
@@ -452,7 +522,7 @@ for (let turn = 0; turn < 20; turn++) {
 }
 
 await Bun.$`mkdir -p flows`.quiet()
-const flowPath = `flows/${new Date().toISOString().replace(/[:.]/g, "-")}.md`
+const flowPath = `flows/${new Date().toISOString().replace(/[:.]/g, "-")}.mmd`
 await Bun.write(flowPath, renderMermaid(trace))
 console.log(`\nFlow diagram: ${flowPath}`)
 
