@@ -78,13 +78,19 @@ export function recall(limit = 40): ChatMessage[] {
 export async function recallRelevant(
 	query: string,
 	topN = 5
-): Promise<ChatMessage[]> {
+): Promise<{
+	matches: (ChatMessage & { score: number })[]
+	durationMs: number
+	model: string
+}> {
+	const model = process.env.OPENAI_API_MODEL_EMBEDDING!
+	const start = Date.now()
 	const rows = db
 		.prepare(
 			"SELECT role, content, embedding FROM turns WHERE embedding IS NOT NULL"
 		)
 		.all() as { role: "user" | "assistant"; content: string; embedding: string }[]
-	if (!rows.length) return []
+	if (!rows.length) return { matches: [], durationMs: Date.now() - start, model }
 	const queryEmbedding = await embed(query)
 	const scored = rows
 		.map((r) => ({
@@ -94,9 +100,10 @@ export async function recallRelevant(
 		}))
 		.sort((a, b) => b.score - a.score)
 		.slice(0, topN)
+	const durationMs = Date.now() - start
 	log.debug(
 		{ query, matches: scored.map((s) => ({ content: s.content, score: s.score })) },
 		"brain: relevant recall"
 	)
-	return scored.map(({ role, content }) => ({ role, content }))
+	return { matches: scored, durationMs, model }
 }

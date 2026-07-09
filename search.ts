@@ -75,19 +75,66 @@ type TraceNode = {
 		| "ask_user"
 	from?: string[]
 	score?: number
+	durationMs?: number
+	model?: string
+	reasoning?: string
 }
 const trace: TraceNode[] = []
 let nodeSeq = 0
 const nodeId = () => `n${nodeSeq++}`
-const truncate = (s: string, max = 80) =>
+
+async function timed<T>(fn: () => Promise<T>): Promise<[T, number]> {
+	const start = Date.now()
+	const result = await fn()
+	return [result, Date.now() - start]
+}
+
+const truncate = (s: string, max: number) =>
 	s.length > max ? `${s.slice(0, max)}…` : s
-const escapeLabel = (s: string) =>
-	truncate(
-		s
-			.replace(/"/g, "'")
-			.replace(/[\n\r|[\]{}]/g, " ")
-			.trim()
-	)
+const cleanText = (s: string) =>
+	s
+		.replace(/"/g, "'")
+		.replace(/[\n\r|[\]{}]/g, " ")
+		.trim()
+const escapeLabel = (s: string, max = 300) => truncate(cleanText(s), max)
+
+// Wraps long labels onto multiple lines so Mermaid sizes the box to fit the
+// text instead of rendering one long unbroken line.
+function wrapLabel(s: string, maxLen: number, lineLen = 36): string {
+	const clean = truncate(cleanText(s), maxLen)
+	const words = clean.split(" ")
+	const lines: string[] = []
+	let cur = ""
+	for (const w of words) {
+		if ((cur + " " + w).trim().length > lineLen) {
+			if (cur) lines.push(cur)
+			cur = w
+		} else {
+			cur = (cur + " " + w).trim()
+		}
+	}
+	if (cur) lines.push(cur)
+	return lines.join("<br/>")
+}
+
+const shortModelName = (model: string) => model.replace(/^accounts\/fireworks\/models\//, "")
+
+const MODEL_SHAPES: ((id: string, label: string) => string)[] = [
+	(id, label) => `${id}("${label}")`,
+	(id, label) => `${id}{{"${label}"}}`,
+	(id, label) => `${id}[/"${label}"/]`,
+	(id, label) => `${id}[("${label}")]`,
+	(id, label) => `${id}[["${label}"]]`
+]
+const MODEL_INDEX: Record<string, number> = {}
+function styleForModel(model: string | undefined): { class?: string; wrap: (id: string, label: string) => string } {
+	if (!model) return { wrap: (id, label) => `${id}["${label}"]` }
+	if (MODEL_INDEX[model] === undefined) MODEL_INDEX[model] = Object.keys(MODEL_INDEX).length
+	const idx = MODEL_INDEX[model]!
+	return { class: `model${idx}`, wrap: MODEL_SHAPES[idx % MODEL_SHAPES.length]! }
+}
+
+const MODEL_COLORS = ["#E6D9F5", "#D8C3EE", "#F0E4FA", "#C9AEE8", "#EAD9F7"]
 
 function renderMermaid(nodes: TraceNode[]): string {
 	// Collapse nodes with identical kind+label into one, so retried tool calls,
@@ -103,18 +150,26 @@ function renderMermaid(nodes: TraceNode[]): string {
 	const resolve = (id: string) => redirect.get(id) ?? id
 
 	const lines = ["flowchart TD"]
+	const usedClasses = new Set<string>()
 	for (const n of canonical.values()) {
-		const label = escapeLabel(n.label)
+		const wrapMax = n.kind === "tool_result" || n.kind === "final_answer" ? 220 : 100
+		const label0 = wrapLabel(n.label, wrapMax)
+		const label = n.durationMs !== undefined ? `${label0}<br/><i>${(n.durationMs / 1000).toFixed(1)}s</i>` : label0
 		if (label) {
-			const shape =
-				n.kind === "query"
-					? `${n.id}(["${label}"])`
-					: n.kind === "final_answer"
-						? `${n.id}[["${label}"]]`
-						: n.kind === "ask_user"
-							? `${n.id}{{"${label}"}}`
-							: `${n.id}["${label}"]`
+			let shape: string
+			if (n.kind === "query") shape = `${n.id}(["${label}"])`
+			else if (n.kind === "final_answer") shape = `${n.id}[["${label}"]]`
+			else if (n.kind === "ask_user") shape = `${n.id}{{"${label}"}}`
+			else {
+				const style = styleForModel(n.model)
+				shape = style.wrap(n.id, label)
+				if (style.class) usedClasses.add(style.class)
+			}
 			lines.push(`\t${shape}`)
+			if (n.reasoning) {
+				const tooltip = escapeLabel(n.reasoning, 300).replace(/<br\/>/g, " ")
+				lines.push(`\tclick ${n.id} "javascript:void(0)" "${tooltip}"`)
+			}
 		}
 	}
 	const seenEdges = new Set<string>()
@@ -128,6 +183,27 @@ function renderMermaid(nodes: TraceNode[]): string {
 			if (seenEdges.has(edgeKey)) continue
 			seenEdges.add(edgeKey)
 			lines.push(`\t${from} --> ${edgeLabel}${to}`)
+		}
+	}
+
+	// classDefs + a legend node per model actually used, so shape/color meaning
+	// is self-documenting instead of relying on a fixed key.
+	lines.push("\tclassDef default color:#000000,font-size:20px")
+	for (const [model, idx] of Object.entries(MODEL_INDEX)) {
+		const cls = `model${idx}`
+		if (!usedClasses.has(cls)) continue
+		const color = MODEL_COLORS[idx % MODEL_COLORS.length]
+		lines.push(
+			`\tclassDef ${cls} fill:${color},stroke:#ff0,stroke-width:1px,color:#000000,font-size:20px`
+		)
+		const legendId = `legend${idx}`
+		lines.push(`\t${legendId}["${shortModelName(model)}"]`)
+		lines.push(`\tclass ${legendId} ${cls}`)
+	}
+	// Apply classes to real nodes.
+	for (const n of canonical.values()) {
+		if (n.model && usedClasses.has(`model${MODEL_INDEX[n.model]}`)) {
+			lines.push(`\tclass ${n.id} model${MODEL_INDEX[n.model]}`)
 		}
 	}
 	return lines.join("\n")
@@ -286,9 +362,9 @@ const query = process.argv[2] ?? pickQuestion()
 const rootId = nodeId()
 trace.push({ id: rootId, label: query, kind: "query" })
 
-const recalled = await recallRelevant(query)
+const memoryResult = await recallRelevant(query)
 const seenMemories = new Set<string>()
-const relevant = recalled.filter((m) => {
+const relevant = memoryResult.matches.filter((m) => {
 	const key = `${m.role}:${m.content.trim()}`
 	if (seenMemories.has(key)) return false
 	seenMemories.add(key)
@@ -297,9 +373,11 @@ const relevant = recalled.filter((m) => {
 for (const m of relevant) {
 	trace.push({
 		id: nodeId(),
-		label: `${m.role}: ${m.content}`,
+		label: `${m.role}: ${m.content} (${m.score.toFixed(2)})`,
 		kind: "memory",
-		from: [rootId]
+		from: [rootId],
+		durationMs: memoryResult.durationMs,
+		model: memoryResult.model
 	})
 }
 let front = rootId
@@ -329,14 +407,18 @@ Hard rules, always in force:
 
 let rejectionCount = 0
 
+const mainModel = process.env.OPENAI_API_MODEL!
+
 for (let turn = 0; turn < 20; turn++) {
-	const completion = await client.chat.completions.create({
-		model: process.env.OPENAI_API_MODEL!,
-		messages,
-		tools,
-		n: 3,
-		temperature: 0.7
-	})
+	const [completion, completionMs] = await timed(() =>
+		client.chat.completions.create({
+			model: mainModel,
+			messages,
+			tools,
+			n: 3,
+			temperature: 0.7
+		})
+	)
 
 	const choices = completion.choices.filter((c) => c.message)
 	if (!choices.length) {
@@ -352,12 +434,24 @@ for (let turn = 0; turn < 20; turn++) {
 				? `${call.function.name}\n${call.function.arguments}`
 				: c.message.content || ""
 		})
-		const sampleIds = blobs.map((blob) => {
+		const sampleIds = choices.map((c, i) => {
 			const id = nodeId()
-			trace.push({ id, label: blob, kind: "sample", from: [front] })
+			trace.push({
+				id,
+				label: blobs[i]!,
+				kind: "sample",
+				from: [front],
+				durationMs: completionMs,
+				model: mainModel,
+				reasoning: (c.message as any).reasoning_content
+			})
 			return id
 		})
-		const ranked = await rerank(messages[1]!.content as string, blobs, 1)
+		const { results: ranked, model: rerankModel } = await rerank(
+			messages[1]!.content as string,
+			blobs,
+			1
+		)
 		message = choices[ranked[0]!.index]!.message
 		const winnerId = nodeId()
 		trace.push({
@@ -365,7 +459,8 @@ for (let turn = 0; turn < 20; turn++) {
 			label: blobs[ranked[0]!.index]!,
 			kind: "winner",
 			from: [sampleIds[ranked[0]!.index]!],
-			score: ranked[0]!.score
+			score: ranked[0]!.score,
+			model: rerankModel
 		})
 		front = winnerId
 	}
@@ -374,13 +469,17 @@ for (let turn = 0; turn < 20; turn++) {
 	if (!message.tool_calls?.length) {
 		const query = messages[1]!.content as string
 		const answer = message.content || ""
-		const satisfactory = await isAnswerSatisfactory(query, answer)
+		const { satisfactory, durationMs: challengeMs, model: challengeModel, reasoning: challengeReasoning } =
+			await isAnswerSatisfactory(query, answer)
 		const challengeId = nodeId()
 		trace.push({
 			id: challengeId,
 			label: satisfactory ? "accepted" : `rejected #${rejectionCount + 1}`,
 			kind: "challenge",
-			from: [front]
+			from: [front],
+			durationMs: challengeMs,
+			model: challengeModel,
+			reasoning: challengeReasoning
 		})
 		front = challengeId
 		if (satisfactory) {
@@ -452,6 +551,7 @@ for (let turn = 0; turn < 20; turn++) {
 			from: [front]
 		})
 		let content: string
+		const toolStart = Date.now()
 		try {
 			if (call.function.name === "ask_user") {
 				await speak(args.question || "Mondj valamit")
@@ -484,7 +584,7 @@ for (let turn = 0; turn < 20; turn++) {
 					})
 					return id
 				})
-				const ranked = await rerank(
+				const { results: ranked, model: brainstormRerankModel } = await rerank(
 					args.query,
 					candidates.map((c) => `${c.label}\n${c.action}`),
 					1
@@ -498,7 +598,8 @@ for (let turn = 0; turn < 20; turn++) {
 					label: winner.label,
 					kind: "brainstorm_winner",
 					from: [candidateIds[ranked[0]!.index]!],
-					score: ranked[0]!.score
+					score: ranked[0]!.score,
+					model: brainstormRerankModel
 				})
 				front = brainstormWinnerId
 				content = JSON.stringify({
@@ -515,7 +616,7 @@ for (let turn = 0; turn < 20; turn++) {
 					args.freshness,
 					args.search_lang
 				)
-				const ranked = await rerank(
+				const { results: ranked } = await rerank(
 					args.query,
 					result.map(
 						(r: { title: string; description: string }) =>
@@ -536,7 +637,8 @@ for (let turn = 0; turn < 20; turn++) {
 			id: resultId,
 			label: content,
 			kind: "tool_result",
-			from: [call.function.name === "brainstorm_options" ? front : callId]
+			from: [call.function.name === "brainstorm_options" ? front : callId],
+			durationMs: Date.now() - toolStart
 		})
 		front = resultId
 		messages.push({

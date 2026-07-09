@@ -37,10 +37,20 @@ export async function rerank(
 	query: string,
 	documents: string[],
 	topN = 5
-): Promise<{ index: number; score: number }[]> {
+): Promise<{
+	results: { index: number; score: number }[]
+	durationMs: number
+	model: string
+}> {
 	playSound("magic")
+	const model = process.env.OPENAI_API_MODEL_RERANK!
+	const start = Date.now()
 	if (documents.length <= topN)
-		return documents.map((_, i) => ({ index: i, score: 1 }))
+		return {
+			results: documents.map((_, i) => ({ index: i, score: 1 })),
+			durationMs: Date.now() - start,
+			model
+		}
 	const res = await fetch("https://api.fireworks.ai/inference/v1/rerank", {
 		method: "POST",
 		headers: {
@@ -48,7 +58,7 @@ export async function rerank(
 			"Content-Type": "application/json"
 		},
 		body: JSON.stringify({
-			model: process.env.OPENAI_API_MODEL_RERANK!,
+			model,
 			query,
 			documents,
 			top_n: topN,
@@ -59,16 +69,27 @@ export async function rerank(
 		throw new Error(`Rerank failed: ${res.status} ${await res.text()}`)
 	const data = (await res.json()) as any
 	// log.debug({ query, data }, "Rerank results")
-	return data.data.map((d: any) => ({ index: d.index, score: d.relevance_score }))
+	return {
+		results: data.data.map((d: any) => ({ index: d.index, score: d.relevance_score })),
+		durationMs: Date.now() - start,
+		model
+	}
 }
 
 export async function isAnswerSatisfactory(
 	query: string,
 	answer: string
-): Promise<boolean> {
+): Promise<{
+	satisfactory: boolean
+	durationMs: number
+	model: string
+	reasoning?: string
+}> {
 	playSound("hehe")
+	const model = process.env.OPENAI_API_MODEL_REASONING!
+	const start = Date.now()
 	const completion = await client.chat.completions.create({
-		model: process.env.OPENAI_API_MODEL_REASONING!,
+		model,
 		temperature: 0,
 		messages: [
 			{
@@ -79,8 +100,11 @@ export async function isAnswerSatisfactory(
 			{ role: "user", content: `Request: ${query}\n\nAnswer: ${answer}` }
 		]
 	})
-	const verdict = completion.choices[0]?.message.content?.trim().toLowerCase()
-	return verdict === "yes"
+	const durationMs = Date.now() - start
+	const message = completion.choices[0]?.message
+	const verdict = message?.content?.trim().toLowerCase()
+	const reasoning = (message as any)?.reasoning_content as string | undefined
+	return { satisfactory: verdict === "yes", durationMs, model, reasoning }
 }
 
 export async function summarize(
