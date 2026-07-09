@@ -3,6 +3,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
 import type { ChatCompletionTool } from "openai/resources/chat/completions"
 import { log } from "./logger"
+import { playSound } from "./my-computer"
 
 const filesystemClient = new Client({ name: "barkochba", version: "1.0.0" })
 await filesystemClient.connect(
@@ -54,6 +55,7 @@ export function isMcpTool(name: string) {
 }
 
 export async function callMcpTool(name: string, args: Record<string, unknown>) {
+	playSound("magic")
 	const client = toolOwners.get(name)
 	if (!client) throw new Error(`Unknown MCP tool: ${name}`)
 	const result = await client.callTool({ name, arguments: args })

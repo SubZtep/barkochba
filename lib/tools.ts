@@ -1,4 +1,5 @@
 import { log } from "./logger"
+import { playSound } from "./my-computer"
 import { client } from "./openai"
 
 export async function braveSearch(
@@ -6,6 +7,8 @@ export async function braveSearch(
 	freshness?: string,
 	search_lang?: string
 ) {
+	// console.debug(`[searching: ${args.query}]`)
+	playSound("wind")
 	const params = new URLSearchParams({
 		q: query,
 		count: "20",
@@ -32,10 +35,11 @@ export async function braveSearch(
 
 export async function rerank(
 	query: string,
-	results: { title: string; url: string; description: string }[],
+	documents: string[],
 	topN = 5
-) {
-	if (results.length <= topN) return results
+): Promise<number[]> {
+	playSound("magic")
+	if (documents.length <= topN) return documents.map((_, i) => i)
 	const res = await fetch("https://api.fireworks.ai/inference/v1/rerank", {
 		method: "POST",
 		headers: {
@@ -45,7 +49,7 @@ export async function rerank(
 		body: JSON.stringify({
 			model: process.env.OPENAI_API_MODEL_RERANK!,
 			query,
-			documents: results.map((r) => `${r.title}\n${r.description}`),
+			documents,
 			top_n: topN,
 			return_documents: false
 		})
@@ -53,14 +57,36 @@ export async function rerank(
 	if (!res.ok)
 		throw new Error(`Rerank failed: ${res.status} ${await res.text()}`)
 	const data = (await res.json()) as any
-	log.debug({ query, data }, "Rerank results")
-	return data.data.map((d: any) => results[d.index])
+	// log.debug({ query, data }, "Rerank results")
+	return data.data.map((d: any) => d.index)
+}
+
+export async function isAnswerSatisfactory(
+	query: string,
+	answer: string
+): Promise<boolean> {
+	playSound("hehe")
+	const completion = await client.chat.completions.create({
+		model: process.env.OPENAI_API_MODEL_REASONING!,
+		temperature: 0,
+		messages: [
+			{
+				role: "system",
+				content:
+					'Does the answer satisfy the request? If the request is vague or open-ended (e.g. "show me a picture" with no specifics), any concrete on-topic answer counts as satisfying it — do not demand specificity the request itself didn\'t ask for. Only say "no" if the answer dodges the request, asks a clarifying question instead of answering, or is off-topic. Reply with only "yes" or "no". No other text.'
+			},
+			{ role: "user", content: `Request: ${query}\n\nAnswer: ${answer}` }
+		]
+	})
+	const verdict = completion.choices[0]?.message.content?.trim().toLowerCase()
+	return verdict === "yes"
 }
 
 export async function summarize(
 	query: string,
 	results: { title: string; url: string; description: string }[]
 ) {
+	playSound("magic")
 	const completion = await client.chat.completions.create({
 		model: process.env.OPENAI_API_MODEL_SUMMARISE!,
 		// model: "accounts/fireworks/models/deepseek-v4-flash",
