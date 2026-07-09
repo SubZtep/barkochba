@@ -279,6 +279,15 @@ const tools: ChatCompletionTool[] = [
 	{
 		type: "function",
 		function: {
+			name: "current_datetime",
+			description:
+				"Get the current local date and time, including weekday and timezone. Call this whenever the answer depends on today's date or the time of day — never guess or use your training data for the current date.",
+			parameters: { type: "object", properties: {} }
+		}
+	},
+	{
+		type: "function",
+		function: {
 			name: "slang_lookup",
 			description:
 				"Look up Hungarian slang, idioms, or street expressions in a slang dictionary. Call this when the user uses or asks about an expression that sounds like slang and you're not fully sure of its meaning. Returns the closest dictionary entries with definitions, best match first.",
@@ -560,6 +569,16 @@ for (let turn = 0; turn < 20; turn++) {
 				content = JSON.stringify(
 					await si[args.category as (typeof systemInfoCategories)[number]]()
 				)
+			} else if (call.function.name === "current_datetime") {
+				const now = new Date()
+				content = JSON.stringify({
+					iso: now.toISOString(),
+					local: new Intl.DateTimeFormat("hu-HU", {
+						dateStyle: "full",
+						timeStyle: "short"
+					}).format(now),
+					timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+				})
 			} else if (call.function.name === "slang_lookup") {
 				content = JSON.stringify(await lookupSlang(args.phrase))
 			} else if (call.function.name === "propose_command") {
