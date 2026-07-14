@@ -1,0 +1,10 @@
+telemetry = false
+
+[console]
+depth = 3
+
+[run]
+bun = true
+noOrphans = true
+elide-lines = 0
+silent = true
