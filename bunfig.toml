@@ -1,7 +1,7 @@
 telemetry = false
 
 [console]
-depth = 3
+depth = 6
 
 [run]
 bun = true

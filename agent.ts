@@ -1,18 +1,22 @@
 import { color } from "bun"
-import { currentTimeTool, readFileTool } from "./lib/agent-tools"
 import { Agent, askUserTool, createSession, run } from "./lib/agents"
+import { playSound } from "./lib/my-computer"
+import { currentTimeTool } from "./tools/current-time"
+import { readFileTool } from "./tools/read-file"
+import { webSearchTool } from "./tools/web-search"
 
 const agent = new Agent({
   model: process.env.OPENAI_API_MODEL!,
-  tools: [readFileTool, currentTimeTool, askUserTool]
+  tools: [readFileTool, currentTimeTool, askUserTool, webSearchTool]
 })
 
-console.log(`${color("magenta", "ansi")}${agent.model}`)
+console.log(`${color("deeppink", "ansi")}༼☉ɷ⊙༽ ${agent.model}`)
 
 const session = createSession()
 const lines = console[Symbol.asyncIterator]()
 
 async function nextLine(): Promise<string | null> {
+  process.stdout.write(color("silver", "ansi")!)
   process.stdout.write("> ")
   const { value: line, done } = await lines.next()
   return done ? null : line.trim()
@@ -33,19 +37,23 @@ while (true) {
   for await (const event of run(agent, prompt, session)) {
     switch (event.type) {
       case "reasoning":
-        console.log(`${color("grey", "ansi")}${event.text}`)
+        playSound("wind")
+        console.log(`${color("rebeccapurple", "ansi")}${event.text}`)
         break
       case "tool_call":
+        playSound("magic")
         console.log(
-          `${color("yellow", "ansi")}> ${event.name}(${event.arguments})`
+          `${color("peachpuff", "ansi")}> ${event.name}(${event.arguments})`
         )
         break
-      case "final":
-        console.log(event.content)
-        break
       case "ask_user":
-        console.log(`${color("cyan", "ansi")}? ${event.question}`)
+        playSound("bell")
+        console.log(`${color("yellowgreen", "ansi")}? ${event.question}`)
         asked = true
+        break
+      case "final":
+        playSound("hehe")
+        console.log(event.content)
         break
     }
   }

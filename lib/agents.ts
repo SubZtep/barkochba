@@ -172,6 +172,7 @@ export async function* run(
   session: Session
 ): AsyncGenerator<AgentEvent, void, void> {
   const toolsByName = new Map(
+    // @ts-ignore
     agent.tools.map((t) => [t.definition.function.name, t])
   )
   const definitions = agent.tools.map((t) => t.definition)

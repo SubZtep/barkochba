@@ -8,7 +8,7 @@ export async function braveSearch(
   search_lang?: string
 ) {
   // console.debug(`[searching: ${args.query}]`)
-  playSound("wind")
+  // playSound("wind")
   const params = new URLSearchParams({
     q: query,
     count: "20",
