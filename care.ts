@@ -29,15 +29,15 @@ const stt = createStt({ source: frontend.source })
 const { speak } = createTts(frontend.sink)
 
 const shutdown = () => {
-	stt.stop()
-	frontend.stop()
-	process.exit(0)
+  stt.stop()
+  frontend.stop()
+  process.exit(0)
 }
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
 await runVoiceLoop(stt, createChat(CARE_SYSTEM, recall()), {
-	speak,
-	onTurn: remember
+  speak,
+  onTurn: remember
 })
 process.exit(0)

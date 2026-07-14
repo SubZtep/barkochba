@@ -9,17 +9,17 @@ import { createLocalSource } from "./lib/frontends/local"
 import { createStt } from "./lib/stt"
 
 const stt = createStt({
-	source: createLocalSource({ inputFile: process.argv[2] })
+  source: createLocalSource({ inputFile: process.argv[2] })
 })
 
 const shutdown = () => {
-	stt.stop()
-	process.exit(0)
+  stt.stop()
+  process.exit(0)
 }
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
 for await (const text of stt.utterances) {
-	console.log(text)
+  console.log(text)
 }
 process.exit(0)

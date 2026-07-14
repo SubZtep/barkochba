@@ -15,30 +15,33 @@ import { join } from "node:path"
 import { log } from "../logger"
 
 export function ensureOpusPrebuild(): void {
-	try {
-		const root = join(
-			process.cwd(),
-			"node_modules",
-			"@discordjs",
-			"opus",
-			"prebuild"
-		)
-		if (!existsSync(root)) return // opus not installed / different layout — let the loader error naturally
+  try {
+    const root = join(
+      process.cwd(),
+      "node_modules",
+      "@discordjs",
+      "opus",
+      "prebuild"
+    )
+    if (!existsSync(root)) return // opus not installed / different layout — let the loader error naturally
 
-		const dirs = readdirSync(root)
-		const existing = dirs.find((d) => d.includes("-napi-v"))
-		if (!existing) return
+    const dirs = readdirSync(root)
+    const existing = dirs.find((d) => d.includes("-napi-v"))
+    if (!existing) return
 
-		const suffix = existing.slice(existing.indexOf("-napi"))
-		const wanted = `node-v${process.versions.modules}${suffix}`
-		if (wanted === existing || dirs.includes(wanted)) return
+    const suffix = existing.slice(existing.indexOf("-napi"))
+    const wanted = `node-v${process.versions.modules}${suffix}`
+    if (wanted === existing || dirs.includes(wanted)) return
 
-		symlinkSync(existing, join(root, wanted), "dir")
-		log.debug(
-			{ from: wanted, to: existing },
-			"discord: linked opus prebuild for Bun ABI"
-		)
-	} catch (err) {
-		log.warn(err, "discord: could not shim @discordjs/opus prebuild path")
-	}
+    symlinkSync(existing, join(root, wanted), "dir")
+    log.debug(
+      {
+        from: wanted,
+        to: existing
+      },
+      "discord: linked opus prebuild for Bun ABI"
+    )
+  } catch (err) {
+    log.warn(err, "discord: could not shim @discordjs/opus prebuild path")
+  }
 }

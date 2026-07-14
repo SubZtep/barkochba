@@ -20,20 +20,19 @@ export const OPUS_FRAME_BYTES = OPUS_FRAME_SAMPLES * OPUS_CHANNELS * 2
 
 // Loaded lazily on first use so ensureOpusPrebuild() (which fixes the native
 // binary's ABI-named prebuild path under Bun) can run first.
-// biome-ignore lint/suspicious/noExplicitAny: @discordjs/opus has no bundled types
 let OpusEncoder: any
 function loadEncoder() {
-	if (!OpusEncoder) OpusEncoder = require("@discordjs/opus").OpusEncoder
-	return OpusEncoder
+  if (!OpusEncoder) OpusEncoder = require("@discordjs/opus").OpusEncoder
+  return OpusEncoder
 }
 
 export interface OpusCodec {
-	encode(pcm: Buffer): Buffer
-	decode(packet: Buffer): Buffer
+  encode(pcm: Buffer): Buffer
+  decode(packet: Buffer): Buffer
 }
 
 export function createOpusCodec(): OpusCodec {
-	return new (loadEncoder())(OPUS_RATE, OPUS_CHANNELS)
+  return new (loadEncoder())(OPUS_RATE, OPUS_CHANNELS)
 }
 
 /**
@@ -42,43 +41,43 @@ export function createOpusCodec(): OpusCodec {
  * shorter than a frame at stream end is zero-padded so it still gets spoken.
  */
 export class PcmToOpus extends Transform {
-	private codec = createOpusCodec()
-	private carry: Buffer = Buffer.alloc(0)
+  private codec = createOpusCodec()
+  private carry: Buffer = Buffer.alloc(0)
 
-	constructor() {
-		super({ readableObjectMode: false })
-	}
+  constructor() {
+    super({ readableObjectMode: false })
+  }
 
-	override _transform(
-		chunk: Buffer,
-		_enc: BufferEncoding,
-		cb: TransformCallback
-	) {
-		const buf = this.carry.length ? Buffer.concat([this.carry, chunk]) : chunk
-		let offset = 0
-		while (buf.length - offset >= OPUS_FRAME_BYTES) {
-			const frame = buf.subarray(offset, offset + OPUS_FRAME_BYTES)
-			offset += OPUS_FRAME_BYTES
-			try {
-				this.push(this.codec.encode(frame))
-			} catch (err) {
-				return cb(err as Error)
-			}
-		}
-		this.carry = buf.subarray(offset)
-		cb()
-	}
+  override _transform(
+    chunk: Buffer,
+    _enc: BufferEncoding,
+    cb: TransformCallback
+  ) {
+    const buf = this.carry.length ? Buffer.concat([this.carry, chunk]) : chunk
+    let offset = 0
+    while (buf.length - offset >= OPUS_FRAME_BYTES) {
+      const frame = buf.subarray(offset, offset + OPUS_FRAME_BYTES)
+      offset += OPUS_FRAME_BYTES
+      try {
+        this.push(this.codec.encode(frame))
+      } catch (err) {
+        return cb(err as Error)
+      }
+    }
+    this.carry = buf.subarray(offset)
+    cb()
+  }
 
-	override _flush(cb: TransformCallback) {
-		if (this.carry.length) {
-			const frame = Buffer.alloc(OPUS_FRAME_BYTES)
-			this.carry.copy(frame)
-			try {
-				this.push(this.codec.encode(frame))
-			} catch (err) {
-				return cb(err as Error)
-			}
-		}
-		cb()
-	}
+  override _flush(cb: TransformCallback) {
+    if (this.carry.length) {
+      const frame = Buffer.alloc(OPUS_FRAME_BYTES)
+      this.carry.copy(frame)
+      try {
+        this.push(this.codec.encode(frame))
+      } catch (err) {
+        return cb(err as Error)
+      }
+    }
+    cb()
+  }
 }
