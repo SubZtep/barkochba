@@ -1,34 +1,18 @@
-import type {
-	ChatCompletionMessageParam,
-	ChatCompletionTool
-} from "openai/resources/chat/completions"
+import { Agent, run, setDefaultOpenAIClient, setOpenAIAPI, tool } from "@openai/agents"
+import { z } from "zod"
 import { client } from "./lib/openai"
 
-const tools: ChatCompletionTool[] = [
-	{
-		type: "function",
-		function: {
-			name: "read_file",
-			description: "Read a text file",
-			parameters: {
-				type: "object",
-				properties: {
-					path: { type: "string", description: "Path to the file" }
-				},
-				required: ["path"]
-			}
-		}
-	}
-]
+setDefaultOpenAIClient(client)
+setOpenAIAPI("chat_completions")
 
-async function executeTool(name: string, args: { path: string }) {
-	switch (name) {
-		case "read_file":
-			return await Bun.file(args.path).text()
-		default:
-			throw new Error(`Unknown tool: ${name}`)
-	}
-}
+const readFileTool = tool({
+	name: "read_file",
+	description: "Read a text file",
+	parameters: z.object({
+		path: z.string().describe("Path to the file")
+	}),
+	execute: async ({ path }) => await Bun.file(path).text()
+})
 
 const color = (code: number, s: string) => `\x1b[${code}m${s}\x1b[0m`
 const magenta = (s: string) => color(35, s)
@@ -39,43 +23,32 @@ async function runAgent(prompt: string) {
 	const model = process.env.OPENAI_API_MODEL!
 	console.log(magenta(model))
 
-	const messages: ChatCompletionMessageParam[] = [
-		{ role: "user", content: prompt }
-	]
+	const agent = new Agent({
+		name: "Assistant",
+		model,
+		tools: [readFileTool]
+	})
 
-	while (true) {
-		console.log("--- NEW ROUND ---")
-		const completion = await client.chat.completions.create({
-			model,
-			messages,
-			tools
-		})
+	const stream = await run(agent, prompt, { stream: true })
 
-		const message = completion.choices[0]!.message
-		messages.push(message)
+	for await (const event of stream) {
+		if (event.type !== "run_item_stream_event") continue
 
-		const thinking = (message as { reasoning_content?: string })
-			.reasoning_content
-		if (thinking) console.log(gray(thinking))
-
-		// Finished?
-		if (!message.tool_calls?.length) {
-			console.log(message.content)
-			return
+		if (event.item.type === "reasoning_item") {
+			const text = event.item.rawContent?.map((r) => r.text).join("")
+			if (text) console.log(gray(text))
 		}
 
-		// Otherwise execute tool calls
-		for (const call of message.tool_calls) {
-			if (call.type !== "function") continue
-			console.log(yellow(`> ${call.function.name}(${call.function.arguments})`))
-			const args = JSON.parse(call.function.arguments)
-			messages.push({
-				role: "tool",
-				tool_call_id: call.id,
-				content: await executeTool(call.function.name, args)
-			})
+		if (event.item.type === "tool_call_item") {
+			const raw = event.item.rawItem
+			if (raw.type === "function_call") {
+				console.log(yellow(`> ${raw.name}(${raw.arguments})`))
+			}
 		}
 	}
+
+	await stream.completed
+	console.log(stream.finalOutput)
 }
 
 await runAgent(
