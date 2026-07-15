@@ -1,6 +1,7 @@
-import { Box } from "ink"
+import { Box, Text } from "ink"
 import { useState } from "react"
 import { useAgent } from "../hooks/use-agent"
+import { useGeoLocation } from "../hooks/use-geo-location"
 import { useSettings } from "../hooks/use-settings"
 import { useSound } from "../hooks/use-sound"
 import { useVoice } from "../hooks/use-voice"
@@ -47,6 +48,7 @@ export default function App({
   } = useSettings(initialSettings)
   useSound(events, sounds)
   const speaking = useVoice(events, voice)
+  const { location } = useGeoLocation()
 
   const chatModels = models.filter((m) => m.task === "chat")
   const [menuMode, setMenuMode] = useState<"main" | "model" | "persona">("main")
@@ -107,6 +109,7 @@ export default function App({
 
   return (
     <Box flexDirection="column">
+      {location && <Text>     📍{location.country.name}</Text>}
       <Timeline
         events={events}
         epoch={timelineEpoch}

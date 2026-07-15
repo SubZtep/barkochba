@@ -100,7 +100,8 @@ export function UserInput({
           focus={!pending && !menuOpen}
           onChange={setInput}
           onSubmit={handleSubmit}
-          showCursor={idle % 2 === 0}
+          showCursor={!mic || sttState === "listening" && idle % 2 === 0}
+          placeholder={idle > 20 ? undefined : "Press `/` for menu"}
         />
       </Border>
     </Box>

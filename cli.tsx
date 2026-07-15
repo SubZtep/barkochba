@@ -3,7 +3,6 @@ import dedent from "dedent"
 import { render } from "ink"
 import meow from "meow"
 import { config, configPath, create, isExists, validate } from "./lib/config"
-import { lookupMyLocation } from "./lib/geo"
 import { log } from "./lib/logger"
 import { loadModels } from "./lib/models"
 
@@ -67,12 +66,6 @@ if (cli.flags.config) {
   console.log(configPath)
   process.exit(0)
 }
-
-const location = await lookupMyLocation().catch((error) => {
-  console.warn(`Geo lookup failed: ${error.message}`)
-  return null
-})
-if (location) console.log(`     📍${location.country.name}`)
 
 const { settings } = await config()
 const models = await loadModels()
