@@ -7,8 +7,7 @@ const eventSound = {
   tool_call: "magic",
   ask_user: "bell",
   final: "hehe",
-  // No dedicated error asset (yet); the bell at least demands attention.
-  error: "bell"
+  error: "error"
 } as const
 
 /**
