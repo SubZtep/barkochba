@@ -1,5 +1,6 @@
 import { Box, Static, Text } from "ink"
 import Gradient from "ink-gradient"
+import { useState } from "react"
 import { type TimelineEvent, useAgent } from "../hooks/use-agent"
 import { useSound } from "../hooks/use-sound"
 import { askUserTool } from "../lib/agents"
@@ -33,7 +34,22 @@ export default function App({
       myLocationTool
     ]
   })
-  useSound(events)
+  const [thinking, setThinking] = useState(true)
+  const [sounds, setSounds] = useState(true)
+  useSound(events, sounds)
+
+  // Slash menu (opened by typing "/" in the input). Indexes match onMenuSelect.
+  const menuItems = [
+    `Toggle thinking [${thinking ? "on" : "off"}]`,
+    `Toggle sounds [${sounds ? "on" : "off"}]`,
+    "Change model"
+  ]
+  const onMenuSelect = (index: number) => {
+    if (index === 0) setThinking((prev) => !prev)
+    if (index === 1) setSounds((prev) => !prev)
+    // index 2: model switching isn't wired up yet — the model comes from the
+    // config at startup and the agent is constructed once.
+  }
 
   const timeline: StaticItem[] = [{ type: "header" }, ...events]
 
@@ -67,6 +83,7 @@ export default function App({
                 </Text>
               )
             case "reasoning":
+              if (!thinking) return null
               return (
                 <Box
                   key={i}
@@ -97,7 +114,7 @@ export default function App({
         }}
       </Static>
 
-      {partial && partial.reasoning !== "" && (
+      {thinking && partial && partial.reasoning !== "" && (
         <Box borderStyle="singleDouble" borderDimColor paddingX={1}>
           <Text color="magenta">
             <Markdown>{partial.reasoning}</Markdown>
@@ -106,7 +123,12 @@ export default function App({
       )}
       {partial && partial.content !== "" && <Text>{partial.content}</Text>}
 
-      <UserInput pending={pending} send={send} />
+      <UserInput
+        pending={pending}
+        send={send}
+        menuItems={menuItems}
+        onMenuSelect={onMenuSelect}
+      />
     </Box>
   )
 }

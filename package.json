@@ -34,6 +34,7 @@
     "env-paths": "^4.0.0",
     "ink": "^7.1.0",
     "ink-gradient": "^4.0.1",
+    "ink-scroll-list": "^0.4.1",
     "ink-text-input": "^6.0.0",
     "marked": "^15",
     "marked-terminal": "^7.3.0",

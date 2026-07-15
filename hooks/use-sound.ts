@@ -12,13 +12,15 @@ const eventSound = {
 /**
  * Plays the matching sound for each newly arrived {@link TimelineEvent},
  * mirroring the CLI loop in agent.ts. The human's own messages are silent.
+ * Events arriving while muted are still marked as played, so unmuting
+ * doesn't replay the backlog.
  */
-export function useSound(events: TimelineEvent[]) {
+export function useSound(events: TimelineEvent[], enabled = true) {
   const played = useRef(0)
   useEffect(() => {
     for (const event of events.slice(played.current)) {
-      if (event.type !== "user") playSound(eventSound[event.type])
+      if (enabled && event.type !== "user") playSound(eventSound[event.type])
     }
     played.current = events.length
-  }, [events])
+  }, [events, enabled])
 }
