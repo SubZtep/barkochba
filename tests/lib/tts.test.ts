@@ -3,8 +3,8 @@
 // utterances must reach the sink in call order.
 
 import { afterEach, expect, test } from "bun:test"
-import type { AudioSink } from "./audio"
-import { createTts } from "./tts"
+import type { AudioSink } from "../../lib/audio"
+import { createTts } from "../../lib/tts"
 
 const realFetch = globalThis.fetch
 

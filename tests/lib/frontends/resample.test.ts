@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { downTo24kMono, makeUpsampler } from "./resample"
+import { downTo24kMono, makeUpsampler } from "../../../lib/frontends/resample"
 
 function frames48kStereo(samples: number[][]): Buffer {
   // samples: array of [L, R] pairs at 48kHz
