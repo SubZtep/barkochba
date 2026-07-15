@@ -37,7 +37,7 @@ export async function warmupStt(): Promise<void> {
   try {
     const httpBase = BASE.replace(/^ws/, "http")
     const form = new FormData()
-    form.append("file", new Blob([silenceWav()]), "warmup.wav")
+    form.append("file", new Blob([silenceWav().slice()]), "warmup.wav")
     form.append("model", MODEL)
     const res = await fetch(`${httpBase}/v1/audio/transcriptions`, {
       method: "POST",

@@ -3,7 +3,7 @@
 // process plays synthesized speech on the speakers.
 
 import type { AudioFrontend, AudioSink, AudioSource } from "../audio"
-import { SAMPLE_RATE } from "../audio"
+import { readStream, SAMPLE_RATE } from "../audio"
 import { log } from "../logger"
 
 const SINK_LATENCY_MS = 200 // estimated delay between writing audio and hearing it
@@ -42,7 +42,7 @@ export function createLocalSource({
   // Surface ffmpeg errors (e.g. no mic found), but drop the muxer noise it
   // emits when Ctrl+C signals it alongside us.
   ;(async () => {
-    for await (const chunk of ffmpeg.stderr) {
+    for await (const chunk of readStream(ffmpeg.stderr)) {
       if (stopping) continue
       const text = new TextDecoder().decode(chunk).trim()
       if (text)
@@ -56,7 +56,7 @@ export function createLocalSource({
   })()
 
   return {
-    chunks: ffmpeg.stdout,
+    chunks: readStream(ffmpeg.stdout),
     stop() {
       stopping = true
       ffmpeg.kill()

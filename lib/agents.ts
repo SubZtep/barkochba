@@ -124,13 +124,33 @@ export const askUserTool = tool<{ question: string }>({
 })
 
 /**
+ * Ephemeral token fragment yielded by {@link run} while a completion streams
+ * in, before the round's finalized events. `channel` says which part of the
+ * message the text belongs to. Presentation-only: consumers may render these
+ * for a live-typing effect or ignore them entirely — every round still ends
+ * with the same finalized events carrying the complete text.
+ */
+export type AgentDelta = {
+  type: "delta"
+  channel: "reasoning" | "content"
+  text: string
+}
+
+/**
  * Events yielded by {@link run} as the agent progresses through rounds.
  */
 export type AgentEvent =
+  | AgentDelta
   | { type: "reasoning"; text: string }
   | { type: "tool_call"; name: string; arguments: string }
   | { type: "ask_user"; question: string }
   | { type: "final"; content: string | null }
+
+/**
+ * {@link AgentEvent} minus the ephemeral {@link AgentDelta} fragments — the
+ * events that make up the permanent conversation timeline.
+ */
+export type FinalizedAgentEvent = Exclude<AgentEvent, AgentDelta>
 
 /**
  * Conversation state threaded through repeated {@link run} calls: the
@@ -200,20 +220,41 @@ export async function* run(
   }
 
   while (true) {
-    const completion = await client.chat.completions.create({
+    const stream = client.chat.completions.stream({
       model: agent.model,
       messages,
       tools: definitions
     })
 
-    const message = completion.choices[0]?.message
+    let thinking = ""
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta as
+        | { reasoning_content?: string; content?: string }
+        | undefined
+      if (delta?.reasoning_content) {
+        thinking += delta.reasoning_content
+        yield { type: "delta", channel: "reasoning", text: delta.reasoning_content }
+      }
+      if (delta?.content)
+        yield { type: "delta", channel: "content", text: delta.content }
+    }
+
+    const completion = await stream.finalChatCompletion()
+    const raw = completion.choices[0]!.message
+    // Don't push the stream helper's reconstructed message into the history
+    // as-is: it carries extra fields (`parsed`, `refusal: null`) that
+    // Fireworks rejects on the next request, and its `reasoning_content`
+    // holds only the last delta fragment instead of the full text. Rebuild a
+    // clean message so the history matches what the non-streaming API
+    // returned before.
+    const message = {
+      role: "assistant" as const,
+      content: raw.content,
+      ...(raw.tool_calls?.length ? { tool_calls: raw.tool_calls } : {}),
+      ...(thinking ? { reasoning_content: thinking } : {})
+    }
     messages.push(message)
 
-    const thinking = (
-      message as {
-        reasoning_content?: string
-      }
-    ).reasoning_content
     if (thinking)
       yield {
         type: "reasoning",

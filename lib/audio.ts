@@ -6,6 +6,22 @@
 /** All PCM crossing the frontend boundary is s16le, mono, 24000 Hz. */
 export const SAMPLE_RATE = 24000
 
+/** Drain a ReadableStream as an async iterable (Bun subprocess pipes, fetch bodies, …). */
+export async function* readStream(
+  stream: ReadableStream<Uint8Array>
+): AsyncIterable<Uint8Array> {
+  const reader = stream.getReader()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) return
+      if (value) yield value
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
 export interface AudioSource {
   /** PCM16 mono 24kHz chunks from the user's microphone (or equivalent). */
   chunks: AsyncIterable<Uint8Array>
