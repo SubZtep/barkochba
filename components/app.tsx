@@ -3,6 +3,7 @@ import { useState } from "react"
 import { useAgent } from "../hooks/use-agent"
 import { useSettings } from "../hooks/use-settings"
 import { useSound } from "../hooks/use-sound"
+import { useVoice } from "../hooks/use-voice"
 import type { KajaSettings } from "../schemas/config"
 import type { ResolvedModel } from "../schemas/models"
 import { defaultTools } from "../tools"
@@ -27,12 +28,15 @@ export default function App({
   const {
     thinking,
     sounds,
+    voice,
     toggleThinking,
     toggleSounds,
+    toggleVoice,
     timelineEpoch,
     redraw
   } = useSettings(initialSettings)
   useSound(events, sounds)
+  useVoice(events, voice)
 
   const chatModels = models.filter((m) => m.task === "chat")
   const [menuMode, setMenuMode] = useState<"main" | "model">("main")
@@ -50,6 +54,10 @@ export default function App({
           {
             label: `Toggle sounds [${sounds ? "on" : "off"}]`,
             run: toggleSounds
+          },
+          {
+            label: `Toggle voice [${voice ? "on" : "off"}]`,
+            run: toggleVoice
           },
           {
             label: "Change model",

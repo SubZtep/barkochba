@@ -47,6 +47,15 @@ Fill all the fields here here: `~/.config/kaja/config.json`
 
 - **Geo service**: the example URL and API key will work for a while.
 
+## Test
+
+1. Start speaches: docker compose up -d (or docker compose -f compose.cpu.yaml up -d for the CPU variant — I haven't read those files, but that's what they appear to be for). The app expects it at ws://localhost:8000 (SPEACHES_URL env var to override).
+2. First time only — make sure the Kokoro TTS model is downloaded server-side (from the note in lib/tts.ts):
+curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
+1. If you've already used TTS with this server, it's cached and you can skip this.
+2. ffplay must be installed (part of ffmpeg) — it's what plays the audio. Already true if voice-game worked on this machine.
+3. Run the app: bun run start, type /, select "Toggle voice [off]" to flip it on (it persists, so it's one-time), then chat — e.g. start a 20-questions round. Every answer and question the agent sends should be spoken as it lands in the timeline.
+
 ---
 ---
 ---

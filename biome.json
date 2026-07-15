@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!.claude", "!.venv", "!assets"]
+    "includes": ["**", "!.claude", "!.venv", "!assets", "!docs"]
   },
   "formatter": {
     "useEditorconfig": true

@@ -2,7 +2,8 @@ import * as z from "zod"
 
 export const KajaSettingsSchema = z.object({
   thinking: z.boolean().optional(),
-  sounds: z.boolean().optional()
+  sounds: z.boolean().optional(),
+  voice: z.boolean().optional()
 })
 
 export const KajaConfigSchema = z.object({

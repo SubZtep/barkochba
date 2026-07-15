@@ -15,6 +15,8 @@ import type { KajaSettings } from "../schemas/config"
 export function useSettings(initial?: KajaSettings) {
   const [thinking, setThinking] = useState(initial?.thinking ?? true)
   const [sounds, setSounds] = useState(initial?.sounds ?? true)
+  // Spoken replies are opt-in: they need the speaches TTS server running.
+  const [voice, setVoice] = useState(initial?.voice ?? false)
   const [timelineEpoch, setTimelineEpoch] = useState(0)
   const { write } = useStdout()
 
@@ -32,21 +34,28 @@ export function useSettings(initial?: KajaSettings) {
   }
 
   const toggleThinking = () => {
-    persist({ thinking: !thinking, sounds })
+    persist({ thinking: !thinking, sounds, voice })
     setThinking(!thinking)
     redraw()
   }
 
   const toggleSounds = () => {
-    persist({ thinking, sounds: !sounds })
+    persist({ thinking, sounds: !sounds, voice })
     setSounds(!sounds)
+  }
+
+  const toggleVoice = () => {
+    persist({ thinking, sounds, voice: !voice })
+    setVoice(!voice)
   }
 
   return {
     thinking,
     sounds,
+    voice,
     toggleThinking,
     toggleSounds,
+    toggleVoice,
     timelineEpoch,
     redraw
   }
