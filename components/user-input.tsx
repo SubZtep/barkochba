@@ -1,16 +1,26 @@
 import { Box, Text } from "ink"
 import TextInput from "ink-text-input"
 import { useEffect, useState } from "react"
+import { Menu } from "./menu"
 
 export function UserInput({
   pending,
-  send
+  send,
+  menuItems,
+  onMenuSelect
 }: {
   pending: boolean
   send: (prompt: string) => Promise<void>
+  menuItems: string[]
+  onMenuSelect: (index: number) => void
 }) {
   const [input, setInput] = useState("")
   const [idle, setIdle] = useState(0)
+
+  // Typing "/" as the first character opens the menu; while it's open the
+  // text input is unfocused so arrows/return/escape drive the menu instead.
+  const menuOpen = input.startsWith("/")
+  const closeMenu = () => setInput("")
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -32,18 +42,30 @@ export function UserInput({
     send(value)
   }
 
-  const Border = idle > 10 ? PowerBorder : SolidBorder
+  const Border = idle > 30 ? PowerBorder : SolidBorder
 
   return (
-    <Border>
-      <TextInput
-        value={input}
-        focus={!pending}
-        onChange={setInput}
-        onSubmit={handleSubmit}
-        showCursor={idle % 2 === 0}
-      />
-    </Border>
+    <Box flexDirection="column">
+      {menuOpen && (
+        <Menu
+          items={menuItems}
+          onSelect={(index) => {
+            onMenuSelect(index)
+            closeMenu()
+          }}
+          onClose={closeMenu}
+        />
+      )}
+      <Border>
+        <TextInput
+          value={input}
+          focus={!pending && !menuOpen}
+          onChange={setInput}
+          onSubmit={handleSubmit}
+          showCursor={idle % 2 === 0}
+        />
+      </Border>
+    </Box>
   )
 }
 
