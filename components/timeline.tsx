@@ -54,6 +54,8 @@ export function Timeline({
                 {`> ${item.name}(${item.arguments})`}
               </Text>
             )
+          case "message":
+            return <Markdown key={i}>{item.content}</Markdown>
           case "ask_user":
             return (
               <Text color="cyan" key={i}>

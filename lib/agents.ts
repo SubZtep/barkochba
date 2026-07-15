@@ -156,6 +156,7 @@ export type AgentDelta = {
 export type AgentEvent =
   | AgentDelta
   | { type: "reasoning"; text: string }
+  | { type: "message"; content: string }
   | { type: "tool_call"; name: string; arguments: string }
   | { type: "ask_user"; question: string }
   | { type: "final"; content: string | null }
@@ -190,7 +191,8 @@ export function createSession(): Session {
  * {@link ASK_USER_TOOL} tool) or returns a final message.
  *
  * Yields an {@link AgentEvent} for each round's reasoning (if the model
- * returns `reasoning_content`), each tool call, an `ask_user` event when the
+ * returns `reasoning_content`), any plain content accompanying tool calls
+ * (as a `message` event), each tool call, an `ask_user` event when the
  * model wants a human reply, and the final message. Callers are responsible
  * for any logging/presentation.
  *
@@ -296,6 +298,13 @@ export async function* run(
       }
       return
     }
+
+    // Some models answer in plain content and call ask_user in the same
+    // message (e.g. "No, it's not a pet." + "your next question?"). That
+    // content only surfaces through the `final` event, which tool-call
+    // rounds never reach — so yield it here instead of dropping it.
+    if (typeof message.content === "string" && message.content.trim())
+      yield { type: "message", content: message.content }
 
     // Otherwise execute tool calls. ask_user is handled last so every other
     // tool_call_id in this message still gets a matching tool response

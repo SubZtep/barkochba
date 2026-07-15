@@ -6,6 +6,7 @@ import { useSound } from "../hooks/use-sound"
 import type { KajaSettings } from "../schemas/config"
 import type { ResolvedModel } from "../schemas/models"
 import { defaultTools } from "../tools"
+import { Activity } from "./activity"
 import { PartialMessage } from "./partial-message"
 import { Timeline } from "./timeline"
 import { UserInput } from "./user-input"
@@ -80,6 +81,7 @@ export default function App({
         name={name}
       />
       <PartialMessage partial={partial} thinking={thinking} />
+      <Activity pending={pending} partial={partial} thinking={thinking} />
       <UserInput
         pending={pending}
         send={send}

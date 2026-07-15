@@ -6,6 +6,7 @@ const eventSound = {
   reasoning: "wind",
   tool_call: "magic",
   ask_user: "bell",
+  message: "hehe",
   final: "hehe",
   error: "error"
 } as const

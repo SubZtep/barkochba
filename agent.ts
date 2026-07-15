@@ -53,6 +53,9 @@ while (true) {
           `${color("peachpuff", "ansi")}> ${event.name}(${event.arguments})`
         )
         break
+      case "message":
+        console.log(event.content)
+        break
       case "ask_user":
         playSound("bell")
         console.log(`${color("yellowgreen", "ansi")}? ${event.question}`)
