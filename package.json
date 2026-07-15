@@ -2,7 +2,6 @@
   "name": "barkochba",
   "description": "Kaja CLI",
   "version": "0.0.1",
-  "module": "talk.ts",
   "type": "module",
   "private": true,
   "bin": {
@@ -11,7 +10,6 @@
   "scripts": {
     "start": "bun run cli.tsx",
     "build": "tsc",
-    "agent": "bun run agent.ts",
     "talk": "bun run talk.ts",
     "game": "bun run voice-game.ts",
     "care": "bun run care.ts",

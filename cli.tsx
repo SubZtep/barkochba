@@ -32,7 +32,7 @@ const cli = meow(
 
   Options
     --help     Print this help
-    --name     Your name (leftover boilerplate)
+    --name     Your name, shown in the greeting
     --config   Print config file location
     --version  Print the installed app version
 
