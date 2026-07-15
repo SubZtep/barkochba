@@ -27,9 +27,17 @@ export interface Stt {
   stop(): void
 }
 
+/**
+ * Where the server currently is with the user's speech: waiting for it,
+ * hearing it, or turning a finished phrase into text.
+ */
+export type SttState = "listening" | "recording" | "transcribing"
+
 export interface SttOptions {
   /** Where the user's speech comes from (pcm16 mono 24kHz). */
   source: AudioSource
+  /** Observe transcription progress, e.g. to show recording/transcribing in a UI. */
+  onState?: (state: SttState) => void
 }
 
 /** Load the STT model server-side so the first real phrase doesn't pay for it. */
@@ -69,7 +77,7 @@ function silenceWav(seconds = 0.3, rate = 16000): Uint8Array {
   return buf
 }
 
-export function createStt({ source }: SttOptions): Stt {
+export function createStt({ source, onState }: SttOptions): Stt {
   // Final transcripts, consumed via the `utterances` async iterable.
   const transcripts = createAsyncQueue<string>()
 
@@ -156,10 +164,12 @@ export function createStt({ source }: SttOptions): Stt {
         break
       case "session.updated":
         log.info("stt: listening — speak")
+        onState?.("listening")
         break
       case "input_audio_buffer.speech_started":
         speechStartMs = ev.audio_start_ms ?? 0
         log.info("stt: speech detected — recording")
+        onState?.("recording")
         break
       case "input_audio_buffer.speech_stopped":
         log.info(
@@ -179,6 +189,7 @@ export function createStt({ source }: SttOptions): Stt {
           type: "input_audio_buffer.clear"
         })
         log.info("stt: transcribing")
+        onState?.("transcribing")
         break
       case "conversation.item.input_audio_transcription.completed": {
         const took_s = +((Date.now() - transcribeStart) / 1000).toFixed(1)
@@ -187,6 +198,7 @@ export function createStt({ source }: SttOptions): Stt {
         // pause() (stt.ts) must keep hearing the mic. A pause()ing consumer
         // reacts to the push before the next mic chunk can slip through.
         transcribing = false
+        onState?.("listening")
         // VAD can fire on ambient noise, yielding empty transcripts — skip those.
         if (text) {
           log.info(
@@ -253,6 +265,7 @@ export function createStt({ source }: SttOptions): Stt {
     },
     resume() {
       pausedByUser = false
+      onState?.("listening")
       log.debug("stt: resumed")
     },
     stop

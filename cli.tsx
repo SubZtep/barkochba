@@ -4,7 +4,13 @@ import { render } from "ink"
 import meow from "meow"
 import { config, configPath, create, isExists, validate } from "./lib/config"
 import { lookupMyLocation } from "./lib/geo"
+import { log } from "./lib/logger"
 import { loadModels } from "./lib/models"
+
+// The TUI owns the terminal: unless the user asked for a level explicitly,
+// silence pino's info chatter (stt/tts progress lines go to stderr and would
+// scribble over the Ink UI).
+if (!process.env.LOG_LEVEL) log.level = "warn"
 
 if (!(await isExists())) {
   await create()

@@ -1,6 +1,7 @@
-import { Box, Text } from "ink"
+import { Box, Text, useInput } from "ink"
 import TextInput from "ink-text-input"
 import { useEffect, useState } from "react"
+import { useDictation } from "../hooks/use-dictation"
 import { Menu } from "./menu"
 
 export function UserInput({
@@ -20,6 +21,26 @@ export function UserInput({
 }) {
   const [input, setInput] = useState("")
   const [idle, setIdle] = useState(0)
+  const [mic, setMic] = useState(false)
+
+  // Ctrl+T toggles dictation; transcribed phrases land in the input for
+  // review, so a garbled transcript can be fixed before enter sends it.
+  useInput((char, key) => {
+    if (key.ctrl && char === "t") setMic((prev) => !prev)
+  })
+  const sttState = useDictation(mic, (text) => {
+    setInput((prev) => (prev ? `${prev} ${text}` : text))
+  })
+
+  // What the input box leads with: quiet chat bubble, or the mic's progress —
+  // waiting for speech, hearing it, or (slowly) turning it into text.
+  const icon = !mic
+    ? "🗨️  "
+    : sttState === "recording"
+      ? "👂  "
+      : sttState === "transcribing"
+        ? "⏳  "
+        : "🎤  "
 
   // Typing "/" as the first character opens the menu; while it's open the
   // text input is unfocused so arrows/return/escape drive the menu instead.
@@ -65,7 +86,7 @@ export function UserInput({
           onClose={closeMenu}
         />
       )}
-      <Border>
+      <Border icon={icon}>
         <TextInput
           value={input}
           focus={!pending && !menuOpen}
@@ -78,16 +99,28 @@ export function UserInput({
   )
 }
 
-function SolidBorder({ children }: { children: React.ReactNode }) {
+function SolidBorder({
+  icon,
+  children
+}: {
+  icon: string
+  children: React.ReactNode
+}) {
   return (
     <Box backgroundColor="#202040" padding={1} marginTop={1}>
-      <Text>{"🗨️  "}</Text>
+      <Text>{icon}</Text>
       <Text color="whiteBright">{children}</Text>
     </Box>
   )
 }
 
-function PowerBorder({ children }: { children: React.ReactNode }) {
+function PowerBorder({
+  icon,
+  children
+}: {
+  icon: string
+  children: React.ReactNode
+}) {
   return (
     <Box
       backgroundColor="#202040"
@@ -97,7 +130,7 @@ function PowerBorder({ children }: { children: React.ReactNode }) {
       borderColor="green"
       borderDimColor
     >
-      <Text>{"🗨️  "}</Text>
+      <Text>{icon}</Text>
       <Text color="whiteBright">{children}</Text>
     </Box>
   )
