@@ -1,7 +1,9 @@
+import OpenAI from "openai"
 import type {
   ChatCompletionMessageParam,
   ChatCompletionTool
 } from "openai/resources/chat/completions"
+import type { ResolvedModel } from "../schemas/models"
 import { client } from "./openai"
 
 /**
@@ -48,6 +50,7 @@ export function tool<Args>(config: {
 export class Agent {
   name: string
   model: string
+  client: OpenAI
   tools: Tool<any>[]
   instructions?: string
 
@@ -59,8 +62,19 @@ export class Agent {
   }) {
     this.name = config.name ?? "Assistant"
     this.model = config.model
+    this.client = client
     this.tools = config.tools
     this.instructions = config.instructions
+  }
+
+  /** Point the agent at another model, swapping the client to its provider. */
+  setModel(model: ResolvedModel) {
+    this.model = model.id
+    this.client = new OpenAI({
+      baseURL: model.baseUrl,
+      // Local providers ignore the key, but the SDK insists on having one.
+      apiKey: model.apiKey ?? "unused"
+    })
   }
 }
 
@@ -220,7 +234,7 @@ export async function* run(
   }
 
   while (true) {
-    const stream = client.chat.completions.stream({
+    const stream = agent.client.chat.completions.stream({
       model: agent.model,
       messages,
       tools: definitions

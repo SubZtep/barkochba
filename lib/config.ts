@@ -1,29 +1,15 @@
 import { join } from "node:path"
 import { file, write } from "bun"
 import envPaths from "env-paths"
-import * as z from "zod"
-
-const KajaSettingsSchema = z.object({
-  thinking: z.boolean().optional(),
-  sounds: z.boolean().optional()
-})
-
-export const KajaConfigSchema = z.object({
-  braveApiKey: z.string().min(1),
-  openaiApiBaseUrl: z.url(),
-  openaiApiKey: z.string().min(1),
-  openaiApiModel: z.string().min(1),
-  geoServiceUrl: z.url(),
-  geoServiceApiKey: z.uuid(),
-  // In-app preferences (slash menu); optional so existing configs stay valid.
-  settings: KajaSettingsSchema.optional()
-})
-
-export type KajaConfig = z.infer<typeof KajaConfigSchema>
-export type KajaSettings = z.infer<typeof KajaSettingsSchema>
+import {
+  type KajaConfig,
+  KajaConfigSchema,
+  type KajaSettings
+} from "../schemas/config"
 
 const paths = envPaths("kaja", { suffix: "" })
-export const configPath = join(paths.config, "config.json")
+export const configDir = paths.config
+export const configPath = join(configDir, "config.json")
 
 export async function isExists() {
   const f = file(configPath)

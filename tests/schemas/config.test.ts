@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { KajaConfigSchema } from "../../lib/config"
+import { KajaConfigSchema } from "../../schemas/config"
 
 const base = {
   braveApiKey: "key",

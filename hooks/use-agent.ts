@@ -6,6 +6,7 @@ import {
   run,
   type Session
 } from "../lib/agents"
+import type { ResolvedModel } from "../schemas/models"
 
 /**
  * What the chat timeline is made of: the human's own messages plus the
@@ -30,6 +31,16 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
   const [agent] = useState(() => new Agent(config))
   const sessionRef = useRef<Session>(undefined)
   if (!sessionRef.current) sessionRef.current = createSession()
+
+  // React-state mirror of agent.model, so consumers rerender on switch.
+  const [model, setModel] = useState(agent.model)
+  const switchModel = useCallback(
+    (next: ResolvedModel) => {
+      agent.setModel(next)
+      setModel(next.id)
+    },
+    [agent]
+  )
 
   const [events, setEvents] = useState<TimelineEvent[]>([])
   const [partial, setPartial] = useState<PartialMessage | null>(null)
@@ -62,5 +73,5 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
     [agent]
   )
 
-  return { agent, events, partial, pending, send }
+  return { agent, model, switchModel, events, partial, pending, send }
 }
