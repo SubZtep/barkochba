@@ -128,7 +128,7 @@ async function braveSearch(
   if (!res.ok)
     throw new Error(`Brave search failed: ${res.status} ${await res.text()}`)
   const data = (await res.json()) as BraveSearchResult
-  return (data.web?.results ?? []).map(result => ({
+  return (data.web?.results ?? []).map((result) => ({
     title: result.title,
     url: result.url,
     description: result.description
