@@ -1,3 +1,4 @@
+import { config } from "./config"
 import { log } from "./logger"
 import { playSound } from "./my-computer"
 import { client } from "./openai"
@@ -22,7 +23,7 @@ export async function braveSearch(
     `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
     {
       headers: {
-        "X-Subscription-Token": process.env.BRAVE_API_KEY!
+        "X-Subscription-Token": (await config()).braveApiKey
       }
     }
   )

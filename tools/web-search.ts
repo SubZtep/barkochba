@@ -1,4 +1,5 @@
 import { tool } from "../lib/agents"
+import { config } from "../lib/config"
 
 /**
  * Searches the web via Brave Search API.
@@ -121,7 +122,7 @@ async function braveSearch(
     `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
     {
       headers: {
-        "X-Subscription-Token": process.env.BRAVE_API_KEY!
+        "X-Subscription-Token": (await config()).braveApiKey
       }
     }
   )

@@ -28,6 +28,7 @@
     "@discordjs/voice": "^0.19",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@snazzah/davey": "^0.1.12",
+    "dedent": "^1.7.2",
     "discord.js": "^14",
     "env-paths": "^4.0.0",
     "ink": "^7.1.0",
@@ -44,7 +45,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.3",
+    "@biomejs/biome": "2.5.4",
     "@types/marked-terminal": "^6.1.1",
     "@types/react": "^19.2.17",
     "pino-pretty": "^13.1.3"
