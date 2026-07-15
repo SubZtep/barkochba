@@ -2,18 +2,16 @@ import { useCallback, useRef, useState } from "react"
 import {
   Agent,
   createSession,
-  run,
   type FinalizedAgentEvent,
-  type Session,
+  run,
+  type Session
 } from "../lib/agents"
 
 /**
  * What the chat timeline is made of: the human's own messages plus the
  * agent's finalized events.
  */
-export type TimelineEvent =
-  | { type: "user"; text: string }
-  | FinalizedAgentEvent
+export type TimelineEvent = { type: "user"; text: string } | FinalizedAgentEvent
 
 /**
  * The message currently streaming in, accumulated from delta events. Cleared

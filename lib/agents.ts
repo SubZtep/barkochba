@@ -233,7 +233,11 @@ export async function* run(
         | undefined
       if (delta?.reasoning_content) {
         thinking += delta.reasoning_content
-        yield { type: "delta", channel: "reasoning", text: delta.reasoning_content }
+        yield {
+          type: "delta",
+          channel: "reasoning",
+          text: delta.reasoning_content
+        }
       }
       if (delta?.content)
         yield { type: "delta", channel: "content", text: delta.content }

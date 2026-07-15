@@ -26,6 +26,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@snazzah/davey": "^0.1.12",
     "discord.js": "^14",
+    "env-paths": "^4.0.0",
     "ink": "^7.1.0",
     "ink-gradient": "^4.0.1",
     "ink-text-input": "^6.0.0",
