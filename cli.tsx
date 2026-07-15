@@ -1,6 +1,7 @@
 import { render } from "ink"
 import meow from "meow"
 import App from "./components/app"
+import { lookupMyLocation } from "./lib/geo"
 
 const cli = meow(
   `
@@ -23,5 +24,14 @@ const cli = meow(
     }
   }
 )
+
+const location = await lookupMyLocation().catch((error) => {
+  console.warn(`Geo lookup failed: ${error.message}`)
+  return null
+})
+if (location)
+  console.log(
+    `📍 ${location.city.name}, ${location.country.name} (${location.location.timeZone})`
+  )
 
 render(<App name={cli.flags.name} />)
