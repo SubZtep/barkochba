@@ -1,14 +1,3 @@
-import { Text } from "ink"
-
-type Props = {
-  name: string | undefined
-}
-
-export default function App({ name = "Stranger" }: Props) {
-  return (
-    <Text>
-      Hello, <Text color="green">{name}</Text>
-    </Text>
 import { Box, Text } from "ink"
 import Gradient from "ink-gradient"
 import TextInput from "ink-text-input"
