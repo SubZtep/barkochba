@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# <plaintext> makes browsers render this file as raw text when visiting https://cli.kaja.io
+set -euo pipefail
+
+REPO="${REPO:-SubZtep/barkochba}"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
+
+usage() {
+  cat << 'EOF'
+Usage:
+  curl -fsSL https://cli.kaja.io | bash
+
+Environment (optional):
+  REPO=owner/repo          GitHub repo hosting releases (default: SubZtep/barkochba)
+  INSTALL_DIR=path         Install directory (default: $HOME/.local/bin)
+  VERSION=v1.2.3           Pin to a specific release tag instead of latest
+
+Examples (put REPO / VERSION to the right of the pipe so they apply to the shell):
+  curl -fsSL https://cli.kaja.io | REPO=myfork/barkochba bash
+  curl -fsSL https://cli.kaja.io | VERSION=v0.1.0 bash
+EOF
+  return
+}
+
+detect_platform() {
+  local os arch
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+
+  case "$os" in
+    linux)
+      case "$arch" in
+        x86_64|amd64)   platform="linux-x64" ;;
+        aarch64|arm64)  platform="linux-arm64" ;;
+        *)              echo "Unsupported arch: $arch" >&2; exit 1 ;;
+      esac
+      ;;
+    darwin)
+      case "$arch" in
+        arm64)  platform="macos-arm64" ;;
+        x86_64) platform="macos-x64" ;;
+        *)      echo "Unsupported arch: $arch" >&2; exit 1 ;;
+      esac
+      ;;
+    *)      echo "Unsupported OS: $os" >&2; exit 1 ;;
+  esac
+  echo "$platform"
+  return
+}
+
+file_sha256() {
+  local f="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$f" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$f" | awk '{print $1}'
+  else
+    echo "Missing sha256sum and shasum; cannot verify checksum" >&2
+    exit 1
+  fi
+  return
+}
+
+# Prints: version, base_url, artifact, checksum (one field per line).
+parse_manifest() {
+  local manifest="$1" platform="$2"
+
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s\n' "$manifest" | jq -r --arg p "$platform" '
+      .version,
+      .base_url,
+      ((.platforms[$p] // {}) | .artifact // ""),
+      ((.platforms[$p] // {}) | .checksum // "")
+    '
+  elif command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "$manifest" | python3 -c "
+import json, sys
+plat = sys.argv[1]
+m = json.load(sys.stdin)
+p = m.get(\"platforms\", {}).get(plat)
+if not p or not p.get(\"artifact\"):
+    sys.stderr.write(f\"No build for platform: {plat}\\n\")
+    sys.exit(1)
+print(m[\"version\"])
+print(m[\"base_url\"])
+print(p[\"artifact\"])
+print(p.get(\"checksum\") or \"\")
+" "$platform"
+  else
+    echo "Need jq or python3 to read manifest.json" >&2
+    exit 1
+  fi
+  return
+}
+
+install() {
+  local platform="${1:-$(detect_platform)}"
+  local manifest_url manifest version base_url artifact checksum download_url tmp_file file_hash
+
+  if [[ -n "${VERSION:-}" ]]; then
+    echo "Fetching manifest for ${VERSION}..."
+    manifest_url="https://github.com/${REPO}/releases/download/${VERSION}/manifest.json"
+  else
+    echo "Fetching latest release manifest..."
+    manifest_url="https://github.com/${REPO}/releases/latest/download/manifest.json"
+  fi
+
+  manifest=$(curl -fsSL "$manifest_url")
+
+  {
+    read -r version
+    read -r base_url
+    read -r artifact
+    read -r checksum
+  } < <(parse_manifest "$manifest" "$platform")
+
+  if [[ -z "$artifact" || "$artifact" == "null" ]]; then
+    echo "No build for platform: $platform" >&2
+    exit 1
+  fi
+
+  download_url="${base_url}/${artifact}"
+  echo "Downloading kaja ${version} for ${platform}..."
+
+  mkdir -p "$INSTALL_DIR"
+
+  tmp_file=$(mktemp)
+  curl -fSL --progress-bar -o "$tmp_file" "$download_url"
+
+  if [[ -n "$checksum" && "$checksum" != "null" ]]; then
+    echo "Verifying checksum..."
+    file_hash=$(file_sha256 "$tmp_file")
+    if [[ "$file_hash" != "$checksum" ]]; then
+      echo "Checksum mismatch! Expected: $checksum, Got: $file_hash" >&2
+      rm -f "$tmp_file"
+      exit 1
+    fi
+    echo "Checksum verified."
+  fi
+
+  mv "$tmp_file" "${INSTALL_DIR}/kaja"
+  chmod +x "${INSTALL_DIR}/kaja"
+
+  echo "Installed kaja ${version} to ${INSTALL_DIR}/kaja"
+
+  if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
+    echo ""
+    echo "IMPORTANT: Add ${INSTALL_DIR} to your PATH if not already present."
+    echo ""
+    case "${SHELL:-}" in
+      */zsh)
+        echo "  echo 'export PATH=${INSTALL_DIR}:\$PATH' >> ~/.zshrc" ;;
+      */bash)
+        echo "  echo 'export PATH=${INSTALL_DIR}:\$PATH' >> ~/.bashrc" ;;
+      *)
+        echo "  Add ${INSTALL_DIR} to your PATH" ;;
+    esac
+    echo ""
+    echo "Then restart your shell or run: source ~/.bashrc (or ~/.zshrc)"
+  fi
+  return
+}
+
+main() {
+  echo "kaja autoinstall"
+  echo "░▒▓█▇▅▃▂▂▃▅▇█▓▒░"
+  echo ""
+  install
+  echo ""
+  echo "Config guide: https://cli.kaja.io/config"
+  echo "Run 'kaja' to get started!"
+  return
+}
+
+main
