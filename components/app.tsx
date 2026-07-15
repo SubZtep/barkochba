@@ -8,6 +8,7 @@ import { askUserTool } from "../lib/agents"
 import { currentTimeTool } from "../tools/current-time"
 import { readFileTool } from "../tools/read-file"
 import { webSearchTool } from "../tools/web-search"
+import Markdown from "./markdown"
 
 export default function App({
   name = "Stranger"
@@ -62,7 +63,9 @@ export default function App({
                 borderDimColor
                 paddingX={1}
               >
-                <Text color="magenta">{event.text}</Text>
+                <Text color="magenta">
+                  <Markdown>{event.text}</Markdown>
+                </Text>
               </Box>
             )
           case "tool_call":
@@ -74,23 +77,35 @@ export default function App({
             )
           case "ask_user":
             return (
-              <Text key={i} color="cyan">
-                ? {event.question}
+              // <Text key={i} color="cyan">
+              //   ? {event.question}
+              // </Text>
+              <Text color="cyan" key={i}>
+                <Markdown>{event.question}</Markdown>
               </Text>
             )
           case "final":
-            return <Text key={i}>{event.content}</Text>
+            return (
+              <Markdown key={i}>
+                {event.content ?? "?"}
+                {/* <Text>xxx</Text>
+                <Text>{event.content}</Text> */}
+              </Markdown>
+            )
+          // return <Text key={i}>{event.content}</Text>
         }
       })}
 
       {partial && partial.reasoning !== "" && (
         <Box borderStyle="singleDouble" borderDimColor paddingX={1}>
-          <Text color="magenta">{partial.reasoning}</Text>
+          <Text color="magenta">
+            <Markdown>{partial.reasoning}</Markdown>
+          </Text>
         </Box>
       )}
       {partial && partial.content !== "" && <Text>{partial.content}</Text>}
 
-      <Box backgroundColor="#202040">
+      <Box backgroundColor="#202040" padding={1}>
         <Text>{"🗨️ > "}</Text>
         <Text color="whiteBright">
           <TextInput
