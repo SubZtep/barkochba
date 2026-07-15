@@ -1,4 +1,4 @@
-import { Box, Static, Text } from "ink"
+import { Box, Static, Text, useStdout } from "ink"
 import Gradient from "ink-gradient"
 import { useState } from "react"
 import { type TimelineEvent, useAgent } from "../hooks/use-agent"
@@ -36,6 +36,8 @@ export default function App({
   })
   const [thinking, setThinking] = useState(true)
   const [sounds, setSounds] = useState(true)
+  const [timelineEpoch, setTimelineEpoch] = useState(0)
+  const { write } = useStdout()
   useSound(events, sounds)
 
   // Slash menu (opened by typing "/" in the input). Indexes match onMenuSelect.
@@ -45,7 +47,15 @@ export default function App({
     "Change model"
   ]
   const onMenuSelect = (index: number) => {
-    if (index === 0) setThinking((prev) => !prev)
+    if (index === 0) {
+      setThinking((prev) => !prev)
+      // <Static> output is printed to the terminal permanently, so hiding or
+      // re-showing already-printed reasoning means wiping the screen (incl.
+      // scrollback) and remounting <Static> via its key so it reprints the
+      // whole timeline under the new setting.
+      write("\x1b[2J\x1b[3J\x1b[H")
+      setTimelineEpoch((prev) => prev + 1)
+    }
     if (index === 1) setSounds((prev) => !prev)
     // index 2: model switching isn't wired up yet — the model comes from the
     // config at startup and the agent is constructed once.
@@ -55,7 +65,7 @@ export default function App({
 
   return (
     <Box flexDirection="column">
-      <Static items={timeline}>
+      <Static key={timelineEpoch} items={timeline}>
         {(item, i) => {
           switch (item.type) {
             case "header":
