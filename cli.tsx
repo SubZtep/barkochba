@@ -34,7 +34,6 @@ if (location)
     `📍 ${location.city.name}, ${location.country.name} (${location.location.timeZone})`
   )
 
-render(<App name={cli.flags.name} />)
 const { waitUntilExit } = render(<App name={cli.flags.name} />)
 await waitUntilExit()
 
