@@ -46,3 +46,23 @@ test("epoch remount reprints history with reasoning hidden, then restored", asyn
   t.unmount()
   await t.waitUntilExit()
 })
+
+test("error events render in the timeline", async () => {
+  const t = renderForTest(
+    <Timeline
+      events={[
+        { type: "user", text: "hi" },
+        { type: "error", text: "404 Model not found" }
+      ]}
+      epoch={0}
+      thinking={true}
+      model="test-model"
+      name="Tester"
+    />
+  )
+  await t.tick()
+  expect(t.output()).toContain("✗ 404 Model not found")
+
+  t.unmount()
+  await t.waitUntilExit()
+})
