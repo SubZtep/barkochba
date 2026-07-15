@@ -3,6 +3,7 @@ import Gradient from "ink-gradient"
 import TextInput from "ink-text-input"
 import { useState } from "react"
 import { useAgent } from "../hooks/use-agent"
+import { useSound } from "../hooks/use-sound"
 import { askUserTool } from "../lib/agents"
 import { currentTimeTool } from "../tools/current-time"
 import { readFileTool } from "../tools/read-file"
@@ -17,6 +18,7 @@ export default function App({
     model: process.env.OPENAI_API_MODEL!,
     tools: [readFileTool, currentTimeTool, askUserTool, webSearchTool]
   })
+  useSound(events)
 
   const [input, setInput] = useState("")
 
