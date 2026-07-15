@@ -60,6 +60,12 @@ export function Timeline({
                 <Markdown>{item.question}</Markdown>
               </Text>
             )
+          case "error":
+            return (
+              <Text key={i} color="red">
+                {`✗ ${item.text}`}
+              </Text>
+            )
           case "final":
             return <Markdown key={i}>{item.content ?? "?"}</Markdown>
         }

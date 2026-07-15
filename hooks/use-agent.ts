@@ -6,13 +6,18 @@ import {
   run,
   type Session
 } from "../lib/agents"
+import { log } from "../lib/logger"
 import type { ResolvedModel } from "../schemas/models"
 
 /**
- * What the chat timeline is made of: the human's own messages plus the
- * agent's finalized events.
+ * What the chat timeline is made of: the human's own messages, the agent's
+ * finalized events, and errors from failed runs (e.g. a model that isn't
+ * deployed) — surfaced in the timeline instead of crashing the app.
  */
-export type TimelineEvent = { type: "user"; text: string } | FinalizedAgentEvent
+export type TimelineEvent =
+  | { type: "user"; text: string }
+  | { type: "error"; text: string }
+  | FinalizedAgentEvent
 
 /**
  * The message currently streaming in, accumulated from delta events. Cleared
@@ -65,6 +70,12 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
             setEvents((prev) => [...prev, event])
           }
         }
+      } catch (error: any) {
+        log.warn({ error }, "Agent run failed")
+        setEvents((prev) => [
+          ...prev,
+          { type: "error", text: error?.message ?? String(error) }
+        ])
       } finally {
         setPartial(null)
         setPending(false)
