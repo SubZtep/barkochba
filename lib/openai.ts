@@ -1,6 +1,9 @@
 import OpenAI from "openai"
+import { config } from "./config"
+
+const { openaiApiKey, openaiApiBaseUrl } = await config()
 
 export const client = new OpenAI({
-  apiKey: process.env.FIREWORKS_API_KEY,
-  baseURL: process.env.OPENAI_API_BASE_URL
+  apiKey: openaiApiKey,
+  baseURL: openaiApiBaseUrl
 })
