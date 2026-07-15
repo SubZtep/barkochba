@@ -2,7 +2,7 @@ import { color } from "bun"
 import dedent from "dedent"
 import { render } from "ink"
 import meow from "meow"
-import { configPath, create, isExists, validate } from "./lib/config"
+import { config, configPath, create, isExists, validate } from "./lib/config"
 import { lookupMyLocation } from "./lib/geo"
 
 if (!(await isExists())) {
@@ -67,7 +67,10 @@ const location = await lookupMyLocation().catch((error) => {
 })
 if (location) console.log(`     📍${location.country.name}`)
 
-const { waitUntilExit } = render(<App name={cli.flags.name} />)
+const { settings } = await config()
+const { waitUntilExit } = render(
+  <App name={cli.flags.name} initialSettings={settings} />
+)
 await waitUntilExit()
 
 console.log("Bye, bye!")
