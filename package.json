@@ -27,6 +27,8 @@
     "@snazzah/davey": "^0.1.12",
     "discord.js": "^14",
     "ink": "^7.1.0",
+    "ink-gradient": "^4.0.1",
+    "ink-text-input": "^6.0.0",
     "meow": "^14.1.0",
     "openai": "^6.45.0",
     "pino": "^10.3.1",

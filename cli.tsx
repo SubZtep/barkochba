@@ -35,3 +35,7 @@ if (location)
   )
 
 render(<App name={cli.flags.name} />)
+const { waitUntilExit } = render(<App name={cli.flags.name} />)
+await waitUntilExit()
+
+console.log("Bye, bye!")
