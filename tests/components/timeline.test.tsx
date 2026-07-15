@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
-import type { TimelineEvent } from "../hooks/use-agent"
-import { renderForTest } from "./test-utils"
-import { Timeline } from "./timeline"
+import { Timeline } from "../../components/timeline"
+import type { TimelineEvent } from "../../hooks/use-agent"
+import { renderForTest } from "../test-utils"
 
 const events: TimelineEvent[] = [
   { type: "user", text: "hello" },

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
-import { renderForTest } from "./test-utils"
-import { UserInput } from "./user-input"
+import { UserInput } from "../../components/user-input"
+import { renderForTest } from "../test-utils"
 
 test("slash menu: open, navigate, select, dismiss", async () => {
   const selections: number[] = []
