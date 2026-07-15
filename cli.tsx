@@ -2,7 +2,6 @@ import { color } from "bun"
 import dedent from "dedent"
 import { render } from "ink"
 import meow from "meow"
-import App from "./components/app"
 import { configPath, create, isExists, validate } from "./lib/config"
 import { lookupMyLocation } from "./lib/geo"
 
@@ -15,6 +14,10 @@ if (!(await isExists())) {
   console.log(`${color("red", "ansi")}Invalid config file: ${configPath}`)
   process.exit(1)
 }
+
+// Imported after the config guard: lib/openai.ts reads the config at module
+// load, so a static import would crash before the first-run flow above.
+const { default: App } = await import("./components/app")
 
 // Injected at compile time by CI via `bun build --define CLI_VERSION=...`
 // with the package.json version; undefined when running from source, where
