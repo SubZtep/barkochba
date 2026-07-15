@@ -1,10 +1,15 @@
 import { join } from "node:path"
 import { file, write } from "bun"
 import envPaths from "env-paths"
-import * as z from "zod/mini"
+import * as z from "zod"
 
 const KajaConfigSchema = z.object({
-  braveApiKey: z.string().check(z.minLength(1))
+  braveApiKey: z.string().min(1),
+  openaiApiBaseUrl: z.url(),
+  openaiApiKey: z.string().min(1),
+  openaiApiModel: z.string().min(1),
+  geoServiceUrl: z.url(),
+  geoServiceApiKey: z.uuid()
 })
 
 export type KajaConfig = z.infer<typeof KajaConfigSchema>
@@ -47,7 +52,12 @@ export async function config() {
 
 export async function create() {
   const data: KajaConfig = {
-    braveApiKey: ""
+    braveApiKey: "",
+    openaiApiBaseUrl: "",
+    openaiApiKey: "",
+    openaiApiModel: "",
+    geoServiceUrl: "",
+    geoServiceApiKey: ""
   }
   const f = file(configPath, { type: "application/json" })
   await write(f, JSON.stringify(data, null, 2))

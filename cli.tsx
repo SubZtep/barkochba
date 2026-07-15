@@ -16,14 +16,21 @@ if (!(await isExists())) {
   process.exit(1)
 }
 
+// Injected at compile time by CI via `bun build --define CLI_VERSION=...`
+// with the package.json version; undefined when running from source, where
+// meow reads package.json itself.
+declare const CLI_VERSION: string | undefined
+
 const cli = meow(
   dedent`
   Usage
     $ kaja
 
   Options
-    --name     Your name
+    --help     Print this help
+    --name     Your name (leftover boilerplate)
     --config   Print config file location
+    --version  Print the installed app version
 
   Examples
     $ kaja --name=Lili
@@ -34,6 +41,7 @@ const cli = meow(
 `,
   {
     importMeta: import.meta,
+    ...(typeof CLI_VERSION === "string" ? { version: CLI_VERSION } : {}),
     flags: {
       name: {
         type: "string"
@@ -54,12 +62,10 @@ const location = await lookupMyLocation().catch((error) => {
   console.warn(`Geo lookup failed: ${error.message}`)
   return null
 })
-if (location)
-  console.log(
-    `📍 ${location.city.name}, ${location.country.name} (${location.location.timeZone})`
-  )
+if (location) console.log(`     📍${location.country.name}`)
 
 const { waitUntilExit } = render(<App name={cli.flags.name} />)
 await waitUntilExit()
 
 console.log("Bye, bye!")
+process.exit(0)

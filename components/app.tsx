@@ -1,14 +1,14 @@
 import { Box, Static, Text } from "ink"
 import Gradient from "ink-gradient"
-import TextInput from "ink-text-input"
-import { useState } from "react"
 import { type TimelineEvent, useAgent } from "../hooks/use-agent"
 import { useSound } from "../hooks/use-sound"
 import { askUserTool } from "../lib/agents"
 import { currentTimeTool } from "../tools/current-time"
+import { myLocationTool } from "../tools/my-location"
 import { readFileTool } from "../tools/read-file"
 import { webSearchTool } from "../tools/web-search"
 import Markdown from "./markdown"
+import { UserInput } from "./user-input"
 
 /**
  * Items rendered through Ink's `<Static>`: the one-time header, then the
@@ -25,17 +25,15 @@ export default function App({
 }) {
   const { agent, events, partial, pending, send } = useAgent({
     model: process.env.OPENAI_API_MODEL!,
-    tools: [readFileTool, currentTimeTool, askUserTool, webSearchTool]
+    tools: [
+      readFileTool,
+      currentTimeTool,
+      askUserTool,
+      webSearchTool,
+      myLocationTool
+    ]
   })
   useSound(events)
-
-  const [input, setInput] = useState("")
-
-  const handleSubmit = (value: string) => {
-    if (!value.trim() || pending) return
-    setInput("")
-    send(value)
-  }
 
   const timeline: StaticItem[] = [{ type: "header" }, ...events]
 
@@ -56,17 +54,16 @@ export default function App({
                     </Gradient>
                   </Box>
                   <Box marginLeft={6}>
-                    <Text>
-                      Hello, <Text color="green">{name}</Text>
+                    <Text color="green">
+                      Hello, <Text color="greenBright">{name}</Text>
                     </Text>
                   </Box>
                 </Box>
               )
             case "user":
               return (
-                <Text key={i} dimColor>
-                  {"🗨️ > "}
-                  {item.text}
+                <Text key={i} color="cyanBright">
+                  {`> ${item.text}`}
                 </Text>
               )
             case "reasoning":
@@ -85,8 +82,7 @@ export default function App({
             case "tool_call":
               return (
                 <Text key={i} color="yellow">
-                  {"> "}
-                  {item.name}({item.arguments})
+                  {`> ${item.name}(${item.arguments})`}
                 </Text>
               )
             case "ask_user":
@@ -110,18 +106,7 @@ export default function App({
       )}
       {partial && partial.content !== "" && <Text>{partial.content}</Text>}
 
-      <Box backgroundColor="#202040" padding={1}>
-        <Text>{"🗨️ > "}</Text>
-        <Text color="whiteBright">
-          <TextInput
-            value={input}
-            focus={!pending}
-            onChange={setInput}
-            onSubmit={handleSubmit}
-            showCursor={true}
-          />
-        </Text>
-      </Box>
+      <UserInput pending={pending} send={send} />
     </Box>
   )
 }

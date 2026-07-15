@@ -2,12 +2,19 @@ import { color } from "bun"
 import { Agent, askUserTool, createSession, run } from "./lib/agents"
 import { playSound } from "./lib/my-computer"
 import { currentTimeTool } from "./tools/current-time"
+import { myLocationTool } from "./tools/my-location"
 import { readFileTool } from "./tools/read-file"
 import { webSearchTool } from "./tools/web-search"
 
 const agent = new Agent({
   model: process.env.OPENAI_API_MODEL!,
-  tools: [readFileTool, currentTimeTool, askUserTool, webSearchTool]
+  tools: [
+    readFileTool,
+    currentTimeTool,
+    askUserTool,
+    webSearchTool,
+    myLocationTool
+  ]
 })
 
 console.log(`${color("deeppink", "ansi")}༼☉ɷ⊙༽ ${agent.model}`)

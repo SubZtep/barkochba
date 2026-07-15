@@ -10,12 +10,17 @@ export interface GeoLocation {
   }
 }
 
+let myLocation: GeoLocation | null = null
+
 /**
  * Resolves the user's public IP and looks up its geographic location via the
- * geo-service API (https://github.com/SubZtep/geo-service). Meant to run once
- * at startup.
+ * geo-service API (https://github.com/SubZtep/geo-service). The result is
+ * cached module-wide, so after the startup call every later caller (e.g. LLM
+ * tools) gets the cached value without a network round trip.
  */
 export async function lookupMyLocation(): Promise<GeoLocation> {
+  if (myLocation) return myLocation
+
   const ipRes = await fetch("https://ipinfo.io/ip")
   if (!ipRes.ok) throw new Error(`Public IP lookup failed: ${ipRes.status}`)
   const ip = (await ipRes.text()).trim()
@@ -27,5 +32,6 @@ export async function lookupMyLocation(): Promise<GeoLocation> {
   })
   if (!res.ok)
     throw new Error(`Geo lookup failed: ${res.status} ${await res.text()}`)
-  return (await res.json()) as GeoLocation
+  myLocation = (await res.json()) as GeoLocation
+  return myLocation
 }
