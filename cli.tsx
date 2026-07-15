@@ -4,6 +4,7 @@ import { render } from "ink"
 import meow from "meow"
 import { config, configPath, create, isExists, validate } from "./lib/config"
 import { lookupMyLocation } from "./lib/geo"
+import { loadModels } from "./lib/models"
 
 if (!(await isExists())) {
   await create()
@@ -68,8 +69,9 @@ const location = await lookupMyLocation().catch((error) => {
 if (location) console.log(`     📍${location.country.name}`)
 
 const { settings } = await config()
+const models = await loadModels()
 const { waitUntilExit } = render(
-  <App name={cli.flags.name} initialSettings={settings} />
+  <App name={cli.flags.name} initialSettings={settings} models={models} />
 )
 await waitUntilExit()
 

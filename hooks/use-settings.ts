@@ -1,7 +1,8 @@
 import { useStdout } from "ink"
 import { useState } from "react"
-import { type KajaSettings, saveSettings } from "../lib/config"
+import { saveSettings } from "../lib/config"
 import { log } from "../lib/logger"
+import type { KajaSettings } from "../schemas/config"
 
 /**
  * In-app preferences (thinking/sounds), seeded from the config file and
@@ -23,11 +24,17 @@ export function useSettings(initial?: KajaSettings) {
     })
   }
 
+  // Wipe the screen (incl. scrollback) and remount <Static> via its key so
+  // the whole timeline reprints under the current settings/model.
+  const redraw = () => {
+    write("\x1b[2J\x1b[3J\x1b[H")
+    setTimelineEpoch((prev) => prev + 1)
+  }
+
   const toggleThinking = () => {
     persist({ thinking: !thinking, sounds })
     setThinking(!thinking)
-    write("\x1b[2J\x1b[3J\x1b[H")
-    setTimelineEpoch((prev) => prev + 1)
+    redraw()
   }
 
   const toggleSounds = () => {
@@ -35,5 +42,12 @@ export function useSettings(initial?: KajaSettings) {
     setSounds(!sounds)
   }
 
-  return { thinking, sounds, toggleThinking, toggleSounds, timelineEpoch }
+  return {
+    thinking,
+    sounds,
+    toggleThinking,
+    toggleSounds,
+    timelineEpoch,
+    redraw
+  }
 }
