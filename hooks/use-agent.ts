@@ -7,6 +7,7 @@ import {
   type Session
 } from "../lib/agents"
 import { log } from "../lib/logger"
+import { type Persona, personas } from "../lib/personas"
 import type { ResolvedModel } from "../schemas/models"
 
 /**
@@ -51,6 +52,22 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
   const [partial, setPartial] = useState<PartialMessage | null>(null)
   const [pending, setPending] = useState(false)
 
+  // Adopting a persona swaps the agent's instructions and starts a fresh
+  // session/timeline — run() bakes instructions into the first system
+  // message, so they can't change mid-conversation.
+  const [persona, setPersona] = useState<Persona>(personas[0]!)
+  const switchPersona = useCallback(
+    (next: Persona) => {
+      if (pending) return
+      agent.instructions = next.instructions
+      sessionRef.current = createSession()
+      setEvents([])
+      setPartial(null)
+      setPersona(next)
+    },
+    [agent, pending]
+  )
+
   const send = useCallback(
     async (prompt: string) => {
       setPending(true)
@@ -84,5 +101,15 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
     [agent]
   )
 
-  return { agent, model, switchModel, events, partial, pending, send }
+  return {
+    agent,
+    model,
+    switchModel,
+    persona,
+    switchPersona,
+    events,
+    partial,
+    pending,
+    send
+  }
 }

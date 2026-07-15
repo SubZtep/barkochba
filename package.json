@@ -10,8 +10,6 @@
   "scripts": {
     "start": "bun run cli.tsx",
     "build": "tsc",
-    "talk": "bun run talk.ts",
-    "game": "bun run voice-game.ts",
     "care": "bun run care.ts",
     "discord": "bun run discord.ts",
     "seed-slang": "bun run seed-slang.ts",

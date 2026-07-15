@@ -8,6 +8,7 @@ test("slash menu: open, navigate, select, dismiss", async () => {
   const t = renderForTest(
     <UserInput
       pending={false}
+      speaking={false}
       send={async () => {}}
       menuItems={["Toggle thinking [on]", "Toggle sounds [on]", "Change model"]}
       onMenuSelect={(index) => {
@@ -49,6 +50,28 @@ test("slash menu: open, navigate, select, dismiss", async () => {
   await t.waitUntilExit()
 })
 
+test("mic stays deaf and shows 🙉 while the agent speaks", async () => {
+  const t = renderForTest(
+    <UserInput
+      pending={false}
+      speaking={true}
+      send={async () => {}}
+      menuItems={[]}
+      onMenuSelect={() => {}}
+    />
+  )
+  await t.tick()
+
+  // Ctrl+T turns the mic on, but with the agent speaking it must show as
+  // muted — and useDictation never sees listening=true, so no ffmpeg or
+  // websocket is spawned (which also keeps this test side-effect-free).
+  await t.press("\x14")
+  expect(t.lastFrame()).toContain("🙉")
+
+  t.unmount()
+  await t.waitUntilExit()
+})
+
 /**
  * Mimics App's submenu contract: selecting "Change model" swaps menuItems
  * and returns true to keep the menu open; selecting a model closes it;
@@ -63,6 +86,7 @@ function SubmenuHarness({ log }: { log: string[] }) {
   return (
     <UserInput
       pending={false}
+      speaking={false}
       send={async () => {}}
       menuItems={items}
       onMenuSelect={(index) => {

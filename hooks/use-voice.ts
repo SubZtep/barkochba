@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createLocalSink } from "../lib/frontends/local"
 import { log } from "../lib/logger"
 import { toSpeakable } from "../lib/speakable"
@@ -26,11 +26,16 @@ function speakableText(event: TimelineEvent): string | null {
  * setting is off. Utterances queue in arrival order (see createTts); a failed
  * synthesis (e.g. server down) is logged, never thrown. Events arriving while
  * disabled are marked as spoken, so enabling doesn't replay the backlog.
+ *
+ * Returns whether speech is audibly in flight, so the mic can be muted while
+ * the agent talks (half-duplex — otherwise it transcribes its own voice).
  */
-export function useVoice(events: TimelineEvent[], enabled = false) {
+export function useVoice(events: TimelineEvent[], enabled = false): boolean {
   const spoken = useRef(0)
   const tts = useRef<{ speak: (text: string) => Promise<void> }>(undefined)
   const sink = useRef<ReturnType<typeof createLocalSink>>(undefined)
+  // Utterances queued or playing; speak() resolves when audibly finished.
+  const [inFlight, setInFlight] = useState(0)
 
   // Load the TTS model server-side when voice turns on, so the first real
   // reply doesn't pay the model-load delay. warmupTts logs its own failures.
@@ -51,12 +56,18 @@ export function useVoice(events: TimelineEvent[], enabled = false) {
         sink.current = createLocalSink()
         tts.current = createTts(sink.current)
       }
-      tts.current.speak(speech).catch((error) => {
-        log.warn({ error }, "voice: speak failed")
-      })
+      setInFlight((n) => n + 1)
+      tts.current
+        .speak(speech)
+        .catch((error) => {
+          log.warn({ error }, "voice: speak failed")
+        })
+        .finally(() => setInFlight((n) => n - 1))
     }
   }, [events, enabled])
 
   // Kill the ffplay child on unmount instead of leaving it to linger.
   useEffect(() => () => sink.current?.stop(), [])
+
+  return inFlight > 0
 }

@@ -6,12 +6,15 @@ import { Menu } from "./menu"
 
 export function UserInput({
   pending,
+  speaking,
   send,
   menuItems,
   onMenuSelect,
   onMenuClose
 }: {
   pending: boolean
+  /** The agent's voice is audibly playing — mute the mic so it isn't heard. */
+  speaking: boolean
   send: (prompt: string) => Promise<void>
   menuItems: string[]
   /** Return true to keep the menu open (the caller swapped in a submenu). */
@@ -28,19 +31,24 @@ export function UserInput({
   useInput((char, key) => {
     if (key.ctrl && char === "t") setMic((prev) => !prev)
   })
-  const sttState = useDictation(mic, (text) => {
+  // Half-duplex: while the agent's voice plays, the mic is paused (captured
+  // audio dropped) so it doesn't transcribe the agent talking to itself.
+  const sttState = useDictation(mic && !speaking, (text) => {
     setInput((prev) => (prev ? `${prev} ${text}` : text))
   })
 
   // What the input box leads with: quiet chat bubble, or the mic's progress —
-  // waiting for speech, hearing it, or (slowly) turning it into text.
+  // deaf while the agent speaks, waiting for speech, hearing it, or (slowly)
+  // turning it into text.
   const icon = !mic
     ? "🗨️  "
-    : sttState === "recording"
-      ? "👂  "
-      : sttState === "transcribing"
-        ? "⏳  "
-        : "🎤  "
+    : speaking
+      ? "🙉  "
+      : sttState === "recording"
+        ? "👂  "
+        : sttState === "transcribing"
+          ? "⏳  "
+          : "🎤  "
 
   // Typing "/" as the first character opens the menu; while it's open the
   // text input is unfocused so arrows/return/escape drive the menu instead.

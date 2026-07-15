@@ -4,6 +4,7 @@ import { useAgent } from "../hooks/use-agent"
 import { useSettings } from "../hooks/use-settings"
 import { useSound } from "../hooks/use-sound"
 import { useVoice } from "../hooks/use-voice"
+import { personas } from "../lib/personas"
 import type { KajaSettings } from "../schemas/config"
 import type { ResolvedModel } from "../schemas/models"
 import { defaultTools } from "../tools"
@@ -21,7 +22,16 @@ export default function App({
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
 }) {
-  const { model, switchModel, events, partial, pending, send } = useAgent({
+  const {
+    model,
+    switchModel,
+    persona,
+    switchPersona,
+    events,
+    partial,
+    pending,
+    send
+  } = useAgent({
     model: process.env.OPENAI_API_MODEL!,
     tools: defaultTools
   })
@@ -36,10 +46,10 @@ export default function App({
     redraw
   } = useSettings(initialSettings)
   useSound(events, sounds)
-  useVoice(events, voice)
+  const speaking = useVoice(events, voice)
 
   const chatModels = models.filter((m) => m.task === "chat")
-  const [menuMode, setMenuMode] = useState<"main" | "model">("main")
+  const [menuMode, setMenuMode] = useState<"main" | "model" | "persona">("main")
 
   // Slash menu (opened by typing "/" in the input): label + action together.
   // An action returning true keeps the menu open (it swapped in a submenu).
@@ -66,18 +76,34 @@ export default function App({
               setMenuMode("model")
               return true
             }
+          },
+          {
+            label: "Change persona",
+            run: () => {
+              setMenuMode("persona")
+              return true
+            }
           }
         ]
-      : chatModels.map((chatModel) => ({
-          label: `${chatModel.label ?? chatModel.id}${
-            chatModel.id === model ? " ✓" : ""
-          }`,
-          run: () => {
-            switchModel(chatModel)
-            // Reprint the timeline so the header shows the new model.
-            redraw()
-          }
-        }))
+      : menuMode === "persona"
+        ? personas.map((p) => ({
+            label: `${p.label}${p.id === persona.id ? " ✓" : ""}`,
+            run: () => {
+              switchPersona(p)
+              // The timeline was reset — wipe the screen and reprint.
+              redraw()
+            }
+          }))
+        : chatModels.map((chatModel) => ({
+            label: `${chatModel.label ?? chatModel.id}${
+              chatModel.id === model ? " ✓" : ""
+            }`,
+            run: () => {
+              switchModel(chatModel)
+              // Reprint the timeline so the header shows the new model.
+              redraw()
+            }
+          }))
 
   return (
     <Box flexDirection="column">
@@ -92,6 +118,7 @@ export default function App({
       <Activity pending={pending} partial={partial} thinking={thinking} />
       <UserInput
         pending={pending}
+        speaking={speaking}
         send={send}
         menuItems={commands.map((command) => command.label)}
         onMenuSelect={(index) => commands[index]?.run()}
