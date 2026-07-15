@@ -1,0 +1,31 @@
+export interface GeoLocation {
+  continent: { geonameId: number; name: string }
+  country: { geonameId: number; name: string }
+  city: { geonameId: number; name: string }
+  location: {
+    accuracyRadius: number
+    latitude: number
+    longitude: number
+    timeZone: string
+  }
+}
+
+/**
+ * Resolves the user's public IP and looks up its geographic location via the
+ * geo-service API (https://github.com/SubZtep/geo-service). Meant to run once
+ * at startup.
+ */
+export async function lookupMyLocation(): Promise<GeoLocation> {
+  const ipRes = await fetch("https://ipinfo.io/ip")
+  if (!ipRes.ok) throw new Error(`Public IP lookup failed: ${ipRes.status}`)
+  const ip = (await ipRes.text()).trim()
+
+  const res = await fetch(`${process.env.GEO_SERVICE_URL}/lookup/${ip}`, {
+    headers: {
+      "X-API-Key": process.env.GEO_SERVICE_API_KEY!
+    }
+  })
+  if (!res.ok)
+    throw new Error(`Geo lookup failed: ${res.status} ${await res.text()}`)
+  return (await res.json()) as GeoLocation
+}
