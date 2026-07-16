@@ -138,8 +138,3 @@ WantedBy=default.target
 
 Then systemctl --user enable --now barkochba and
 ```
-
-## Licensing
-
-* **Code (CLI & Mobile App):** Licensed under the [Apache 2.0 License](LICENSE).
-* **Model Weights:** Licensed under the [CreativeML OpenRAIL-M License](LICENSE-WEIGHTS).
