@@ -101,13 +101,12 @@ export function UserInput({
     send(value)
   }
 
-  const Border = idle > 30 ? PowerBorder : SolidBorder
   // padding/border (~2) + fixed 2-col ASCII prefix.
   const sideChrome = 2
   const fieldColumns = Math.max(8, columns - sideChrome - PREFIX_COLS - 1)
 
   return (
-    <Box flexDirection="column" flexShrink={0} width="100%">
+    <Box flexDirection="column" flexShrink={0} width="100%" marginTop={1}>
       {menuOpen && (
         <Box flexShrink={0}>
           <Menu
@@ -122,7 +121,7 @@ export function UserInput({
           />
         </Box>
       )}
-      <Border>
+      <Border variant={idle > 30 ? "power" : "solid"}>
         <TextInput
           value={input}
           focus={!pending && !menuOpen}
@@ -144,35 +143,29 @@ export function UserInput({
   )
 }
 
-function SolidBorder({ children }: { children: React.ReactNode }) {
-  return (
-    <Box
-      backgroundColor="#202040"
-      padding={1}
-      width="100%"
-      flexShrink={0}
-      maxHeight={INPUT_MAX_HEIGHT}
-      overflow="hidden"
-    >
-      {children}
-    </Box>
-  )
-}
+function Border({
+  children,
+  variant = "solid"
+}: {
+  children: React.ReactNode
+  variant?: "solid" | "power"
+}) {
+  const isPower = variant === "power"
 
-function PowerBorder({ children }: { children: React.ReactNode }) {
-  return (
-    <Box
-      backgroundColor="#202040"
-      padding={0}
-      width="100%"
-      flexShrink={0}
-      maxHeight={INPUT_MAX_HEIGHT}
-      overflow="hidden"
-      borderStyle="arrow"
-      borderColor="green"
-      borderDimColor
-    >
-      {children}
-    </Box>
-  )
+  const boxProps: any = {
+    backgroundColor: "#202040",
+    padding: isPower ? 0 : 1,
+    width: "100%",
+    flexShrink: 0,
+    maxHeight: INPUT_MAX_HEIGHT,
+    overflow: "hidden"
+  }
+
+  if (isPower) {
+    boxProps.borderStyle = "arrow"
+    boxProps.borderColor = "green"
+    boxProps.borderDimColor = true
+  }
+
+  return <Box {...boxProps}>{children}</Box>
 }
