@@ -68,7 +68,8 @@ jobs:
             --sourcemap \
             --outfile kaja \
             --target="${{ matrix.bun_target }}" \
-            --define CLI_VERSION="\"${VERSION#v}\""
+            --define CLI_VERSION="\"${VERSION#v}\"" \
+            --define PRODUCTION=true
 
       - name: Rename artifact
         shell: bash

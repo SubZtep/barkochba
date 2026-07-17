@@ -9,6 +9,8 @@ import { loadModels } from "./lib/models"
 // scribble over the Ink UI).
 if (!process.env.LOG_LEVEL) log.level = "warn"
 
+log.trace("Startup")
+
 if (!(await isExists())) {
   await create()
   console.log(`${color("red", "ansi")}Config file created. Please populate:`)
