@@ -1,8 +1,8 @@
 import { Box, useApp, useInput, useWindowSize } from "ink"
 import { useEffect, useState } from "react"
 import { useDictation } from "../../hooks/use-dictation"
+import { TextInput } from "../elem/text-input"
 import { Menu } from "../menu"
-import { TextInput } from "../text-input"
 
 /**
  * Outer box max rows (padding/border included). Content lines for the field
@@ -106,7 +106,7 @@ export function UserInput({
   const fieldColumns = Math.max(8, columns - sideChrome - PREFIX_COLS - 1)
 
   return (
-    <Box flexDirection="column" flexShrink={0} width="100%" marginTop={1}>
+    <Box flexDirection="column" flexShrink={0}>
       {menuOpen && (
         <Box flexShrink={0}>
           <Menu

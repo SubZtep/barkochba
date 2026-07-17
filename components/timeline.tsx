@@ -1,6 +1,6 @@
 import { Text } from "ink"
 import type { TimelineEvent } from "../hooks/use-agent"
-import Markdown from "./markdown"
+import Markdown from "./elem/markdown"
 import { ReasoningBox } from "./reasoning-box"
 
 /** One finalized timeline entry (user message, tool call, final reply, …). */

@@ -13,7 +13,7 @@
 import chalk from "chalk"
 import { type Key, Text, useInput } from "ink"
 import { useEffect, useMemo, useState } from "react"
-import { isIgnoredTerminalInput } from "../lib/terminal-input"
+import { isIgnoredTerminalInput } from "../../lib/terminal-input"
 import {
   clampWindowStart,
   cursorLineIndex,
@@ -22,7 +22,7 @@ import {
   moveVertical,
   softWrapLines,
   type VisualLine
-} from "../lib/text-wrap"
+} from "../../lib/text-wrap"
 
 export type TextInputProps = {
   value: string

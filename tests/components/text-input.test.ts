@@ -4,7 +4,7 @@ import {
   nextWordBoundary,
   prevWordBoundary,
   type TextEditState
-} from "../../components/text-input"
+} from "../../components/elem/text-input"
 
 const emptyKey = {
   upArrow: false,

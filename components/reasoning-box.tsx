@@ -1,5 +1,5 @@
 import { Box, Text } from "ink"
-import Markdown from "./markdown"
+import Markdown from "./elem/markdown"
 
 /** The dim-bordered magenta box the model's reasoning is rendered in. */
 export function ReasoningBox({ children }: { children: string }) {

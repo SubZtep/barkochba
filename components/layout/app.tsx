@@ -93,29 +93,23 @@ export default function App({
             }
           }))
 
-  // Full-viewport column. Header + footer must not shrink (Ink Box defaults to
-  // flexShrink:1) or resize steals rows from them and the input collapses.
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <Box flexShrink={0} width="100%">
-        <Header model={model} location={location?.country.name} />
-      </Box>
+      <Header model={model} location={location?.country.name} />
       <ChatViewport
         events={events}
         thinking={thinking}
         partial={partial}
         pending={pending}
       />
-      <Box flexShrink={0} width="100%">
-        <UserInput
-          pending={pending}
-          speaking={speaking}
-          send={send}
-          menuItems={commands.map((command) => command.label)}
-          onMenuSelect={(index) => commands[index]?.run()}
-          onMenuClose={() => setMenuMode("main")}
-        />
-      </Box>
+      <UserInput
+        pending={pending}
+        speaking={speaking}
+        send={send}
+        menuItems={commands.map((command) => command.label)}
+        onMenuSelect={(index) => commands[index]?.run()}
+        onMenuClose={() => setMenuMode("main")}
+      />
     </Box>
   )
 }

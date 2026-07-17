@@ -231,6 +231,7 @@ export function ChatViewport({
       flexShrink={1}
       flexBasis={0}
       minHeight={3}
+      marginY={1}
       flexDirection="column"
       overflow="hidden"
       width="100%"

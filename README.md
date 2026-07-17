@@ -21,13 +21,6 @@ type -a kaja
 rm ~/.local/bin/kaja
 ```
 
-## Develop
-
-```bash
-bun install
-bun run start
-```
-
 ## Config
 
 > _<sub>Everything is temporary.</sub>_
@@ -126,6 +119,13 @@ Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `
 | o    | recording |
 | ~    | transcribing |
 | x    | muted while agent speaks |
+
+## Develop
+
+```bash
+bun install
+bun start
+```
 
 ## Test / lint
 
