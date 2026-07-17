@@ -22,14 +22,12 @@ export function Timeline({
   events,
   epoch,
   thinking,
-  model,
-  name
+  model
 }: {
   events: TimelineEvent[]
   epoch: number
   thinking: boolean
   model: string
-  name: string
 }) {
   const items: StaticItem[] = [{ type: "header" }, ...events]
 
@@ -38,7 +36,7 @@ export function Timeline({
       {(item, i) => {
         switch (item.type) {
           case "header":
-            return <Header key="header" model={model} name={name} />
+            return <Header key="header" model={model} />
           case "user":
             return (
               <Text key={i} color="cyanBright">

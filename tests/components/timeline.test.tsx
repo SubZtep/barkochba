@@ -16,7 +16,6 @@ function timeline(epoch: number, thinking: boolean) {
       epoch={epoch}
       thinking={thinking}
       model="test-model"
-      name="Tester"
     />
   )
 }
@@ -57,7 +56,6 @@ test("error events render in the timeline", async () => {
       epoch={0}
       thinking={true}
       model="test-model"
-      name="Tester"
     />
   )
   await t.tick()

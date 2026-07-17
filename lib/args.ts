@@ -15,14 +15,10 @@ export const cli = meow(
 
   Options
     --help     Print this help
-    --name     Your name, shown in the greeting
     --config   Print the config file location and copy it to the clipboard
     --version  Print the installed app version
 
   Examples
-    $ kaja --name=Lili
-    Hello, Lili
-
     $ kaja --config
     /home/dcr/.config/kaja/config.json
 `,
@@ -30,9 +26,6 @@ export const cli = meow(
     importMeta: import.meta,
     ...(typeof CLI_VERSION === "string" ? { version: CLI_VERSION } : {}),
     flags: {
-      name: {
-        type: "string"
-      },
       config: {
         type: "boolean"
       }

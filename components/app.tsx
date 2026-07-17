@@ -15,11 +15,9 @@ import { Timeline } from "./timeline"
 import { UserInput } from "./user-input"
 
 export default function App({
-  name = "Stranger",
   initialSettings,
   models = []
 }: {
-  name: string | undefined
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
 }) {
@@ -115,7 +113,6 @@ export default function App({
         epoch={timelineEpoch}
         thinking={thinking}
         model={model}
-        name={name}
       />
       <PartialMessage partial={partial} thinking={thinking} />
       <Activity pending={pending} partial={partial} thinking={thinking} />

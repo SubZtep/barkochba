@@ -31,7 +31,7 @@ const { cli } = await import("./lib/args")
 const { settings } = await config()
 const models = await loadModels()
 const { waitUntilExit } = render(
-  <App name={cli.flags.name} initialSettings={settings} models={models} />
+  <App initialSettings={settings} models={models} />
 )
 await waitUntilExit()
 
