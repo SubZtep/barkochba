@@ -1,4 +1,4 @@
-import { Box, Text } from "ink"
+import { Box, useWindowSize } from "ink"
 import { useState } from "react"
 import { useAgent } from "../hooks/use-agent"
 import { useGeoLocation } from "../hooks/use-geo-location"
@@ -9,9 +9,8 @@ import { personas } from "../lib/personas"
 import type { KajaSettings } from "../schemas/config"
 import type { ResolvedModel } from "../schemas/models"
 import { defaultTools } from "../tools"
-import { Activity } from "./activity"
-import { PartialMessage } from "./partial-message"
-import { Timeline } from "./timeline"
+import { ChatViewport } from "./chat-viewport"
+import { Header } from "./header"
 import { UserInput } from "./user-input"
 
 export default function App({
@@ -34,19 +33,12 @@ export default function App({
     model: process.env.OPENAI_API_MODEL!,
     tools: defaultTools
   })
-  const {
-    thinking,
-    sounds,
-    voice,
-    toggleThinking,
-    toggleSounds,
-    toggleVoice,
-    timelineEpoch,
-    redraw
-  } = useSettings(initialSettings)
+  const { thinking, sounds, voice, toggleThinking, toggleSounds, toggleVoice } =
+    useSettings(initialSettings)
   useSound(events, sounds)
   const speaking = useVoice(events, voice)
   const { location } = useGeoLocation()
+  const { columns, rows } = useWindowSize()
 
   const chatModels = models.filter((m) => m.task === "chat")
   const [menuMode, setMenuMode] = useState<"main" | "model" | "persona">("main")
@@ -90,8 +82,6 @@ export default function App({
             label: `${p.label}${p.id === persona.id ? " ✓" : ""}`,
             run: () => {
               switchPersona(p)
-              // The timeline was reset — wipe the screen and reprint.
-              redraw()
             }
           }))
         : chatModels.map((chatModel) => ({
@@ -100,30 +90,32 @@ export default function App({
             }`,
             run: () => {
               switchModel(chatModel)
-              // Reprint the timeline so the header shows the new model.
-              redraw()
             }
           }))
 
+  // Full-viewport column. Header + footer must not shrink (Ink Box defaults to
+  // flexShrink:1) or resize steals rows from them and the input collapses.
   return (
-    <Box flexDirection="column">
-      {location && <Text>     📍{location.country.name}</Text>}
-      <Timeline
+    <Box flexDirection="column" width={columns} height={rows}>
+      <Box flexShrink={0} width="100%">
+        <Header model={model} location={location?.country.name} />
+      </Box>
+      <ChatViewport
         events={events}
-        epoch={timelineEpoch}
         thinking={thinking}
-        model={model}
-      />
-      <PartialMessage partial={partial} thinking={thinking} />
-      <Activity pending={pending} partial={partial} thinking={thinking} />
-      <UserInput
+        partial={partial}
         pending={pending}
-        speaking={speaking}
-        send={send}
-        menuItems={commands.map((command) => command.label)}
-        onMenuSelect={(index) => commands[index]?.run()}
-        onMenuClose={() => setMenuMode("main")}
       />
+      <Box flexShrink={0} width="100%">
+        <UserInput
+          pending={pending}
+          speaking={speaking}
+          send={send}
+          menuItems={commands.map((command) => command.label)}
+          onMenuSelect={(index) => commands[index]?.run()}
+          onMenuClose={() => setMenuMode("main")}
+        />
+      </Box>
     </Box>
   )
 }

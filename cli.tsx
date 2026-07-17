@@ -30,8 +30,11 @@ const { cli } = await import("./lib/args")
 
 const { settings } = await config()
 const models = await loadModels()
+// Alternate screen: full-viewport app (header / chat / input). Restores the
+// primary buffer on exit; no terminal scrollback while running.
 const { waitUntilExit } = render(
-  <App initialSettings={settings} models={models} />
+  <App initialSettings={settings} models={models} />,
+  { alternateScreen: true }
 )
 await waitUntilExit()
 

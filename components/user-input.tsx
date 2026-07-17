@@ -4,6 +4,9 @@ import { useDictation } from "../hooks/use-dictation"
 import { Menu } from "./menu"
 import { TextInput } from "./text-input"
 
+/** Cap how many terminal rows the draft may grow into so resize can't let it eat the chat pane. */
+const INPUT_MAX_HEIGHT = 8
+
 export function UserInput({
   pending,
   speaking,
@@ -81,18 +84,20 @@ export function UserInput({
   const Border = idle > 30 ? PowerBorder : SolidBorder
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" flexShrink={0} width="100%">
       {menuOpen && (
-        <Menu
-          // Remount when the items change (main menu <-> submenu), so the
-          // selection starts fresh instead of inheriting the previous one.
-          key={menuItems.join("\n")}
-          items={menuItems}
-          onSelect={(index) => {
-            if (!onMenuSelect(index)) closeMenu()
-          }}
-          onClose={closeMenu}
-        />
+        <Box flexShrink={0}>
+          <Menu
+            // Remount when the items change (main menu <-> submenu), so the
+            // selection starts fresh instead of inheriting the previous one.
+            key={menuItems.join("\n")}
+            items={menuItems}
+            onSelect={(index) => {
+              if (!onMenuSelect(index)) closeMenu()
+            }}
+            onClose={closeMenu}
+          />
+        </Box>
       )}
       <Border icon={icon}>
         <TextInput
@@ -120,7 +125,7 @@ function InputRow({
   children: React.ReactNode
 }) {
   return (
-    <Text color="whiteBright">
+    <Text color="whiteBright" wrap="wrap">
       {icon}
       {children}
     </Text>
@@ -134,8 +139,17 @@ function SolidBorder({
   icon: string
   children: React.ReactNode
 }) {
+  // width 100% of the flex-shrink:0 footer — not terminal columns — so we
+  // never overflow the parent and force a bogus multi-line height on resize.
   return (
-    <Box backgroundColor="#202040" padding={1} marginTop={1}>
+    <Box
+      backgroundColor="#202040"
+      padding={1}
+      width="100%"
+      flexShrink={0}
+      maxHeight={INPUT_MAX_HEIGHT}
+      overflow="hidden"
+    >
       <InputRow icon={icon}>{children}</InputRow>
     </Box>
   )
@@ -152,7 +166,10 @@ function PowerBorder({
     <Box
       backgroundColor="#202040"
       padding={0}
-      marginTop={1}
+      width="100%"
+      flexShrink={0}
+      maxHeight={INPUT_MAX_HEIGHT}
+      overflow="hidden"
       borderStyle="arrow"
       borderColor="green"
       borderDimColor

@@ -1,16 +1,29 @@
 import { Box, Text } from "ink"
 import Gradient from "ink-gradient"
 
-/** One-time banner printed at the top of the timeline. */
-export function Header({ model }: { model: string }) {
+/** Live top bar: model name and optional geo pin. */
+export function Header({
+  model,
+  location
+}: {
+  model: string
+  location?: string
+}) {
   return (
-    <Box gap={1}>
-      <Text color="#ff1493" bold>
-        ༼☉ɷ⊙༽
-      </Text>
-      <Gradient name="rainbow">
-        <Text>{model}</Text>
-      </Gradient>
+    <Box flexDirection="column" flexShrink={0} width="100%" marginBottom={1}>
+      <Box gap={1} width="100%">
+        <Text color="#ff1493" bold>
+          ༼☉ɷ⊙༽
+        </Text>
+        <Box flexGrow={1} flexShrink={1} overflow="hidden">
+          <Gradient name="rainbow">
+            <Text wrap="truncate-end">{model}</Text>
+          </Gradient>
+        </Box>
+      </Box>
+      {location ? (
+        <Text dimColor wrap="truncate-end">{`📍 ${location}`}</Text>
+      ) : null}
     </Box>
   )
 }
