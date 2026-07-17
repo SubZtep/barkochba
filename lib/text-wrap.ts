@@ -108,3 +108,96 @@ export function clampWindowStart(
   if (cursorLine >= start + maxVis) start = cursorLine - maxVis + 1
   return Math.min(Math.max(0, start), maxStart)
 }
+
+/** Huge width ⇒ soft-wrap never fires; only hard `\n` breaks. */
+const HARD_LINES_ONLY = 1_000_000
+
+function layoutLines(text: string, width?: number): VisualLine[] {
+  return softWrapLines(text, width && width > 0 ? width : HARD_LINES_ONLY)
+}
+
+/**
+ * Display-width column of `cursorOffset` within its visual line
+ * (emoji-aware via string-width).
+ */
+export function displayColumnAt(
+  lines: VisualLine[],
+  cursorOffset: number
+): number {
+  if (lines.length === 0) return 0
+  const line = lines[cursorLineIndex(lines, cursorOffset)]!
+  const within = Math.max(
+    0,
+    Math.min(cursorOffset, line.start + line.text.length) - line.start
+  )
+  return stringWidth(line.text.slice(0, within))
+}
+
+/**
+ * Map a preferred display column onto a visual line (clamped to the line end).
+ */
+export function offsetAtDisplayColumn(
+  line: VisualLine,
+  preferredCol: number
+): number {
+  if (preferredCol <= 0 || line.text.length === 0) return line.start
+  let col = 0
+  let i = 0
+  for (const char of line.text) {
+    const cw = Math.max(1, stringWidth(char))
+    if (col + cw > preferredCol) break
+    col += cw
+    i += char.length
+    if (col === preferredCol) break
+  }
+  return line.start + i
+}
+
+/** Start of the visual line containing `cursorOffset`. */
+export function lineStartOffset(
+  value: string,
+  cursorOffset: number,
+  width?: number
+): number {
+  const lines = layoutLines(value, width)
+  return lines[cursorLineIndex(lines, cursorOffset)]!.start
+}
+
+/**
+ * End of content on the visual line containing `cursorOffset`
+ * (before a trailing hard newline, if any).
+ */
+export function lineEndOffset(
+  value: string,
+  cursorOffset: number,
+  width?: number
+): number {
+  const lines = layoutLines(value, width)
+  const line = lines[cursorLineIndex(lines, cursorOffset)]!
+  return line.start + line.text.length
+}
+
+/**
+ * Move the cursor one visual line up (`-1`) or down (`+1`).
+ * Sticky `preferredColumn` is re-seeded from the current position when null.
+ * At the first/last line the offset is unchanged but preferred column is still set.
+ */
+export function moveVertical(
+  value: string,
+  cursorOffset: number,
+  dir: -1 | 1,
+  width?: number,
+  preferredColumn: number | null = null
+): { cursorOffset: number; preferredColumn: number } {
+  const lines = layoutLines(value, width)
+  const li = cursorLineIndex(lines, cursorOffset)
+  const col = preferredColumn ?? displayColumnAt(lines, cursorOffset)
+  const target = li + dir
+  if (target < 0 || target >= lines.length) {
+    return { cursorOffset, preferredColumn: col }
+  }
+  return {
+    cursorOffset: offsetAtDisplayColumn(lines[target]!, col),
+    preferredColumn: col
+  }
+}

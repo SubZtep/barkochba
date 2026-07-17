@@ -23,7 +23,7 @@ const emptyKey = {
 }
 
 function state(value: string, cursorOffset: number): TextEditState {
-  return { value, cursorOffset, cursorWidth: 0 }
+  return { value, cursorOffset, cursorWidth: 0, preferredColumn: null }
 }
 
 function edit(
@@ -54,12 +54,53 @@ test("home and end move the cursor", () => {
   expect(edit(s, { home: true })).toEqual({
     value: "hello world",
     cursorOffset: 0,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
   })
   expect(edit(s, { end: true })).toEqual({
     value: "hello world",
     cursorOffset: 11,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
+  })
+})
+
+test("home/end move within the current line of a multi-line value", () => {
+  const v = "ab\ncdef"
+  // cursor inside "cdef" (line start 3, content end 7)
+  expect(edit(state(v, 5), { home: true })).toMatchObject({ cursorOffset: 3 })
+  expect(edit(state(v, 5), { end: true })).toMatchObject({ cursorOffset: 7 })
+})
+
+test("up/down move across lines with a sticky column", () => {
+  const v = "alpha beta\nab\nlonger line"
+  // start at column 6 on the first line
+  const down1 = edit(state(v, 6), { downArrow: true }) as TextEditState
+  // "ab" is shorter than column 6 → clamp to its end, keep preferred column
+  expect(down1).toMatchObject({ cursorOffset: 13, preferredColumn: 6 })
+  const down2 = edit(down1, { downArrow: true }) as TextEditState
+  expect(down2).toMatchObject({ cursorOffset: 20, preferredColumn: 6 })
+  const up = edit(down2, { upArrow: true }) as TextEditState
+  expect(up).toMatchObject({ cursorOffset: 13, preferredColumn: 6 })
+  // horizontal movement drops the sticky column
+  expect(edit(up, { leftArrow: true })).toMatchObject({
+    cursorOffset: 12,
+    preferredColumn: null
+  })
+})
+
+test("up on first line / down on last line keep the cursor", () => {
+  expect(edit(state("hi", 1), { upArrow: true })).toEqual({
+    value: "hi",
+    cursorOffset: 1,
+    cursorWidth: 0,
+    preferredColumn: 1
+  })
+  expect(edit(state("hi", 1), { downArrow: true })).toEqual({
+    value: "hi",
+    cursorOffset: 1,
+    cursorWidth: 0,
+    preferredColumn: 1
   })
 })
 
@@ -83,23 +124,27 @@ test("backspace deletes left; delete deletes under cursor", () => {
   expect(edit(s, { backspace: true })).toEqual({
     value: "acd",
     cursorOffset: 1,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
   })
   expect(edit(s, { delete: true })).toEqual({
     value: "abd",
     cursorOffset: 2,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
   })
   // no-ops at edges
   expect(edit(state("ab", 0), { backspace: true })).toEqual({
     value: "ab",
     cursorOffset: 0,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
   })
   expect(edit(state("ab", 2), { delete: true })).toEqual({
     value: "ab",
     cursorOffset: 2,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
   })
 })
 
@@ -107,12 +152,14 @@ test("plain insert and paste advance the cursor", () => {
   expect(edit(state("ac", 1), { input: "b" })).toEqual({
     value: "abc",
     cursorOffset: 2,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null
   })
   expect(edit(state("ac", 1), { input: "xyz" })).toEqual({
     value: "axyzc",
     cursorOffset: 4,
-    cursorWidth: 3
+    cursorWidth: 3,
+    preferredColumn: null
   })
 })
 
@@ -120,6 +167,9 @@ test("Ctrl combinations that are not bindings do not insert", () => {
   // Ctrl+T (dictation toggle) must not type "t"
   expect(edit(state("hi", 2), { ctrl: true, input: "t" })).toBe(null)
   expect(edit(state("hi", 2), { ctrl: true, input: "c" })).toBe(null)
+  // Ctrl+A/E are intentionally unbound (no secondary line-start/end keys)
+  expect(edit(state("ab\ncd", 4), { ctrl: true, input: "a" })).toBe(null)
+  expect(edit(state("ab\ncd", 4), { ctrl: true, input: "e" })).toBe(null)
 })
 
 test("mouse wheel / kitty protocol noise do not insert text", () => {
@@ -129,10 +179,12 @@ test("mouse wheel / kitty protocol noise do not insert text", () => {
   expect(edit(state("", 0), { input: "[?0u" })).toBe(null)
 })
 
-test("return submits; tab/arrows out are ignored", () => {
+test("return submits; tab/Ctrl+arrows out are ignored", () => {
   expect(edit(state("hi", 2), { return: true })).toBe("submit")
   expect(edit(state("hi", 2), { tab: true })).toBe(null)
-  expect(edit(state("hi", 2), { upArrow: true })).toBe(null)
+  // viewport owns Ctrl/Meta+↑/↓ scrolling
+  expect(edit(state("hi", 2), { upArrow: true, ctrl: true })).toBe(null)
+  expect(edit(state("hi", 2), { downArrow: true, meta: true })).toBe(null)
 })
 
 test("newline via Shift/Alt/Ctrl+Enter, Ctrl+J, or bare LF", () => {
@@ -140,7 +192,8 @@ test("newline via Shift/Alt/Ctrl+Enter, Ctrl+J, or bare LF", () => {
     expect(edit(state("ab", 1), partial)).toEqual({
       value: "a\nb",
       cursorOffset: 2,
-      cursorWidth: 0
+      cursorWidth: 0,
+      preferredColumn: null
     })
   nl({ return: true, shift: true })
   nl({ return: true, meta: true })

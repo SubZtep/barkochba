@@ -42,7 +42,7 @@ function scrollByClamped(view: ScrollViewRef, delta: number) {
  *
  * Key ownership (chat vs text field):
  *   PageUp/Down, Ctrl+↑/↓, Ctrl+Home/End, mouse wheel → this viewport
- *   ←/→ Home/End (no ctrl), Ctrl+←/→ → TextInput cursor
+ *   ↑/↓, ←/→, Home/End (no ctrl), Ctrl+←/→ → TextInput cursor
  *   Ctrl+T → mic, `/` at start → menu
  *
  * Stick-to-bottom uses a small slop so streaming near the end stays pinned.

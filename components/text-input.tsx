@@ -1,10 +1,13 @@
 /**
  * Text field for Ink. Vendored from ink-text-input@6 (MIT) and extended with
- * Home/End, Ctrl+←/→ word jumps, Shift+Enter newlines, mouse-sequence ignore,
- * and a soft-wrap display window so long drafts stay editable inside maxVisibleLines.
+ * multi-line navigation (↑/↓ with sticky column, Home/End per visual line),
+ * Ctrl+←/→ word jumps, Shift+Enter newlines, mouse-sequence ignore, and a
+ * soft-wrap display window so long drafts stay editable inside maxVisibleLines.
  *
  * Multi-line paint is one <Text> with embedded \\n and chalk.inverse for the
  * cursor so every row shares the same origin (no sibling-Text skew).
+ *
+ * Ctrl+↑/↓ are left unhandled so the chat viewport can scroll.
  */
 
 import chalk from "chalk"
@@ -14,6 +17,9 @@ import { isIgnoredTerminalInput } from "../lib/terminal-input"
 import {
   clampWindowStart,
   cursorLineIndex,
+  lineEndOffset,
+  lineStartOffset,
+  moveVertical,
   softWrapLines,
   type VisualLine
 } from "../lib/text-wrap"
@@ -42,6 +48,11 @@ export type TextEditState = {
   value: string
   cursorOffset: number
   cursorWidth: number
+  /**
+   * Sticky display column for ↑/↓. `null` means re-seed from the current
+   * position on the next vertical move.
+   */
+  preferredColumn: number | null
 }
 
 export function prevWordBoundary(value: string, cursor: number): number {
@@ -83,13 +94,17 @@ export function applyTextEdit(
     | "delete"
     | "meta"
   >,
-  options: { showCursor: boolean } = { showCursor: true }
+  options: {
+    showCursor: boolean
+    /** Soft-wrap column budget; omit for hard-newline layout only. */
+    columns?: number
+  } = { showCursor: true }
 ): TextEditState | "submit" | null {
   if (isIgnoredTerminalInput(input)) return null
 
+  // Viewport owns Ctrl/Meta+↑/↓; tab is unused here.
   if (
-    key.upArrow ||
-    key.downArrow ||
+    ((key.upArrow || key.downArrow) && (key.ctrl || key.meta)) ||
     (key.ctrl && input === "c") ||
     key.tab ||
     (key.shift && key.tab)
@@ -97,7 +112,8 @@ export function applyTextEdit(
     return null
   }
 
-  const { value, cursorOffset } = state
+  const { value, cursorOffset, preferredColumn } = state
+  const columns = options.columns
 
   const insertNewline =
     (key.return && (key.shift || key.meta || key.ctrl)) ||
@@ -108,7 +124,8 @@ export function applyTextEdit(
     return {
       value: `${value.slice(0, cursorOffset)}\n${value.slice(cursorOffset)}`,
       cursorOffset: cursorOffset + 1,
-      cursorWidth: 0
+      cursorWidth: 0,
+      preferredColumn: null
     }
   }
   if (key.return) return "submit"
@@ -117,11 +134,29 @@ export function applyTextEdit(
   let nextCursor = cursorOffset
   let nextValue = value
   let nextCursorWidth = 0
+  const nextPreferred: number | null = null
+
+  if (key.upArrow || key.downArrow) {
+    if (!showCursor) return null
+    const moved = moveVertical(
+      value,
+      cursorOffset,
+      key.upArrow ? -1 : 1,
+      columns,
+      preferredColumn
+    )
+    return {
+      value,
+      cursorOffset: moved.cursorOffset,
+      cursorWidth: 0,
+      preferredColumn: moved.preferredColumn
+    }
+  }
 
   if (key.home) {
-    if (showCursor) nextCursor = 0
+    if (showCursor) nextCursor = lineStartOffset(value, cursorOffset, columns)
   } else if (key.end) {
-    if (showCursor) nextCursor = value.length
+    if (showCursor) nextCursor = lineEndOffset(value, cursorOffset, columns)
   } else if (key.leftArrow && (key.ctrl || key.meta)) {
     if (showCursor) nextCursor = prevWordBoundary(value, cursorOffset)
   } else if (key.rightArrow && (key.ctrl || key.meta)) {
@@ -153,7 +188,8 @@ export function applyTextEdit(
   return {
     value: nextValue,
     cursorOffset: nextCursor,
-    cursorWidth: nextCursorWidth
+    cursorWidth: nextCursorWidth,
+    preferredColumn: nextPreferred
   }
 }
 
@@ -205,19 +241,25 @@ export function TextInput({
 }: TextInputProps) {
   const [state, setState] = useState({
     cursorOffset: originalValue.length,
-    cursorWidth: 0
+    cursorWidth: 0,
+    preferredColumn: null as number | null
   })
   const [windowStart, setWindowStart] = useState(0)
-  const { cursorOffset, cursorWidth } = state
+  const { cursorOffset, cursorWidth, preferredColumn } = state
   const hang = Math.max(0, prefixCols)
   const firstLead = prefix
   const contLead = hang > 0 ? " ".repeat(hang) : ""
+  const wrapWidth = columns && columns > 0 ? columns : undefined
 
   useEffect(() => {
     setState((prev) => {
       if (!focus || !showCursor) return prev
       if (prev.cursorOffset > originalValue.length) {
-        return { cursorOffset: originalValue.length, cursorWidth: 0 }
+        return {
+          cursorOffset: originalValue.length,
+          cursorWidth: 0,
+          preferredColumn: null
+        }
       }
       return prev
     })
@@ -229,11 +271,12 @@ export function TextInput({
         {
           value: originalValue,
           cursorOffset,
-          cursorWidth
+          cursorWidth,
+          preferredColumn
         },
         input,
         key,
-        { showCursor }
+        { showCursor, columns: wrapWidth }
       )
 
       if (result === null) return
@@ -244,7 +287,8 @@ export function TextInput({
 
       setState({
         cursorOffset: result.cursorOffset,
-        cursorWidth: result.cursorWidth
+        cursorWidth: result.cursorWidth,
+        preferredColumn: result.preferredColumn
       })
       if (result.value !== originalValue) onChange(result.value)
     },
@@ -253,7 +297,6 @@ export function TextInput({
 
   const display = mask ? mask.repeat(originalValue.length) : originalValue
   const pasteWidth = highlightPastedText ? cursorWidth : 0
-  const wrapWidth = columns && columns > 0 ? columns : undefined
   const maxVis =
     maxVisibleLines && maxVisibleLines > 0 ? maxVisibleLines : undefined
 

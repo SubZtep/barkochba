@@ -77,6 +77,46 @@ Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `
 
 3. Run the app (`bun run start`), type `/`, turn on **Toggle voice**. Dictation: Ctrl+T (see prompt indicator below).
 
+## Hotkeys
+
+### Input field
+
+| Key | Action |
+|-----|--------|
+| Enter | send message |
+| Shift+Enter / Alt+Enter / Ctrl+Enter / Ctrl+J | insert newline |
+| ↑ / ↓ | move cursor between lines (sticky column) |
+| ← / → | move cursor by character |
+| Ctrl+← / Ctrl+→ (or Alt+←/→) | jump by word |
+| Home / End | start / end of current line |
+| `/` on empty input | open menu |
+| Ctrl+T | toggle mic dictation |
+
+### Chat scrolling
+
+| Key | Action |
+|-----|--------|
+| Mouse wheel | scroll chat |
+| PageUp / PageDown | scroll by a page |
+| Ctrl+↑ / Ctrl+↓ | scroll by a few lines |
+| Ctrl+Home | jump to oldest message |
+| Ctrl+End | jump to newest & follow |
+
+### Menu
+
+| Key | Action |
+|-----|--------|
+| ↑ / ↓ | move selection |
+| Enter | select |
+| Esc / Backspace | close menu |
+
+### App
+
+| Key | Action |
+|-----|--------|
+| Esc | quit (closes menu first if open) |
+| Ctrl+C | quit |
+
 ## Prompt indicator
 
 | Mark | Meaning |
@@ -91,5 +131,5 @@ Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `
 
 ```bash
 bun test
-bun run lint
+bun lint # write immediately
 ```
