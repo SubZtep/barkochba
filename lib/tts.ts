@@ -1,6 +1,6 @@
 // Text-to-speech: speaches synthesizes raw PCM which streams into an
-// AudioSink (speakers, Discord, ...) as it is generated, so speech is audible
-// almost immediately instead of after the whole sentence has been synthesized.
+// AudioSink (speakers, …) as it is generated, so speech is audible almost
+// immediately instead of after the whole sentence has been synthesized.
 //
 // Usage:
 //   const { speak } = createTts(sink)

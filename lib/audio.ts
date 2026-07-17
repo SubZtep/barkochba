@@ -1,7 +1,6 @@
-// The audio frontend abstraction: where user speech comes from and where
-// synthesized speech goes. The core pipeline (speaches STT/TTS, LLM) only
-// speaks this contract; lib/frontends/* adapt it to real devices — local
-// mic/speakers, a Discord voice channel, later a browser AudioWorklet.
+// Audio I/O contracts: where user speech comes from and where synthesized
+// speech goes. STT/TTS only speak this contract; lib/frontends/local
+// adapts it to the mic and speakers.
 
 /** All PCM crossing the frontend boundary is s16le, mono, 24000 Hz. */
 export const SAMPLE_RATE = 24000
@@ -40,13 +39,6 @@ export interface AudioSink {
     consumed: Promise<void>
     done: Promise<void>
   }
-  stop(): void
-}
-
-export interface AudioFrontend {
-  source: AudioSource
-  sink: AudioSink
-  /** Release processes/connections owned by the frontend. */
   stop(): void
 }
 

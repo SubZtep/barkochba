@@ -1,8 +1,8 @@
-// Local audio frontend: ffmpeg captures the default PulseAudio/PipeWire mic
+// Local audio I/O: ffmpeg captures the default PulseAudio/PipeWire mic
 // (or replays a file at realtime speed for testing), one long-lived ffplay
 // process plays synthesized speech on the speakers.
 
-import type { AudioFrontend, AudioSink, AudioSource } from "../audio"
+import type { AudioSink, AudioSource } from "../audio"
 import { readStream, SAMPLE_RATE } from "../audio"
 import { log } from "../logger"
 
@@ -124,21 +124,6 @@ export function createLocalSink(): AudioSink {
     },
     stop() {
       ffplay?.kill()
-    }
-  }
-}
-
-export function createLocalFrontend(
-  options: LocalSourceOptions = {}
-): AudioFrontend {
-  const source = createLocalSource(options)
-  const sink = createLocalSink()
-  return {
-    source,
-    sink,
-    stop() {
-      source.stop()
-      sink.stop()
     }
   }
 }

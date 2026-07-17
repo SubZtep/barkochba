@@ -36,7 +36,7 @@ guess when the field is narrow or the budget is low.
 
 The user's first message just means they are ready — respond with question one.`
 
-// Adapted from care.ts CARE_SYSTEM, minus the references to remembered past
+// Adapted from the retired care voice app, minus references to remembered past
 // sessions (the brain.sqlite memory isn't merged into this app yet).
 const CARE = `You are a warm, grounded self-care companion. The user tells you
 stories from their life — situations, how they behaved, and how things turned out.

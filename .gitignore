@@ -27,10 +27,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .claude
 .vscode
 
-# local conversation memory (care.ts)
+# local conversation memory (legacy)
 brain.sqlite*
 
-# per-run decision-tree diagrams (search.ts)
+# per-run diagrams (legacy)
 flows
 
 # caches

@@ -1,5 +1,7 @@
 # Kaja CLI  !¡ 🐓
 
+Terminal chat with personas, tools, optional mic dictation, and optional TTS.
+
 ## Install
 
 > [!NOTE]  
@@ -19,43 +21,63 @@ type -a kaja
 rm ~/.local/bin/kaja
 ```
 
+## Develop
+
+```bash
+bun install
+bun run start
+```
+
 ## Config
 
 > _<sub>Everything is temporary.</sub>_
 
-Fill all the fields here here: `~/.config/kaja/config.json`
+Fill all the fields here: `~/.config/kaja/config.json`
 
 ```json
 {
-  braveApiKey: "",
-  openaiApiBaseUrl: "",
-  openaiApiKey: "",
-  openaiApiModel: "",
-  geoServiceUrl: "https://few-booklet-31770.ondis.co/",
-  geoServiceApiKey: "019ea05a-eacc-7ce7-8af9-e0cbf842d483"
+  "braveApiKey": "",
+  "openaiApiBaseUrl": "",
+  "openaiApiKey": "",
+  "openaiApiModel": "",
+  "geoServiceUrl": "https://few-booklet-31770.ondis.co/",
+  "geoServiceApiKey": "019ea05a-eacc-7ce7-8af9-e0cbf842d483"
 }
 ```
 
-### Collect Credentials
+### Collect credentials
 
-- **Brave search**: get a free key from [their website](https://brave.com/search/api/).
+- **Brave search**: free key from [brave.com/search/api](https://brave.com/search/api/).
+- **OpenAI-compatible API** (e.g. Fireworks): set base URL, key, and model. Example:
+  - `openaiApiBaseUrl`: `https://api.fireworks.ai/inference/v1`
+  - `openaiApiModel`: `accounts/fireworks/models/minimax-m3`
+- **Geo service**: the example URL and API key work for a while.
 
-- **OpenAI API**: your LLM need to be compatible to the most popular format. My values:
-  - openaiApiBaseUrl: `https://api.fireworks.ai/inference/v1`
-  - openaiApiModel: `accounts/fireworks/models/minimax-m3`
+Optional multi-model list: `models.jsonc` in the config directory (see schema / repo copy).
 
-- **Geo service**: the example URL and API key will work for a while.
+## Voice & dictation
 
-## Test
+Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `ffplay` for mic and playback.
 
-1. Start speaches: docker compose up -d (or docker compose -f compose.cpu.yaml up -d for the CPU variant — I haven't read those files, but that's what they appear to be for). The app expects it at ws://localhost:8000 (SPEACHES_URL env var to override).
-2. First time only — make sure the Kokoro TTS model is downloaded server-side (from the note in lib/tts.ts):
-curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
-1. If you've already used TTS with this server, it's cached and you can skip this.
-2. ffplay must be installed (part of ffmpeg) — it's what plays the audio. Already true if voice-game worked on this machine.
-3. Run the app: bun run start, type /, select "Toggle voice [off]" to flip it on (it persists, so it's one-time), then chat — e.g. start a 20-questions round. Every answer and question the agent sends should be spoken as it lands in the timeline.
+1. Start speaches:
 
-## Prompt Indicator
+   ```sh
+   docker compose up -d
+   # or CPU-only:
+   docker compose -f compose.cpu.yaml up -d
+   ```
+
+   Default URL: `ws://localhost:8000` (override with `SPEACHES_URL`).
+
+2. First time only — download the Kokoro TTS model on the server:
+
+   ```sh
+   curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
+   ```
+
+3. Run the app (`bun run start`), type `/`, turn on **Toggle voice**. Dictation: Ctrl+T (see prompt indicator below).
+
+## Prompt indicator
 
 | Mark | Meaning |
 |:----:|---------|
@@ -65,85 +87,9 @@ curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
 | ~    | transcribing |
 | x    | muted while agent speaks |
 
----
----
----
-
-# barkochba
-
-To install dependencies:
+## Test / lint
 
 ```bash
-bun install
-```
-
-## Voice apps
-
-The entry points share the same pipeline (audio frontend → speaches STT → Fireworks LLM → speaches TTS → audio frontend), built from the `lib/` modules (`audio`, `stt`, `llm`, `tts`, `voice`, `brain`, `logger`):
-
-```bash
-curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16  # one-time TTS model download
-bun run talk      # general voice chat (local mic/speakers)
-bun run game      # barkochba: think of something, answer its yes/no questions aloud
-bun run care      # self-care companion that remembers past sessions (brain.sqlite)
-bun run discord   # general voice chat in a Discord voice channel
-```
-
-The local apps also accept an audio file argument as a fake user turn for testing. Ctrl+C to stop.
-
-Audio I/O is pluggable (`lib/audio.ts` defines `AudioSource`/`AudioSink`; implementations live in `lib/frontends/`): `local` uses ffmpeg mic capture + ffplay playback, `discord` puts a bot in a voice channel, and a browser AudioWorklet frontend fits the same seam. Everything crossing the boundary is PCM16 mono 24kHz; the Discord frontend resamples to/from Discord's 48kHz stereo Opus.
-
-### Discord
-
-Set `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_CHANNEL_ID` (the voice channel to join) and `DISCORD_USER_ID` (the one user the bot listens to) in `.env`, invite the bot to the server with Connect + Speak permissions, then `bun run discord`. The bot joins on startup, transcribes the configured user's speech (a segment commits about a second after you stop talking), and answers in the channel.
-
-Discord's voice servers now require the DAVE (E2EE) protocol — a plain connection is rejected with close code 4017. The `@snazzah/davey` native module supplies it and runs fine under Bun, so `daveEncryption` is left at its default (on).
-
-Latency tricks: replies stream sentence-by-sentence into TTS, and the PCM audio streams straight into one long-lived `ffplay` sink as it is synthesized — speech starts ~1s after the LLM begins answering and sentences play gaplessly, with no per-sentence player spawn. STT/TTS models are pre-warmed on startup. The mic is muted while the assistant speaks (half-duplex); playback end is computed from the PCM byte count, so listening resumes right as the speakers go quiet. If audio ever stutters mid-sentence, Kokoro is running slower than realtime on your CPU — switch `TTS_MODEL` to a piper voice.
-
-Config via `.env`: `OPENAI_API_MODEL`, `TTS_MODEL`, `TTS_VOICE` (Kokoro voices: `af_heart`, `af_bella`, ... — see `GET /v1/registry?task=text-to-speech`), `BRAIN_DB`. If Kokoro is too slow, install a piper voice from the registry and set it as `TTS_MODEL`.
-
-## Speech-to-text (stt.ts)
-
-Local real-time transcription via [speaches](https://speaches.ai) (faster-whisper in Docker) + ffmpeg mic capture.
-
-```bash
-docker compose -f compose.cpu.yaml up -d          # start speaches on :8000
-curl -X POST localhost:8000/v1/models/Systran/faster-whisper-base.en  # one-time model download
-bun stt.ts                                        # talk; phrases print as you pause
-bun stt.ts some-audio.wav                         # or transcribe a file (testing)
-```
-
-Config via `.env`: `STT_MODEL`, `STT_LANGUAGE` (e.g. `hu` needs a multilingual model like `Systran/faster-whisper-small`), `SPEACHES_URL`. `LOOPBACK_HOST_URL` must stay set — it works around a speaches bug that 404s the realtime API. Logs go to stderr via pino (`LOG_LEVEL=debug` for all server events, `LOG_LEVEL=error` for transcript-only output).
-
-Whisper encodes a fixed 30s window per segment, so short phrases cost the same as long ones;
-model size sets that constant cost. Measured per segment on an i7-8550U (models already downloaded):
-`tiny.en` ~0.5s · `base.en` ~1.5s (default) · `distil-small.en` ~2.7s.
-
-
-
-TODO:
-
-self-care chatbot app:
-
-there is a feature when you tell a story with behviour and outcome to the global brain.
-
-## Daemon
-
-```
-# ~/.config/systemd/user/barkochba.service
-[Unit]
-Description=Barkochba bot
-After=network-online.target
-
-[Service]
-WorkingDirectory=%h/Code/barkochba
-ExecStart=/usr/bin/bun run index.ts
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-
-Then systemctl --user enable --now barkochba and
+bun test
+bun run lint
 ```
