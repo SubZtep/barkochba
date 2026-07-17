@@ -4,16 +4,16 @@ import { useEffect, useRef, useState } from "react"
 import type {
   PartialMessage as PartialMessageData,
   TimelineEvent
-} from "../hooks/use-agent"
-import { useMouseTracking } from "../hooks/use-mouse-tracking"
-import { isAtBottom, STICK_SLOP } from "../lib/scroll-stick"
+} from "../../hooks/use-agent"
+import { useMouseTracking } from "../../hooks/use-mouse-tracking"
+import { isAtBottom, STICK_SLOP } from "../../lib/scroll-stick"
 import {
   isTerminalMouseSequence,
   parseWheelDirection
-} from "../lib/terminal-input"
-import { Activity } from "./activity"
-import { PartialMessage } from "./partial-message"
-import { TimelineItem } from "./timeline"
+} from "../../lib/terminal-input"
+import { Activity } from "../activity"
+import { PartialMessage } from "../partial-message"
+import { TimelineItem } from "../timeline"
 
 const WHEEL_LINES = 3
 

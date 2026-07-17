@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { useState } from "react"
-import { UserInput } from "../../components/user-input"
+import { UserInput } from "../../components/layout/user-input"
 import { renderForTest } from "../test-utils"
 
 test("slash menu: open, navigate, select, dismiss", async () => {

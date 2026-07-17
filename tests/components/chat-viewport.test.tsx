@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { Box } from "ink"
-import { ChatViewport } from "../../components/chat-viewport"
+import { ChatViewport } from "../../components/layout/chat-viewport"
 import type { TimelineEvent } from "../../hooks/use-agent"
 import { renderForTest } from "../test-utils"
 

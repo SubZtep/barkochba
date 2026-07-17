@@ -1,8 +1,8 @@
 import { Box, useApp, useInput, useWindowSize } from "ink"
 import { useEffect, useState } from "react"
-import { useDictation } from "../hooks/use-dictation"
-import { Menu } from "./menu"
-import { TextInput } from "./text-input"
+import { useDictation } from "../../hooks/use-dictation"
+import { Menu } from "../menu"
+import { TextInput } from "../text-input"
 
 /**
  * Outer box max rows (padding/border included). Content lines for the field

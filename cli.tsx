@@ -21,7 +21,7 @@ if (!(await isExists())) {
 
 // Imported after the config guard: lib/openai.ts reads the config at module
 // load, so a static import would crash before the first-run flow above.
-const { default: App } = await import("./components/app")
+const { default: App } = await import("./components/layout/app")
 
 // Side-effect import only: meow runs at module load (exits on
 // --help/--version/--config), and it must not fire before the first-run
