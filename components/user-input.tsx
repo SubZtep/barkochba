@@ -1,8 +1,8 @@
 import { Box, Text, useInput } from "ink"
-import TextInput from "ink-text-input"
 import { useEffect, useState } from "react"
 import { useDictation } from "../hooks/use-dictation"
 import { Menu } from "./menu"
+import { TextInput } from "./text-input"
 
 export function UserInput({
   pending,
@@ -100,11 +100,30 @@ export function UserInput({
           focus={!pending && !menuOpen}
           onChange={setInput}
           onSubmit={handleSubmit}
-          showCursor={!mic || sttState === "listening" && idle % 2 === 0}
+          showCursor={!mic || (sttState === "listening" && idle % 2 === 0)}
           placeholder={idle > 20 ? undefined : "Press `/` for menu"}
         />
       </Border>
     </Box>
+  )
+}
+
+/**
+ * Icon is inline with the field text so long input wraps as one stream —
+ * continuation lines start at the left edge of the box, not under a gutter.
+ */
+function InputRow({
+  icon,
+  children
+}: {
+  icon: string
+  children: React.ReactNode
+}) {
+  return (
+    <Text color="whiteBright">
+      {icon}
+      {children}
+    </Text>
   )
 }
 
@@ -117,8 +136,7 @@ function SolidBorder({
 }) {
   return (
     <Box backgroundColor="#202040" padding={1} marginTop={1}>
-      <Text>{icon}</Text>
-      <Text color="whiteBright">{children}</Text>
+      <InputRow icon={icon}>{children}</InputRow>
     </Box>
   )
 }
@@ -139,8 +157,7 @@ function PowerBorder({
       borderColor="green"
       borderDimColor
     >
-      <Text>{icon}</Text>
-      <Text color="whiteBright">{children}</Text>
+      <InputRow icon={icon}>{children}</InputRow>
     </Box>
   )
 }
