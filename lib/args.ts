@@ -16,6 +16,7 @@ export const cli = meow(
   Options
     --help     Print this help
     --config   Print the config file location and copy it to the clipboard
+    --wizard   Review and edit the configuration in the setup wizard
     --version  Print the installed app version
 
   Examples
@@ -27,6 +28,9 @@ export const cli = meow(
     ...(typeof CLI_VERSION === "string" ? { version: CLI_VERSION } : {}),
     flags: {
       config: {
+        type: "boolean"
+      },
+      wizard: {
         type: "boolean"
       }
     }

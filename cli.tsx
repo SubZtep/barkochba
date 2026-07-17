@@ -1,6 +1,13 @@
 import { color } from "bun"
 import { render } from "ink"
-import { config, configPath, create, isExists, validate } from "./lib/config"
+import {
+  config,
+  configPath,
+  create,
+  isExists,
+  readConfigLoose,
+  validate
+} from "./lib/config"
 import { log } from "./lib/logger"
 import { loadModels } from "./lib/models"
 
@@ -11,24 +18,32 @@ if (!process.env.LOG_LEVEL) log.level = "warn"
 
 log.trace("Startup")
 
-if (!(await isExists())) {
-  await create()
-  console.log(`${color("red", "ansi")}Config file created. Please populate:`)
-  console.log(`${color("yellow", "ansi")}${configPath}`)
-  process.exit(0)
-} else if (!(await validate())) {
-  console.log(`${color("red", "ansi")}Invalid config file: ${configPath}`)
-  process.exit(1)
+// Meow runs at module load (exits on --help/--version/--config). Before the
+// config guard on purpose, so those flags work even with a missing or
+// invalid config.
+const { cli } = await import("./lib/args")
+
+// Missing or invalid config (or --wizard): run the setup wizard instead of
+// exiting, then fall through to the normal boot with the freshly written
+// file. A fresh blank template never validates, so first-run also lands in
+// the wizard.
+if (!(await isExists())) await create()
+if (cli.flags.wizard || !(await validate(true))) {
+  const { runConfigWizard } = await import("./components/config-wizard")
+  const outcome = await runConfigWizard(await readConfigLoose())
+  if (outcome !== "saved") {
+    console.log("Config not saved. Bye!")
+    process.exit(0)
+  }
+  if (!(await validate())) {
+    console.log(`${color("red", "ansi")}Invalid config file: ${configPath}`)
+    process.exit(1)
+  }
 }
 
 // Imported after the config guard: lib/openai.ts reads the config at module
 // load, so a static import would crash before the first-run flow above.
 const { default: App } = await import("./components/layout/app")
-
-// Side-effect import only: meow runs at module load (exits on
-// --help/--version/--config), and it must not fire before the first-run
-// flow above.
-await import("./lib/args")
 
 const { settings } = await config()
 const models = await loadModels()

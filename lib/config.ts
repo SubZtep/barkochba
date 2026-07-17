@@ -16,17 +16,27 @@ export async function isExists() {
   return await f.exists()
 }
 
-export async function validate() {
+export async function validate(quiet = false) {
   const f = file(configPath, { type: "application/json" })
   if (await f.exists()) {
     try {
       const data = await f.json()
       return !!KajaConfigSchema.parse(data)
     } catch (error) {
-      console.log(error)
+      if (!quiet) console.log(error)
     }
   }
   return false
+}
+
+// Tolerant reader for the config wizard prefill: returns whatever is in the
+// file (possibly schema-invalid), or {} when missing/unparseable.
+export async function readConfigLoose(): Promise<Partial<KajaConfig>> {
+  try {
+    const data = await file(configPath, { type: "application/json" }).json()
+    if (data && typeof data === "object") return data as Partial<KajaConfig>
+  } catch {}
+  return {}
 }
 
 export async function config() {
@@ -42,6 +52,11 @@ export async function config() {
     console.log(`Config file not exists: ${configPath}`)
     process.exit(1)
   }
+}
+
+export async function saveConfig(data: KajaConfig) {
+  const f = file(configPath, { type: "application/json" })
+  await write(f, JSON.stringify(data, null, 2))
 }
 
 export async function saveSettings(settings: KajaSettings) {
