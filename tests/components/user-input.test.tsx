@@ -50,7 +50,7 @@ test("slash menu: open, navigate, select, dismiss", async () => {
   await t.waitUntilExit()
 })
 
-test("mic stays deaf and shows 🙉 while the agent speaks", async () => {
+test("mic stays deaf and shows x while the agent speaks", async () => {
   const t = renderForTest(
     <UserInput
       pending={false}
@@ -66,7 +66,8 @@ test("mic stays deaf and shows 🙉 while the agent speaks", async () => {
   // muted — and useDictation never sees listening=true, so no ffmpeg or
   // websocket is spawned (which also keeps this test side-effect-free).
   await t.press("\x14")
-  expect(t.lastFrame()).toContain("🙉")
+  // ASCII status prefix: "x " = muted while agent speaks
+  expect(t.lastFrame()).toContain("x ")
 
   t.unmount()
   await t.waitUntilExit()

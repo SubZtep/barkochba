@@ -1,10 +1,22 @@
 /**
- * Single-line text field for Ink. Vendored from ink-text-input@6 (MIT) and
- * extended with Home/End and Ctrl+←/→ word jumps. Cursor is drawn with
- * inverse video rather than the terminal cursor, which is awkward under Ink.
+ * Text field for Ink. Vendored from ink-text-input@6 (MIT) and extended with
+ * Home/End, Ctrl+←/→ word jumps, Shift+Enter newlines, mouse-sequence ignore,
+ * and a soft-wrap display window so long drafts stay editable inside maxVisibleLines.
+ *
+ * Multi-line paint is one <Text> with embedded \\n and chalk.inverse for the
+ * cursor so every row shares the same origin (no sibling-Text skew).
  */
+
+import chalk from "chalk"
 import { type Key, Text, useInput } from "ink"
-import { type ReactNode, useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { isIgnoredTerminalInput } from "../lib/terminal-input"
+import {
+  clampWindowStart,
+  cursorLineIndex,
+  softWrapLines,
+  type VisualLine
+} from "../lib/text-wrap"
 
 export type TextInputProps = {
   value: string
@@ -13,9 +25,17 @@ export type TextInputProps = {
   placeholder?: string
   focus?: boolean
   showCursor?: boolean
-  /** Replace every character with this (e.g. "*" for passwords). */
   mask?: string
   highlightPastedText?: boolean
+  columns?: number
+  maxVisibleLines?: number
+  /**
+   * First-line-only status mark (ASCII, fixed width). Continuation lines use
+   * `prefixCols` spaces so every row is the same length.
+   */
+  prefix?: string
+  /** Column budget for prefix / hang-indent (must match prefix width). */
+  prefixCols?: number
 }
 
 export type TextEditState = {
@@ -24,7 +44,6 @@ export type TextEditState = {
   cursorWidth: number
 }
 
-/** Jump left to the start of the previous word (whitespace-delimited). */
 export function prevWordBoundary(value: string, cursor: number): number {
   let i = Math.min(Math.max(cursor, 0), value.length)
   while (i > 0 && /\s/.test(value[i - 1]!)) i--
@@ -32,7 +51,6 @@ export function prevWordBoundary(value: string, cursor: number): number {
   return i
 }
 
-/** Jump right past the current word and following whitespace. */
 export function nextWordBoundary(value: string, cursor: number): number {
   let i = Math.min(Math.max(cursor, 0), value.length)
   while (i < value.length && !/\s/.test(value[i]!)) i++
@@ -46,10 +64,6 @@ function clampCursor(offset: number, length: number): number {
   return offset
 }
 
-/**
- * Pure key → next state. Exported for unit tests. Returns `null` when the key
- * should be ignored (arrows that leave the field, Ctrl+C, Tab, …).
- */
 export function applyTextEdit(
   state: TextEditState,
   input: string,
@@ -71,6 +85,8 @@ export function applyTextEdit(
   >,
   options: { showCursor: boolean } = { showCursor: true }
 ): TextEditState | "submit" | null {
+  if (isIgnoredTerminalInput(input)) return null
+
   if (
     key.upArrow ||
     key.downArrow ||
@@ -81,9 +97,22 @@ export function applyTextEdit(
     return null
   }
 
+  const { value, cursorOffset } = state
+
+  const insertNewline =
+    (key.return && (key.shift || key.meta || key.ctrl)) ||
+    (key.ctrl && (input === "j" || input === "J")) ||
+    (!key.return && input === "\n")
+
+  if (insertNewline) {
+    return {
+      value: `${value.slice(0, cursorOffset)}\n${value.slice(cursorOffset)}`,
+      cursorOffset: cursorOffset + 1,
+      cursorWidth: 0
+    }
+  }
   if (key.return) return "submit"
 
-  const { value, cursorOffset } = state
   const showCursor = options.showCursor
   let nextCursor = cursorOffset
   let nextValue = value
@@ -107,12 +136,10 @@ export function applyTextEdit(
       nextCursor = cursorOffset - 1
     }
   } else if (key.delete) {
-    // Forward delete: drop the character under the cursor.
     if (cursorOffset < value.length) {
       nextValue = value.slice(0, cursorOffset) + value.slice(cursorOffset + 1)
     }
   } else if (key.ctrl || key.meta) {
-    // Modified keys (e.g. Ctrl+T for dictation) must not insert text.
     return null
   } else if (input) {
     nextValue = value.slice(0, cursorOffset) + input + value.slice(cursorOffset)
@@ -130,38 +157,36 @@ export function applyTextEdit(
   }
 }
 
-function renderCursorText(
-  display: string,
+/** Paint one visual line with optional inverse cursor (chalk, one string). */
+export function paintLineWithCursor(
+  line: VisualLine,
+  isLastLine: boolean,
   cursorOffset: number,
-  cursorWidth: number
-): ReactNode {
-  if (display.length === 0) {
-    return <Text inverse> </Text>
-  }
+  cursorWidth: number,
+  showCursor: boolean
+): string {
+  const { text, start, end } = line
+  if (!showCursor) return text.length === 0 ? " " : text
 
-  const parts: ReactNode[] = []
+  const cursorOnLine =
+    cursorOffset >= start &&
+    (cursorOffset < end || (isLastLine && cursorOffset <= end))
+
+  if (!cursorOnLine) return text.length === 0 ? " " : text
+  if (text.length === 0) return chalk.inverse(" ")
+
+  let out = ""
   let i = 0
-  for (const char of display) {
-    const highlighted = i >= cursorOffset - cursorWidth && i <= cursorOffset
-    parts.push(
-      highlighted ? (
-        <Text key={i} inverse>
-          {char}
-        </Text>
-      ) : (
-        <Text key={i}>{char}</Text>
-      )
-    )
-    i++
+  for (const char of text) {
+    const abs = start + i
+    const highlighted = abs >= cursorOffset - cursorWidth && abs <= cursorOffset
+    out += highlighted ? chalk.inverse(char) : char
+    i += char.length
   }
-  if (cursorOffset === display.length) {
-    parts.push(
-      <Text key="eol" inverse>
-        {" "}
-      </Text>
-    )
+  if (isLastLine && cursorOffset === end) {
+    out += chalk.inverse(" ")
   }
-  return parts
+  return out
 }
 
 export function TextInput({
@@ -172,16 +197,22 @@ export function TextInput({
   highlightPastedText = false,
   showCursor = true,
   onChange,
-  onSubmit
+  onSubmit,
+  columns,
+  maxVisibleLines,
+  prefix = "",
+  prefixCols = 0
 }: TextInputProps) {
   const [state, setState] = useState({
     cursorOffset: originalValue.length,
     cursorWidth: 0
   })
+  const [windowStart, setWindowStart] = useState(0)
   const { cursorOffset, cursorWidth } = state
+  const hang = Math.max(0, prefixCols)
+  const firstLead = prefix
+  const contLead = hang > 0 ? " ".repeat(hang) : ""
 
-  // Keep the cursor inside the string when value changes externally (e.g.
-  // dictation appends a phrase while the cursor sat in the middle).
   useEffect(() => {
     setState((prev) => {
       if (!focus || !showCursor) return prev
@@ -222,30 +253,103 @@ export function TextInput({
 
   const display = mask ? mask.repeat(originalValue.length) : originalValue
   const pasteWidth = highlightPastedText ? cursorWidth : 0
+  const wrapWidth = columns && columns > 0 ? columns : undefined
+  const maxVis =
+    maxVisibleLines && maxVisibleLines > 0 ? maxVisibleLines : undefined
+
+  const lines = useMemo(
+    () => (wrapWidth && maxVis ? softWrapLines(display, wrapWidth) : null),
+    [display, wrapWidth, maxVis]
+  )
+
+  useEffect(() => {
+    if (!lines || !maxVis) return
+    const cLine = cursorLineIndex(lines, cursorOffset)
+    setWindowStart((prev) =>
+      clampWindowStart(cLine, prev, maxVis, lines.length)
+    )
+  }, [lines, cursorOffset, maxVis])
+
+  if (lines && maxVis) {
+    const start = clampWindowStart(
+      cursorLineIndex(lines, cursorOffset),
+      windowStart,
+      maxVis,
+      lines.length
+    )
+    const visible = lines.slice(start, start + maxVis)
+    const active = showCursor && focus
+
+    if (display.length === 0 && placeholder) {
+      const head = active
+        ? chalk.inverse(placeholder[0] ?? " ") + chalk.dim(placeholder.slice(1))
+        : chalk.dim(placeholder)
+      return <Text>{firstLead + head}</Text>
+    }
+
+    const painted = visible
+      .map((line, vi) => {
+        const absLine = start + vi
+        const isLast = absLine === lines.length - 1
+        const body = paintLineWithCursor(
+          line,
+          isLast,
+          cursorOffset,
+          pasteWidth,
+          active
+        )
+        return (absLine === 0 ? firstLead : contLead) + body
+      })
+      .join("\n")
+
+    return <Text>{painted}</Text>
+  }
 
   if (showCursor && focus) {
     if (display.length === 0 && placeholder) {
       return (
         <Text>
-          <Text inverse>{placeholder[0]}</Text>
-          <Text dimColor>{placeholder.slice(1)}</Text>
+          {firstLead}
+          {chalk.inverse(placeholder[0] ?? " ") +
+            chalk.dim(placeholder.slice(1))}
         </Text>
       )
     }
     if (display.length === 0) {
       return (
         <Text>
-          <Text inverse> </Text>
+          {firstLead}
+          {chalk.inverse(" ")}
         </Text>
       )
     }
-    return <Text>{renderCursorText(display, cursorOffset, pasteWidth)}</Text>
+    const line: VisualLine = {
+      start: 0,
+      end: display.length,
+      text: display
+    }
+    return (
+      <Text>
+        {firstLead}
+        {paintLineWithCursor(line, true, cursorOffset, pasteWidth, true)}
+      </Text>
+    )
   }
 
   if (display.length === 0 && placeholder) {
-    return <Text dimColor>{placeholder}</Text>
+    return (
+      <Text dimColor>
+        {firstLead}
+        {placeholder}
+      </Text>
+    )
   }
-  return <Text>{display}</Text>
+  return (
+    <Text>
+      {firstLead}
+      {display}
+    </Text>
+  )
 }
 
 export default TextInput

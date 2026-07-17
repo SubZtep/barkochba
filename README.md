@@ -1,6 +1,5 @@
 # Kaja CLI  !¡ 🐓
 
-
 ## Install
 
 > [!NOTE]  
@@ -55,6 +54,16 @@ curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
 1. If you've already used TTS with this server, it's cached and you can skip this.
 2. ffplay must be installed (part of ffmpeg) — it's what plays the audio. Already true if voice-game worked on this machine.
 3. Run the app: bun run start, type /, select "Toggle voice [off]" to flip it on (it persists, so it's one-time), then chat — e.g. start a 20-questions round. Every answer and question the agent sends should be spoken as it lands in the timeline.
+
+## Prompt Indicator
+
+| Mark | Meaning |
+|:----:|---------|
+| >    | ready to type |
+| *    | mic on, idle |
+| o    | recording |
+| ~    | transcribing |
+| x    | muted while agent speaks |
 
 ---
 ---

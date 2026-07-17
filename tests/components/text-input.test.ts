@@ -122,10 +122,31 @@ test("Ctrl combinations that are not bindings do not insert", () => {
   expect(edit(state("hi", 2), { ctrl: true, input: "c" })).toBe(null)
 })
 
+test("mouse wheel / kitty protocol noise do not insert text", () => {
+  expect(edit(state("hi", 2), { input: "[<64;10;5M" })).toBe(null)
+  expect(edit(state("hi", 2), { input: "[<65;1;1m" })).toBe(null)
+  // leftover CSI ? flags u from kitty keyboard enable (was prefilling the prompt)
+  expect(edit(state("", 0), { input: "[?0u" })).toBe(null)
+})
+
 test("return submits; tab/arrows out are ignored", () => {
   expect(edit(state("hi", 2), { return: true })).toBe("submit")
   expect(edit(state("hi", 2), { tab: true })).toBe(null)
   expect(edit(state("hi", 2), { upArrow: true })).toBe(null)
+})
+
+test("newline via Shift/Alt/Ctrl+Enter, Ctrl+J, or bare LF", () => {
+  const nl = (partial: Parameters<typeof edit>[1]) =>
+    expect(edit(state("ab", 1), partial)).toEqual({
+      value: "a\nb",
+      cursorOffset: 2,
+      cursorWidth: 0
+    })
+  nl({ return: true, shift: true })
+  nl({ return: true, meta: true })
+  nl({ return: true, ctrl: true })
+  nl({ ctrl: true, input: "j" })
+  nl({ input: "\n" })
 })
 
 test("cursor is clamped after edits", () => {

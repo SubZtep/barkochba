@@ -1,11 +1,39 @@
-import { Box, Text, useInput } from "ink"
+import { Box, useApp, useInput, useWindowSize } from "ink"
 import { useEffect, useState } from "react"
 import { useDictation } from "../hooks/use-dictation"
 import { Menu } from "./menu"
 import { TextInput } from "./text-input"
 
-/** Cap how many terminal rows the draft may grow into so resize can't let it eat the chat pane. */
+/**
+ * Outer box max rows (padding/border included). Content lines for the field
+ * leave room for SolidBorder padding (1+1) or PowerBorder edges (~1+1).
+ */
 const INPUT_MAX_HEIGHT = 8
+const INPUT_CONTENT_LINES = 6
+/** Always 2 ASCII cells — never emoji (terminals disagree on emoji width). */
+const PREFIX_COLS = 2
+
+/**
+ * Status mark for the input gutter. Pure ASCII so multi-line hang-indent
+ * matches the first line exactly.
+ *
+ *   >  ready to type
+ *   *  mic on, idle
+ *   o  recording speech
+ *   ~  transcribing
+ *   x  mic muted while agent speaks
+ */
+function statusPrefix(
+  mic: boolean,
+  speaking: boolean,
+  sttState: string
+): string {
+  if (!mic) return "> "
+  if (speaking) return "x "
+  if (sttState === "recording") return "o "
+  if (sttState === "transcribing") return "~ "
+  return "* "
+}
 
 export function UserInput({
   pending,
@@ -28,11 +56,17 @@ export function UserInput({
   const [input, setInput] = useState("")
   const [idle, setIdle] = useState(0)
   const [mic, setMic] = useState(false)
+  const { columns } = useWindowSize()
+  const { exit } = useApp()
 
-  // Ctrl+T toggles dictation; transcribed phrases land in the input for
-  // review, so a garbled transcript can be fixed before enter sends it.
+  // Typing "/" as the first character opens the menu; while it's open the
+  // text input is unfocused so arrows/return/escape drive the menu instead.
+  const menuOpen = input.startsWith("/")
+
+  // Ctrl+T toggles dictation; Esc quits (menu open → Esc only closes the menu).
   useInput((char, key) => {
     if (key.ctrl && char === "t") setMic((prev) => !prev)
+    if (key.escape && !menuOpen) exit()
   })
   // Half-duplex: while the agent's voice plays, the mic is paused (captured
   // audio dropped) so it doesn't transcribe the agent talking to itself.
@@ -40,22 +74,8 @@ export function UserInput({
     setInput((prev) => (prev ? `${prev} ${text}` : text))
   })
 
-  // What the input box leads with: quiet chat bubble, or the mic's progress —
-  // deaf while the agent speaks, waiting for speech, hearing it, or (slowly)
-  // turning it into text.
-  const icon = !mic
-    ? "🗨️  "
-    : speaking
-      ? "🙉  "
-      : sttState === "recording"
-        ? "👂  "
-        : sttState === "transcribing"
-          ? "⏳  "
-          : "🎤  "
+  const prefix = statusPrefix(mic, speaking, sttState)
 
-  // Typing "/" as the first character opens the menu; while it's open the
-  // text input is unfocused so arrows/return/escape drive the menu instead.
-  const menuOpen = input.startsWith("/")
   const closeMenu = () => {
     setInput("")
     onMenuClose?.()
@@ -82,6 +102,9 @@ export function UserInput({
   }
 
   const Border = idle > 30 ? PowerBorder : SolidBorder
+  // padding/border (~2) + fixed 2-col ASCII prefix.
+  const sideChrome = 2
+  const fieldColumns = Math.max(8, columns - sideChrome - PREFIX_COLS - 1)
 
   return (
     <Box flexDirection="column" flexShrink={0} width="100%">
@@ -99,48 +122,29 @@ export function UserInput({
           />
         </Box>
       )}
-      <Border icon={icon}>
+      <Border>
         <TextInput
           value={input}
           focus={!pending && !menuOpen}
           onChange={setInput}
           onSubmit={handleSubmit}
           showCursor={!mic || (sttState === "listening" && idle % 2 === 0)}
-          placeholder={idle > 20 ? undefined : "Press `/` for menu"}
+          placeholder={
+            idle > 20
+              ? undefined
+              : "`/` menu · Alt+Enter newline · PgUp history"
+          }
+          prefix={prefix}
+          prefixCols={PREFIX_COLS}
+          columns={fieldColumns}
+          maxVisibleLines={INPUT_CONTENT_LINES}
         />
       </Border>
     </Box>
   )
 }
 
-/**
- * Icon is inline with the field text so long input wraps as one stream —
- * continuation lines start at the left edge of the box, not under a gutter.
- */
-function InputRow({
-  icon,
-  children
-}: {
-  icon: string
-  children: React.ReactNode
-}) {
-  return (
-    <Text color="whiteBright" wrap="wrap">
-      {icon}
-      {children}
-    </Text>
-  )
-}
-
-function SolidBorder({
-  icon,
-  children
-}: {
-  icon: string
-  children: React.ReactNode
-}) {
-  // width 100% of the flex-shrink:0 footer — not terminal columns — so we
-  // never overflow the parent and force a bogus multi-line height on resize.
+function SolidBorder({ children }: { children: React.ReactNode }) {
   return (
     <Box
       backgroundColor="#202040"
@@ -150,18 +154,12 @@ function SolidBorder({
       maxHeight={INPUT_MAX_HEIGHT}
       overflow="hidden"
     >
-      <InputRow icon={icon}>{children}</InputRow>
+      {children}
     </Box>
   )
 }
 
-function PowerBorder({
-  icon,
-  children
-}: {
-  icon: string
-  children: React.ReactNode
-}) {
+function PowerBorder({ children }: { children: React.ReactNode }) {
   return (
     <Box
       backgroundColor="#202040"
@@ -174,7 +172,7 @@ function PowerBorder({
       borderColor="green"
       borderDimColor
     >
-      <InputRow icon={icon}>{children}</InputRow>
+      {children}
     </Box>
   )
 }

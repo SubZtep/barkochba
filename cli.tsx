@@ -23,18 +23,26 @@ if (!(await isExists())) {
 // load, so a static import would crash before the first-run flow above.
 const { default: App } = await import("./components/app")
 
-// Also imported dynamically: meow runs at module load (it exits on
+// Side-effect import only: meow runs at module load (exits on
 // --help/--version/--config), and it must not fire before the first-run
 // flow above.
-const { cli } = await import("./lib/args")
+await import("./lib/args")
 
 const { settings } = await config()
 const models = await loadModels()
 // Alternate screen: full-viewport app (header / chat / input). Restores the
 // primary buffer on exit; no terminal scrollback while running.
+// Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
+// send the same `\r` for both and cannot do Shift+Enter newlines otherwise.
 const { waitUntilExit } = render(
   <App initialSettings={settings} models={models} />,
-  { alternateScreen: true }
+  {
+    alternateScreen: true,
+    kittyKeyboard: {
+      mode: "auto",
+      flags: ["disambiguateEscapeCodes"]
+    }
+  }
 )
 await waitUntilExit()
 

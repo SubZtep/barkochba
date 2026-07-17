@@ -27,15 +27,17 @@ test("shows recent history and page-up reveals older lines", async () => {
   expect(t.lastFrame()).toContain("line-39")
   expect(t.lastFrame()).not.toContain("line-0-padding")
 
-  // Page up should move toward older content.
+  // Page up should move toward older content and show the follow affordance.
   await t.press("\x1b[5~")
   await t.tick()
   expect(t.lastFrame()).not.toContain("line-39")
+  expect(t.lastFrame()).toContain("older")
 
-  // Ctrl+End returns to the bottom.
+  // Ctrl+End returns to the bottom and clears the affordance.
   await t.press("\x1b[1;5F")
   await t.tick()
   expect(t.lastFrame()).toContain("line-39")
+  expect(t.lastFrame()).not.toContain("older")
 
   t.unmount()
   await t.waitUntilExit()
