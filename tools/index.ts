@@ -1,6 +1,7 @@
 import { askUserTool } from "../lib/agents"
 import { config } from "../lib/config"
 import { currentTimeTool } from "./current-time"
+import { listFilesTool } from "./list-files"
 import { myLocationTool } from "./my-location"
 import { readFileTool } from "./read-file"
 import { webSearchTool } from "./web-search"
@@ -14,6 +15,7 @@ export async function getDefaultTools() {
   const { webSearch, location } = await config()
   return [
     readFileTool,
+    listFilesTool,
     currentTimeTool,
     askUserTool,
     ...(webSearch ? [webSearchTool] : []),
