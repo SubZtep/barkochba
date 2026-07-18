@@ -1,7 +1,12 @@
 /**
  * First-run / invalid-config setup wizard. Step 0 picks the UI language,
- * then steps grouped by service; fields validate against KajaConfigSchema
- * per keystroke and a step can't advance until its fields pass.
+ * then steps grouped by feature; fields validate against their group's zod
+ * schema per keystroke and a step can't advance until its fields pass.
+ *
+ * The LLM group is mandatory. The other groups (stt/tts/location/webSearch)
+ * are optional: leaving every field in a group blank omits that group from
+ * the saved config (the feature stays unavailable); filling in any field
+ * requires the whole group to validate before advancing.
  *
  * Key routing: Enter is owned by TextInput.onSubmit (next field, or next
  * step on the last), a step-level useInput owns Tab (switch field) and
@@ -11,55 +16,117 @@
 
 import { Box, render, Text, useInput } from "ink"
 import { useState } from "react"
+import type * as z from "zod"
 import { configPath, saveConfig } from "../lib/config"
 import { getLanguage, type Language, setLanguage, t } from "../lib/i18n"
 import {
   type KajaConfig,
-  KajaConfigSchema,
+  KajaLlmSchema,
+  KajaLocationSchema,
   KajaSettingsSchema,
-  type KajaVoice,
-  KajaVoiceSchema
+  KajaSttSchema,
+  KajaTtsSchema,
+  KajaWebSearchSchema
 } from "../schemas/config"
 import { TextInput } from "./elem/text-input"
 
-type RequiredFieldName = Exclude<keyof KajaConfig, "settings" | "voice">
-type VoiceFieldName = keyof KajaVoice
-type FieldName = RequiredFieldName | VoiceFieldName
+type FieldName =
+  | "llmBaseUrl"
+  | "llmApiKey"
+  | "llmModel"
+  | "sttSpeachesUrl"
+  | "sttModel"
+  | "sttLanguage"
+  | "ttsSpeachesUrl"
+  | "ttsModel"
+  | "ttsVoice"
+  | "locationServiceUrl"
+  | "locationApiKey"
+  | "webSearchApiKey"
 
-const VOICE_FIELDS = Object.keys(KajaVoiceSchema.shape) as VoiceFieldName[]
+type GroupName = "llm" | "stt" | "tts" | "location" | "webSearch"
 
-function isVoiceField(field: FieldName): field is VoiceFieldName {
-  return (VOICE_FIELDS as string[]).includes(field)
+// Each group's fields, its zod shape for per-field validation, and whether
+// the whole group can be omitted when every field is left blank.
+const GROUPS: {
+  name: GroupName
+  nameKey: string
+  optional: boolean
+  fields: FieldName[]
+}[] = [
+  {
+    name: "llm",
+    nameKey: "wizard.groupLlm",
+    optional: false,
+    fields: ["llmBaseUrl", "llmApiKey", "llmModel"]
+  },
+  {
+    name: "stt",
+    nameKey: "wizard.groupStt",
+    optional: true,
+    fields: ["sttSpeachesUrl", "sttModel", "sttLanguage"]
+  },
+  {
+    name: "tts",
+    nameKey: "wizard.groupTts",
+    optional: true,
+    fields: ["ttsSpeachesUrl", "ttsModel", "ttsVoice"]
+  },
+  {
+    name: "location",
+    nameKey: "wizard.groupLocation",
+    optional: true,
+    fields: ["locationServiceUrl", "locationApiKey"]
+  },
+  {
+    name: "webSearch",
+    nameKey: "wizard.groupWebSearch",
+    optional: true,
+    fields: ["webSearchApiKey"]
+  }
+]
+
+const GROUP_OF: Record<FieldName, GroupName> = Object.fromEntries(
+  GROUPS.flatMap((g) => g.fields.map((f) => [f, g.name]))
+) as Record<FieldName, GroupName>
+
+const OPTIONAL_GROUP: Record<GroupName, boolean> = Object.fromEntries(
+  GROUPS.map((g) => [g.name, g.optional])
+) as Record<GroupName, boolean>
+
+// Per-field zod schema, keyed the same way values are: unwrap optionals so
+// blank-is-valid can be special-cased in fieldError.
+const FIELD_SCHEMAS: Record<FieldName, z.ZodType<string>> = {
+  llmBaseUrl: KajaLlmSchema.shape.baseUrl,
+  llmApiKey: KajaLlmSchema.shape.apiKey,
+  llmModel: KajaLlmSchema.shape.model,
+  sttSpeachesUrl: KajaSttSchema.shape.speachesUrl.unwrap(),
+  sttModel: KajaSttSchema.shape.model.unwrap(),
+  sttLanguage: KajaSttSchema.shape.language.unwrap(),
+  ttsSpeachesUrl: KajaTtsSchema.shape.speachesUrl.unwrap(),
+  ttsModel: KajaTtsSchema.shape.model.unwrap(),
+  ttsVoice: KajaTtsSchema.shape.voice.unwrap(),
+  locationServiceUrl: KajaLocationSchema.shape.serviceUrl,
+  locationApiKey: KajaLocationSchema.shape.apiKey,
+  webSearchApiKey: KajaWebSearchSchema.shape.apiKey
 }
 
 // Labels come from the dictionary (t(`wizard.${field}`)); placeholders are
 // sample values and stay untranslated.
 const FIELDS: Record<FieldName, { placeholder: string }> = {
-  openaiApiBaseUrl: { placeholder: "https://api.fireworks.ai/inference/v1" },
-  openaiApiKey: { placeholder: "fw_..." },
-  openaiApiModel: { placeholder: "accounts/fireworks/models/minimax-m3" },
-  braveApiKey: { placeholder: "BSA..." },
-  geoServiceUrl: { placeholder: "https://ip2geo.demo.land/" },
-  geoServiceApiKey: { placeholder: "kaja" },
-  speachesUrl: { placeholder: "ws://localhost:8000 (default)" },
+  llmBaseUrl: { placeholder: "https://api.fireworks.ai/inference/v1" },
+  llmApiKey: { placeholder: "fw_..." },
+  llmModel: { placeholder: "accounts/fireworks/models/minimax-m3" },
+  sttSpeachesUrl: { placeholder: "ws://localhost:8000 (default)" },
   sttModel: { placeholder: "Systran/faster-distil-whisper-small.en (default)" },
   sttLanguage: { placeholder: "app language (default)" },
+  ttsSpeachesUrl: { placeholder: "ws://localhost:8000 (default)" },
   ttsModel: { placeholder: "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16 (default)" },
-  ttsVoice: { placeholder: "af_heart (default)" }
+  ttsVoice: { placeholder: "af_heart (default)" },
+  locationServiceUrl: { placeholder: "https://ip2geo.demo.land/" },
+  locationApiKey: { placeholder: "kaja" },
+  webSearchApiKey: { placeholder: "BSA..." }
 }
-
-const GROUPS: { nameKey: string; fields: FieldName[] }[] = [
-  {
-    nameKey: "wizard.groupLlm",
-    fields: ["openaiApiBaseUrl", "openaiApiKey", "openaiApiModel"]
-  },
-  { nameKey: "wizard.groupBrave", fields: ["braveApiKey"] },
-  { nameKey: "wizard.groupGeo", fields: ["geoServiceUrl", "geoServiceApiKey"] },
-  {
-    nameKey: "wizard.groupVoice",
-    fields: ["speachesUrl", "sttModel", "sttLanguage", "ttsModel", "ttsVoice"]
-  }
-]
 
 // Own-language names on purpose: the picker must be readable before the
 // right language is chosen.
@@ -68,14 +135,12 @@ const LANGUAGES: { value: Language; label: string }[] = [
   { value: "hu", label: "Magyar" }
 ]
 
-// Voice fields are optional (blank = use the built-in default); everything
-// else must pass its schema to advance.
+// A blank field in an optional group is always valid (the group gets
+// omitted entirely if every field in it is blank); everything else must
+// pass its schema to advance.
 function fieldError(field: FieldName, value: string): string | null {
-  if (isVoiceField(field) && value === "") return null
-  const schema = isVoiceField(field)
-    ? KajaVoiceSchema.shape[field].unwrap()
-    : KajaConfigSchema.shape[field as RequiredFieldName]
-  const result = schema.safeParse(value)
+  if (OPTIONAL_GROUP[GROUP_OF[field]] && value === "") return null
+  const result = FIELD_SCHEMAS[field].safeParse(value)
   return result.success
     ? null
     : (result.error.issues[0]?.message ?? t("wizard.invalid"))
@@ -154,12 +219,14 @@ function LanguageStep({
 
 function StepFields({
   fields,
+  optional,
   values,
   setValues,
   onNext,
   onBack
 }: {
   fields: FieldName[]
+  optional: boolean
   values: Values
   setValues: (update: (prev: Values) => Values) => void
   onNext: () => void
@@ -192,6 +259,11 @@ function StepFields({
 
   return (
     <Box flexDirection="column">
+      {optional && (
+        <Box marginBottom={1}>
+          <Text dimColor>{t("wizard.groupOptionalHint")}</Text>
+        </Box>
+      )}
       {fields.map((field, i) => {
         const error = fieldError(field, values[field])
         const focused = i === focusIndex
@@ -263,32 +335,69 @@ function ConfigWizard({
   // the review step.
   const [step, setStep] = useState(0)
   const [lang, setLang] = useState<Language>(getLanguage())
-  const [values, setValues] = useState<Values>(() => {
-    const out = {} as Values
-    for (const field of Object.keys(FIELDS) as FieldName[]) {
-      const v = isVoiceField(field) ? initial.voice?.[field] : initial[field]
-      out[field] = typeof v === "string" ? v : ""
-    }
-    return out
-  })
+  const [values, setValues] = useState<Values>(() => ({
+    llmBaseUrl: initial.llm?.baseUrl ?? "",
+    llmApiKey: initial.llm?.apiKey ?? "",
+    llmModel: initial.llm?.model ?? "",
+    sttSpeachesUrl: initial.stt?.speachesUrl ?? "",
+    sttModel: initial.stt?.model ?? "",
+    sttLanguage: initial.stt?.language ?? "",
+    ttsSpeachesUrl: initial.tts?.speachesUrl ?? "",
+    ttsModel: initial.tts?.model ?? "",
+    ttsVoice: initial.tts?.voice ?? "",
+    locationServiceUrl: initial.location?.serviceUrl ?? "",
+    locationApiKey: initial.location?.apiKey ?? "",
+    webSearchApiKey: initial.webSearch?.apiKey ?? ""
+  }))
 
   const save = async () => {
     // Keep an existing valid settings block (thinking/sounds/voice) so an
     // invalid-config fixup doesn't drop in-app preferences; the language
     // choice is always recorded.
     const settings = KajaSettingsSchema.safeParse(initial.settings)
-    const voice = {} as KajaVoice
-    for (const field of VOICE_FIELDS) {
-      if (values[field] !== "") voice[field] = values[field]
-    }
-    const required = {} as Record<RequiredFieldName, string>
-    for (const field of Object.keys(FIELDS) as FieldName[]) {
-      if (!isVoiceField(field)) required[field] = values[field]
-    }
+
+    const stt =
+      values.sttSpeachesUrl || values.sttModel || values.sttLanguage
+        ? {
+            ...(values.sttSpeachesUrl && {
+              speachesUrl: values.sttSpeachesUrl
+            }),
+            ...(values.sttModel && { model: values.sttModel }),
+            ...(values.sttLanguage && { language: values.sttLanguage })
+          }
+        : undefined
+    const tts =
+      values.ttsSpeachesUrl || values.ttsModel || values.ttsVoice
+        ? {
+            ...(values.ttsSpeachesUrl && {
+              speachesUrl: values.ttsSpeachesUrl
+            }),
+            ...(values.ttsModel && { model: values.ttsModel }),
+            ...(values.ttsVoice && { voice: values.ttsVoice })
+          }
+        : undefined
+    const location =
+      values.locationServiceUrl || values.locationApiKey
+        ? {
+            serviceUrl: values.locationServiceUrl,
+            apiKey: values.locationApiKey
+          }
+        : undefined
+    const webSearch = values.webSearchApiKey
+      ? { apiKey: values.webSearchApiKey }
+      : undefined
+
     await saveConfig({
-      ...required,
-      settings: { ...(settings.success ? settings.data : {}), language: lang },
-      voice
+      llm: {
+        baseUrl: values.llmBaseUrl,
+        apiKey: values.llmApiKey,
+        model: values.llmModel
+      },
+      stt,
+      tts,
+      location,
+      webSearch,
+      settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
     onFinish("saved")
   }
@@ -324,6 +433,7 @@ function ConfigWizard({
             // Remount per step so field focus starts fresh.
             key={step}
             fields={group.fields}
+            optional={group.optional}
             values={values}
             setValues={setValues}
             onNext={() => setStep(step + 1)}

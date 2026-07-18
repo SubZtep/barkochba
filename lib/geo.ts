@@ -23,14 +23,16 @@ let myLocation: GeoLocation | null = null
 export async function lookupMyLocation(): Promise<GeoLocation> {
   if (myLocation) return myLocation
 
+  const { location } = await config()
+  if (!location) throw new Error("Location feature not configured")
+
   const ipRes = await fetch("https://ipinfo.io/ip")
   if (!ipRes.ok) throw new Error(`Public IP lookup failed: ${ipRes.status}`)
   const ip = (await ipRes.text()).trim()
 
-  const { geoServiceUrl, geoServiceApiKey } = await config()
-  const res = await fetch(`${geoServiceUrl}/lookup/${ip}`, {
+  const res = await fetch(`${location.serviceUrl}/lookup/${ip}`, {
     headers: {
-      "X-API-Key": geoServiceApiKey
+      "X-API-Key": location.apiKey
     }
   })
   if (!res.ok)

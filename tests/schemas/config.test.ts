@@ -2,12 +2,11 @@ import { expect, test } from "bun:test"
 import { KajaConfigSchema } from "../../schemas/config"
 
 const base = {
-  braveApiKey: "key",
-  openaiApiBaseUrl: "https://api.example.test/v1",
-  openaiApiKey: "key",
-  openaiApiModel: "some-model",
-  geoServiceUrl: "https://geo.example.test",
-  geoServiceApiKey: "123e4567-e89b-12d3-a456-426614174000"
+  llm: {
+    baseUrl: "https://api.example.test/v1",
+    apiKey: "key",
+    model: "some-model"
+  }
 }
 
 test("config without settings still validates", () => {
@@ -40,4 +39,58 @@ test("settings language accepts en and hu only", () => {
   expect(() =>
     KajaConfigSchema.parse({ ...base, settings: { language: "de" } })
   ).toThrow()
+})
+
+test("llm is required", () => {
+  expect(() => KajaConfigSchema.parse({})).toThrow()
+})
+
+test("stt, tts, location, webSearch are independently optional", () => {
+  const parsed = KajaConfigSchema.parse(base)
+  expect(parsed.stt).toBeUndefined()
+  expect(parsed.tts).toBeUndefined()
+  expect(parsed.location).toBeUndefined()
+  expect(parsed.webSearch).toBeUndefined()
+})
+
+test("stt group with only some optional fields validates", () => {
+  const parsed = KajaConfigSchema.parse({
+    ...base,
+    stt: { model: "whisper-small" }
+  })
+  expect(parsed.stt).toEqual({ model: "whisper-small" })
+})
+
+test("tts group with only some optional fields validates", () => {
+  const parsed = KajaConfigSchema.parse({
+    ...base,
+    tts: { voice: "af_heart" }
+  })
+  expect(parsed.tts).toEqual({ voice: "af_heart" })
+})
+
+test("location group requires both fields together", () => {
+  const parsed = KajaConfigSchema.parse({
+    ...base,
+    location: { serviceUrl: "https://geo.example.test", apiKey: "key" }
+  })
+  expect(parsed.location).toEqual({
+    serviceUrl: "https://geo.example.test",
+    apiKey: "key"
+  })
+  expect(() =>
+    KajaConfigSchema.parse({
+      ...base,
+      location: { serviceUrl: "https://geo.example.test" }
+    })
+  ).toThrow()
+})
+
+test("webSearch group requires apiKey", () => {
+  const parsed = KajaConfigSchema.parse({
+    ...base,
+    webSearch: { apiKey: "key" }
+  })
+  expect(parsed.webSearch).toEqual({ apiKey: "key" })
+  expect(() => KajaConfigSchema.parse({ ...base, webSearch: {} })).toThrow()
 })

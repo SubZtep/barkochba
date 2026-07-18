@@ -18,12 +18,12 @@ import { config } from "./config"
 import { log } from "./logger"
 
 async function resolveTtsSettings() {
-  const { voice } = await config()
+  const { tts } = await config()
   return {
-    model: voice?.ttsModel ?? "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16",
-    voice: voice?.ttsVoice ?? "af_heart",
-    // speachesUrl is a ws:// URL (the STT side); TTS uses plain HTTP on the same server.
-    base: (voice?.speachesUrl ?? "ws://localhost:8000").replace(/^ws/, "http")
+    model: tts?.model ?? "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16",
+    voice: tts?.voice ?? "af_heart",
+    // speachesUrl is a ws:// URL (matching the speaches realtime API); TTS uses plain HTTP.
+    base: (tts?.speachesUrl ?? "ws://localhost:8000").replace(/^ws/, "http")
   }
 }
 

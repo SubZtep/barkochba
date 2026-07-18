@@ -9,7 +9,7 @@ import { t } from "../../lib/i18n"
 import { personas } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
-import { defaultTools } from "../../tools"
+import type { getDefaultTools } from "../../tools"
 import { ChatViewport } from "./chat-viewport"
 import { Header } from "./header"
 import { UserInput } from "./user-input"
@@ -17,11 +17,13 @@ import { UserInput } from "./user-input"
 export default function App({
   initialSettings,
   models = [],
-  openaiApiModel
+  openaiApiModel,
+  tools
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
   openaiApiModel: string
+  tools: Awaited<ReturnType<typeof getDefaultTools>>
 }) {
   const {
     model,
@@ -34,7 +36,7 @@ export default function App({
     send
   } = useAgent({
     model: openaiApiModel,
-    tools: defaultTools
+    tools
   })
   const { thinking, sounds, voice, toggleThinking, toggleSounds, toggleVoice } =
     useSettings(initialSettings)

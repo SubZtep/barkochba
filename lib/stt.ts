@@ -17,15 +17,15 @@ import { log } from "./logger"
 // English default is an English-only distil model, other languages need a
 // multilingual one.
 async function resolveSttSettings() {
-  const { voice } = await config()
+  const { stt } = await config()
   return {
     model:
-      voice?.sttModel ??
+      stt?.model ??
       (getLanguage() === "hu"
         ? "Systran/faster-whisper-small"
         : "Systran/faster-distil-whisper-small.en"),
-    language: voice?.sttLanguage ?? getLanguage(),
-    base: voice?.speachesUrl ?? "ws://localhost:8000"
+    language: stt?.language ?? getLanguage(),
+    base: stt?.speachesUrl ?? "ws://localhost:8000"
   }
 }
 

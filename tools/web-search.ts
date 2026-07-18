@@ -122,7 +122,7 @@ async function braveSearch(
     `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
     {
       headers: {
-        "X-Subscription-Token": (await config()).braveApiKey
+        "X-Subscription-Token": (await config()).webSearch?.apiKey ?? ""
       }
     }
   )

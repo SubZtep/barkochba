@@ -52,11 +52,14 @@ if (cli.flags.wizard || !(await validate(true))) {
 }
 
 // Imported after the config guard: lib/openai.ts reads the config at module
-// load, so a static import would crash before the first-run flow above.
+// load (transitively, via lib/agents.ts), so a static import would crash
+// before the first-run flow above.
 const { default: App } = await import("./components/layout/app")
+const { getDefaultTools } = await import("./tools")
 
-const { settings, openaiApiModel } = await config()
+const { settings, llm } = await config()
 const models = await loadModels()
+const tools = await getDefaultTools()
 // Alternate screen: full-viewport app (header / chat / input). Restores the
 // primary buffer on exit; no terminal scrollback while running.
 // Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
@@ -65,7 +68,8 @@ const { waitUntilExit } = render(
   <App
     initialSettings={settings}
     models={models}
-    openaiApiModel={openaiApiModel}
+    openaiApiModel={llm.model}
+    tools={tools}
   />,
   {
     alternateScreen: true,

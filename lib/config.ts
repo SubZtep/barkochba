@@ -88,12 +88,7 @@ export async function saveSettings(settings: KajaSettings) {
 
 export async function create() {
   const data: KajaConfig = {
-    braveApiKey: "",
-    openaiApiBaseUrl: "",
-    openaiApiKey: "",
-    openaiApiModel: "",
-    geoServiceUrl: "",
-    geoServiceApiKey: ""
+    llm: { baseUrl: "", apiKey: "", model: "" }
   }
   const f = file(configPath, { type: "application/json" })
   await write(f, JSON.stringify(data, null, 2))

@@ -32,12 +32,11 @@ jobs:
           mkdir -p "$XDG_CONFIG_HOME/kaja"
           cat > "$XDG_CONFIG_HOME/kaja/config.json" <<'EOF'
           {
-            "braveApiKey": "test",
-            "openaiApiBaseUrl": "http://localhost:1",
-            "openaiApiKey": "test",
-            "openaiApiModel": "test",
-            "geoServiceUrl": "http://localhost:1",
-            "geoServiceApiKey": "00000000-0000-0000-0000-000000000000"
+            "llm": {
+              "baseUrl": "http://localhost:1",
+              "apiKey": "test",
+              "model": "test"
+            }
           }
           EOF
         env:

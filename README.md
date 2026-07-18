@@ -27,11 +27,44 @@ Fill all the fields here: `~/.config/kaja/config.json` — or let the setup
 wizard do it: it opens automatically when the config is missing or invalid, 
 and anytime via `kaja --wizard` .
 
+Config is grouped by feature. `llm` is required — the app can't run without a
+model. Everything else is an optional group: `stt` , `tts` , `location` , and
+`webSearch` . Leaving a group out of the config (or blank in the wizard)
+simply leaves that one feature unavailable — dictation/TTS stay off, and the
+`my_location` / `web_search` tools aren't offered to the model.
+
+```json
+{
+	"llm": {
+		"baseUrl": "...",
+		"apiKey": "...",
+		"model": "..."
+	},
+	"stt": {
+		"speachesUrl": "...",
+		"model": "...",
+		"language": "..."
+	},
+	"tts": {
+		"speachesUrl": "...",
+		"model": "...",
+		"voice": "..."
+	},
+	"location": {
+		"serviceUrl": "...",
+		"apiKey": "..."
+	},
+	"webSearch": {
+		"apiKey": "..."
+	}
+}
+```
+
 ### Where to get credentials?
 
-* **Brave search** : get a free key from [their website](https://brave.com/search/api/).
-* **OpenAI API** : any compatible LLM (e.g. MiniMax M3) with REST API works (e.g. Ollama, Fireworks AI).
-* **Geo service** : the example URL and API key work for a while.
+* **OpenAI API** (`llm`) : any compatible LLM (e.g. MiniMax M3) with REST API works (e.g. Ollama, Fireworks AI).
+* **Web search** (`webSearch`) : get a free key from [Brave's website](https://brave.com/search/api/).
+* **Location** (`location`) : the example URL and API key work for a while.
 
 Optional multi-model list: `models.toml` in the config directory (a commented template is written on first run).
 
@@ -39,13 +72,13 @@ Optional multi-model list: `models.toml` in the config directory (a commented te
 
 English or Magyar, covering the UI and the assistant's replies. The setup wizard ( `kaja --wizard` ) starts with a language picker, saved as `settings.language` and read once at startup; without a saved choice the system locale decides (a Hungarian locale → Magyar, anything else → English).
 
-Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model;
+Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model; 
 
-set `voice.sttModel` / `voice.sttLanguage` in the config file to override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `voice.ttsModel` / `voice.ttsVoice` point somewhere Hungarian-capable.
+set `stt.model` / `stt.language` in the config file to override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `tts.model` / `tts.voice` point somewhere Hungarian-capable.
 
 ## Voice & dictation
 
-Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `ffplay` for mic and playback.
+Voice features (the optional `stt` / `tts` config groups) need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `ffplay` for mic and playback.
 
 1. Start speaches:
 
@@ -57,7 +90,7 @@ Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `
    docker compose -f compose.cpu.yaml up -d
    ```
 
-   Default URL: `ws://localhost:8000` (override with `voice.speachesUrl` in the config file, or the setup wizard's Voice group).
+   Default URL: `ws://localhost:8000` (override with `stt.speachesUrl` / `tts.speachesUrl` in the config file, or the setup wizard's STT/TTS groups).
 
 2. First time only — download the Kokoro TTS model on the server:
 

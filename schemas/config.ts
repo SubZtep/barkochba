@@ -7,28 +7,54 @@ export const KajaSettingsSchema = z.object({
   language: z.enum(["en", "hu"]).optional()
 })
 
-// Voice (STT/TTS) server settings; optional with code-side defaults so
-// existing configs stay valid and voice keeps working out of the box.
-export const KajaVoiceSchema = z.object({
+// Feature groups: each is a self-contained block of config for one feature.
+// llm is mandatory (this is a chat app; no meaningful mode without it).
+// stt/tts/location/webSearch are optional — when a group is absent, that
+// feature is simply unavailable rather than crashing the app. Fields within
+// an optional group still validate as a whole (no half-filled groups),
+// except stt/tts fields which stay optional since they have code-side
+// fallback defaults.
+export const KajaLlmSchema = z.object({
+  baseUrl: z.url(),
+  apiKey: z.string().min(1),
+  model: z.string().min(1)
+})
+
+export const KajaSttSchema = z.object({
   speachesUrl: z.url().optional(),
-  sttModel: z.string().min(1).optional(),
-  sttLanguage: z.string().min(1).optional(),
-  ttsModel: z.string().min(1).optional(),
-  ttsVoice: z.string().min(1).optional()
+  model: z.string().min(1).optional(),
+  language: z.string().min(1).optional()
+})
+
+export const KajaTtsSchema = z.object({
+  speachesUrl: z.url().optional(),
+  model: z.string().min(1).optional(),
+  voice: z.string().min(1).optional()
+})
+
+export const KajaLocationSchema = z.object({
+  serviceUrl: z.url(),
+  apiKey: z.string().min(1)
+})
+
+export const KajaWebSearchSchema = z.object({
+  apiKey: z.string().min(1)
 })
 
 export const KajaConfigSchema = z.object({
-  braveApiKey: z.string().min(1),
-  openaiApiBaseUrl: z.url(),
-  openaiApiKey: z.string().min(1),
-  openaiApiModel: z.string().min(1),
-  geoServiceUrl: z.url(),
-  geoServiceApiKey: z.string().min(1),
+  llm: KajaLlmSchema,
+  stt: KajaSttSchema.optional(),
+  tts: KajaTtsSchema.optional(),
+  location: KajaLocationSchema.optional(),
+  webSearch: KajaWebSearchSchema.optional(),
   // In-app preferences (slash menu); optional so existing configs stay valid.
-  settings: KajaSettingsSchema.optional(),
-  voice: KajaVoiceSchema.optional()
+  settings: KajaSettingsSchema.optional()
 })
 
 export type KajaConfig = z.infer<typeof KajaConfigSchema>
 export type KajaSettings = z.infer<typeof KajaSettingsSchema>
-export type KajaVoice = z.infer<typeof KajaVoiceSchema>
+export type KajaLlm = z.infer<typeof KajaLlmSchema>
+export type KajaStt = z.infer<typeof KajaSttSchema>
+export type KajaTts = z.infer<typeof KajaTtsSchema>
+export type KajaLocation = z.infer<typeof KajaLocationSchema>
+export type KajaWebSearch = z.infer<typeof KajaWebSearchSchema>
