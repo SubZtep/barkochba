@@ -1,23 +1,16 @@
-import { tool } from "../lib/agents"
-import { loadMemory, saveMemory } from "../lib/memory-store"
-import type { MemoryImportance, MemoryNote } from "../schemas/memory"
+import { REMEMBER_NOTE_TOOL, tool } from "../lib/agents"
+import {
+  forgetNotes,
+  loadMemory,
+  noteHeader,
+  saveMemory
+} from "../lib/memory-store"
+import type { MemoryImportance } from "../schemas/memory"
 
 const IMPORTANCE_WEIGHT: Record<MemoryImportance, number> = {
   low: 1,
   medium: 2,
   high: 3
-}
-
-/**
- * One-line note header shared by recall_memory and list_notes, so the model
- * sees the same self-explanatory metadata (importance, sticky, tags,
- * last-used day) everywhere:
- * `user:who-they-are [high, sticky] (tags: user, kaja) (used 2026-07-18)`
- */
-function noteHeader(key: string, note: MemoryNote) {
-  const flags = note.sticky ? `${note.importance}, sticky` : note.importance
-  const tags = note.tags.length > 0 ? ` (tags: ${note.tags.join(", ")})` : ""
-  return `${key} [${flags}]${tags} (used ${note.lastUsedAt.slice(0, 10)})`
 }
 
 /**
@@ -36,7 +29,7 @@ export const rememberNoteTool = tool<{
   tags?: string[]
   sticky?: boolean
 }>({
-  name: "remember_note",
+  name: REMEMBER_NOTE_TOOL,
   description:
     "Write or update a durable fact for future sessions. Upserts by key " +
     "(calling again with the same key overwrites, it doesn't duplicate). " +
@@ -120,7 +113,8 @@ export const recallMemoryTool = tool<{
       },
       limit: {
         type: "number",
-        description: "Max notes to return (default 5)"
+        description:
+          "Max notes to return (default 5 for keyword queries; an empty query is uncapped unless this is set)"
       },
       tags: {
         type: "array",
@@ -180,7 +174,12 @@ export const recallMemoryTool = tool<{
         if (b.score !== a.score) return b.score - a.score
         return b.note.createdAt.localeCompare(a.note.createdAt)
       })
-      .slice(0, args.limit ?? 5)
+      // An empty query is the audit/bulk view: honor "returns the whole
+      // filtered set" — only an explicit limit truncates it.
+      .slice(
+        0,
+        args.limit ?? (tokens.length === 0 ? Number.POSITIVE_INFINITY : 5)
+      )
 
     if (scored.length === 0) return "(no matching notes)"
 
@@ -239,21 +238,12 @@ export const forgetNoteTool = tool<{
       return "Provide exactly one of: key, tag, pattern."
 
     const store = await loadMemory()
-    let victims: string[]
-    if (args.key !== undefined) {
-      if (!(args.key in store)) return "(no note with that key)"
-      victims = [args.key]
-    } else if (args.tag !== undefined) {
-      victims = Object.entries(store)
-        .filter(([, note]) => note.tags.includes(args.tag!))
-        .map(([key]) => key)
-    } else {
-      const glob = new Bun.Glob(args.pattern!)
-      victims = Object.keys(store).filter((key) => glob.match(key))
-    }
-    if (victims.length === 0) return "(no matching notes)"
+    const victims = forgetNotes(store, args)
+    if (victims.length === 0)
+      return args.key !== undefined
+        ? "(no note with that key)"
+        : "(no matching notes)"
 
-    for (const key of victims) delete store[key]
     await saveMemory(store)
     return `Forgot: ${victims.join(", ")}`
   }

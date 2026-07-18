@@ -7,6 +7,7 @@ bye = "Bye, bye!"
 help = """
 Usage
   $ kaja
+  $ kaja memory <list|forget <key-or-glob>|export>
 
 Options
   --help     Print this help
@@ -17,8 +18,21 @@ Options
 Examples
   $ kaja --config
   /home/dcr/.config/kaja/config.json
+  $ kaja memory list
+  $ kaja memory forget "test:*"
 """
 clipboardFailed = "Clipboard tool failed"
+
+[memory]
+usage = """
+Usage
+  $ kaja memory list                   List every stored note
+  $ kaja memory forget <key-or-glob>   Delete notes by key, or in bulk with a glob like "test:*"
+  $ kaja memory export                 Print the raw memory JSON
+"""
+empty = "(no notes stored)"
+noMatch = "(no matching notes)"
+forgot = "Forgot: {keys}"
 
 [config]
 invalidAt = "Invalid config file at {path}: {message}"

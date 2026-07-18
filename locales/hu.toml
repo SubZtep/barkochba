@@ -7,6 +7,7 @@ bye = "Pá, pá!"
 help = """
 Használat
   $ kaja
+  $ kaja memory <list|forget <kulcs-vagy-glob>|export>
 
 Kapcsolók
   --help     Kiírja ezt a súgót
@@ -17,8 +18,21 @@ Kapcsolók
 Példák
   $ kaja --config
   /home/dcr/.config/kaja/config.json
+  $ kaja memory list
+  $ kaja memory forget "test:*"
 """
 clipboardFailed = "A vágólapkezelő hibázott"
+
+[memory]
+usage = """
+Használat
+  $ kaja memory list                    Kilistázza az összes elmentett jegyzetet
+  $ kaja memory forget <kulcs-vagy-glob>  Jegyzetek törlése kulcs alapján, vagy csoportosan glob mintával, pl. "test:*"
+  $ kaja memory export                  Kiírja a nyers memória JSON-t
+"""
+empty = "(nincs elmentett jegyzet)"
+noMatch = "(nincs egyező jegyzet)"
+forgot = "Elfelejtve: {keys}"
 
 [config]
 invalidAt = "Érvénytelen konfigurációs fájl ({path}): {message}"

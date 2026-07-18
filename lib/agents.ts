@@ -202,21 +202,32 @@ export const runCommandTool = tool<{ command: string; description: string }>({
 })
 
 /**
+ * Name of the tool that gates the persistent-memory feature: when an agent
+ * has it, {@link run} injects {@link MEMORY_INSTRUCTIONS} and the sticky
+ * notes into the session's system prompt. Unlike {@link ASK_USER_TOOL} and
+ * {@link RUN_COMMAND_TOOL} it is not intercepted — the memory tools
+ * execute normally.
+ */
+export const REMEMBER_NOTE_TOOL = "remember_note"
+
+/**
  * System-prompt guidance injected by {@link run} when an agent has the
- * `remember_note` tool. Tells the model to write proactively rather than
- * waiting to be asked, matching the persistent-memory design.
+ * memory tools. Gives each tool a purpose (not just a name) and tells the
+ * model to write proactively rather than waiting to be asked.
  */
 const MEMORY_INSTRUCTIONS =
-  "You have persistent memory across sessions via remember_note, " +
-  "recall_memory, forget_note, and list_notes. Whenever you learn a " +
-  "durable fact about the user or the project, call remember_note right " +
-  "away — don't ask permission first. Notes marked sticky are shown to " +
-  "you automatically at the start of every future session; use sticky " +
-  "for things that should always be known (who the user is, their " +
-  "preferences), and non-sticky for things only worth recalling on a " +
-  "relevant query. Name keys with a scope prefix — user:, project:, " +
-  "decision: — like user:communication-style, so keys stay consistent " +
-  "and don't collide."
+  "You have persistent memory across sessions. Save durable facts about " +
+  `the user or project with ${REMEMBER_NOTE_TOOL} the moment you learn ` +
+  "them — don't ask permission first. Search past facts with " +
+  "recall_memory whenever earlier context could help with the current " +
+  "question. Audit what's stored with list_notes, and delete stale or " +
+  "wrong notes with forget_note — keep the store curated. Notes marked " +
+  "sticky are shown to you automatically at the start of every future " +
+  "session; use sticky for things that should always be known (who the " +
+  "user is, their preferences), and non-sticky for things only worth " +
+  "recalling on a relevant query. Name keys with a scope prefix — " +
+  "user:, project:, decision: — like user:communication-style, so keys " +
+  "stay consistent and don't collide."
 
 /**
  * Ephemeral token fragment yielded by {@link run} while a completion streams
@@ -299,7 +310,7 @@ export async function* run(
   const messages = session.messages
 
   if (messages.length === 0) {
-    const hasMemory = toolsByName.has("remember_note")
+    const hasMemory = toolsByName.has(REMEMBER_NOTE_TOOL)
     const stickyNotes = hasMemory
       ? Object.entries(await loadMemory()).filter(([, note]) => note.sticky)
       : []

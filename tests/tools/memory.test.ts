@@ -279,6 +279,25 @@ test("forget_note deletes in bulk by key glob pattern", async () => {
   expect(list).not.toContain("test:probe-a")
 })
 
+test("recall_memory with an empty query is uncapped unless limit is passed", async () => {
+  for (let i = 0; i < 7; i++) {
+    await rememberNoteTool.execute({
+      key: `note-${i}`,
+      content: `fact ${i}`,
+      importance: "low"
+    })
+  }
+
+  const all = await recallMemoryTool.execute({ query: "" })
+  expect(all.split("\n")).toHaveLength(7)
+
+  const capped = await recallMemoryTool.execute({ query: "", limit: 3 })
+  expect(capped.split("\n")).toHaveLength(3)
+
+  const keyword = await recallMemoryTool.execute({ query: "fact" })
+  expect(keyword.split("\n")).toHaveLength(5)
+})
+
 test("forget_note requires exactly one selector", async () => {
   expect(await forgetNoteTool.execute({})).toBe(
     "Provide exactly one of: key, tag, pattern."

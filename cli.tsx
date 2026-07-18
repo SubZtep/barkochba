@@ -31,6 +31,15 @@ setLanguage(lang === "hu" || lang === "en" ? lang : detectLanguage())
 // invalid config.
 const { cli } = await import("./lib/args")
 
+// Memory subcommand: before the config guard on purpose — browsing and
+// managing memory must work even with a missing or invalid LLM config.
+if (cli.input[0] === "memory") {
+  const { runMemoryCli } = await import("./lib/memory-cli")
+  const { code, text } = await runMemoryCli(cli.input.slice(1))
+  console.log(text)
+  process.exit(code)
+}
+
 // Missing or invalid config (or --wizard): run the setup wizard instead of
 // exiting, then fall through to the normal boot with the freshly written
 // file. A fresh blank template never validates, so first-run also lands in
