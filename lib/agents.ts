@@ -214,7 +214,9 @@ const MEMORY_INSTRUCTIONS =
   "you automatically at the start of every future session; use sticky " +
   "for things that should always be known (who the user is, their " +
   "preferences), and non-sticky for things only worth recalling on a " +
-  "relevant query."
+  "relevant query. Name keys with a scope prefix — user:, project:, " +
+  "decision: — like user:communication-style, so keys stay consistent " +
+  "and don't collide."
 
 /**
  * Ephemeral token fragment yielded by {@link run} while a completion streams

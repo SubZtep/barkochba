@@ -66,9 +66,9 @@ test("recall_memory scores and orders by relevance and importance", async () => 
 
   const result = await recallMemoryTool.execute({ query: "typescript" })
   const lines = result.split("\n")
-  expect(lines[0]).toContain("b:")
-  expect(lines[1]).toContain("a:")
-  expect(result).not.toContain("c:")
+  expect(lines[0]).toStartWith("b [high]")
+  expect(lines[1]).toStartWith("a [low]")
+  expect(result).not.toContain("unrelated fact")
 })
 
 test("recall_memory returns a no-match message", async () => {
@@ -109,10 +109,181 @@ test("list_notes marks sticky notes", async () => {
     sticky: true
   })
   const list = await listNotesTool.execute({})
-  expect(list).toContain("* [high] sticky-one")
+  expect(list).toContain("sticky-one [high, sticky]")
 })
 
 test("list_notes on an empty store", async () => {
   const result = await listNotesTool.execute({})
   expect(result).toBe("(no notes stored)")
+})
+
+test("recall_memory results carry importance, sticky, tags, and date metadata", async () => {
+  await rememberNoteTool.execute({
+    key: "user:style",
+    content: "likes brevity",
+    importance: "high",
+    tags: ["user", "style"],
+    sticky: true
+  })
+  const result = await recallMemoryTool.execute({ query: "brevity" })
+  expect(result).toContain("user:style [high, sticky]")
+  expect(result).toContain("(tags: user, style)")
+  expect(result).toContain("(used ")
+  expect(result).toContain(": likes brevity")
+})
+
+test("list_notes hides content by default and shows it with full: true", async () => {
+  await rememberNoteTool.execute({
+    key: "a",
+    content: "the secret content",
+    importance: "low",
+    tags: ["x"]
+  })
+  const compact = await listNotesTool.execute({})
+  expect(compact).toContain("a [low] (tags: x)")
+  expect(compact).not.toContain("the secret content")
+
+  const full = await listNotesTool.execute({ full: true })
+  expect(full).toContain("the secret content")
+})
+
+test("recall_memory filters by tags (any-of)", async () => {
+  await rememberNoteTool.execute({
+    key: "a",
+    content: "fact one",
+    importance: "medium",
+    tags: ["alpha"]
+  })
+  await rememberNoteTool.execute({
+    key: "b",
+    content: "fact two",
+    importance: "medium",
+    tags: ["beta"]
+  })
+  const result = await recallMemoryTool.execute({
+    query: "fact",
+    tags: ["alpha"]
+  })
+  expect(result).toContain("fact one")
+  expect(result).not.toContain("fact two")
+})
+
+test("recall_memory filters by stickyOnly and minImportance", async () => {
+  await rememberNoteTool.execute({
+    key: "sticky-high",
+    content: "shared fact",
+    importance: "high",
+    sticky: true
+  })
+  await rememberNoteTool.execute({
+    key: "loose-low",
+    content: "shared fact",
+    importance: "low"
+  })
+
+  const sticky = await recallMemoryTool.execute({
+    query: "shared",
+    stickyOnly: true
+  })
+  expect(sticky).toContain("sticky-high")
+  expect(sticky).not.toContain("loose-low")
+
+  const important = await recallMemoryTool.execute({
+    query: "shared",
+    minImportance: "medium"
+  })
+  expect(important).toContain("sticky-high")
+  expect(important).not.toContain("loose-low")
+})
+
+test("recall_memory with an empty query returns the filtered set ranked by importance", async () => {
+  await rememberNoteTool.execute({
+    key: "low-one",
+    content: "minor",
+    importance: "low",
+    sticky: true
+  })
+  await rememberNoteTool.execute({
+    key: "high-one",
+    content: "major",
+    importance: "high",
+    sticky: true
+  })
+  await rememberNoteTool.execute({
+    key: "loose",
+    content: "not sticky",
+    importance: "high"
+  })
+
+  const result = await recallMemoryTool.execute({
+    query: "",
+    stickyOnly: true
+  })
+  const lines = result.split("\n")
+  expect(lines).toHaveLength(2)
+  expect(lines[0]).toStartWith("high-one")
+  expect(lines[1]).toStartWith("low-one")
+})
+
+test("forget_note deletes in bulk by tag", async () => {
+  await rememberNoteTool.execute({
+    key: "t1",
+    content: "probe",
+    importance: "low",
+    tags: ["test"]
+  })
+  await rememberNoteTool.execute({
+    key: "t2",
+    content: "probe",
+    importance: "low",
+    tags: ["test"]
+  })
+  await rememberNoteTool.execute({
+    key: "keep",
+    content: "real",
+    importance: "low"
+  })
+
+  const result = await forgetNoteTool.execute({ tag: "test" })
+  expect(result).toContain("t1")
+  expect(result).toContain("t2")
+
+  const list = await listNotesTool.execute({})
+  expect(list).toContain("keep")
+  expect(list).not.toContain("t1")
+})
+
+test("forget_note deletes in bulk by key glob pattern", async () => {
+  await rememberNoteTool.execute({
+    key: "test:probe-a",
+    content: "probe",
+    importance: "low"
+  })
+  await rememberNoteTool.execute({
+    key: "test:probe-b",
+    content: "probe",
+    importance: "low"
+  })
+  await rememberNoteTool.execute({
+    key: "user:real",
+    content: "real",
+    importance: "low"
+  })
+
+  const result = await forgetNoteTool.execute({ pattern: "test:*" })
+  expect(result).toContain("test:probe-a")
+  expect(result).toContain("test:probe-b")
+
+  const list = await listNotesTool.execute({})
+  expect(list).toContain("user:real")
+  expect(list).not.toContain("test:probe-a")
+})
+
+test("forget_note requires exactly one selector", async () => {
+  expect(await forgetNoteTool.execute({})).toBe(
+    "Provide exactly one of: key, tag, pattern."
+  )
+  expect(await forgetNoteTool.execute({ key: "a", tag: "b" })).toBe(
+    "Provide exactly one of: key, tag, pattern."
+  )
 })

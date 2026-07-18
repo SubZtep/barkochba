@@ -1,11 +1,23 @@
 import { tool } from "../lib/agents"
 import { loadMemory, saveMemory } from "../lib/memory-store"
-import type { MemoryImportance } from "../schemas/memory"
+import type { MemoryImportance, MemoryNote } from "../schemas/memory"
 
 const IMPORTANCE_WEIGHT: Record<MemoryImportance, number> = {
   low: 1,
   medium: 2,
   high: 3
+}
+
+/**
+ * One-line note header shared by recall_memory and list_notes, so the model
+ * sees the same self-explanatory metadata (importance, sticky, tags,
+ * last-used day) everywhere:
+ * `user:who-they-are [high, sticky] (tags: user, kaja) (used 2026-07-18)`
+ */
+function noteHeader(key: string, note: MemoryNote) {
+  const flags = note.sticky ? `${note.importance}, sticky` : note.importance
+  const tags = note.tags.length > 0 ? ` (tags: ${note.tags.join(", ")})` : ""
+  return `${key} [${flags}]${tags} (used ${note.lastUsedAt.slice(0, 10)})`
 }
 
 /**
@@ -77,24 +89,52 @@ export const rememberNoteTool = tool<{
 })
 
 /**
- * Searches stored notes by keyword, ranked by importance.
+ * Searches stored notes by keyword, ranked by importance, with optional
+ * metadata filters.
  *
- * @param args.query - Search terms, tokenized and matched against each note's content, tags, and key.
+ * @param args.query - Search terms, tokenized and matched against each note's content, tags, and key. May be empty when a filter is given.
  * @param args.limit - Max notes to return (default 5).
- * @returns The top-matching notes as "key: content" lines, or a no-match message.
+ * @param args.tags - Only notes carrying at least one of these tags.
+ * @param args.stickyOnly - Only sticky notes.
+ * @param args.minImportance - Only notes at or above this importance.
+ * @returns The top-matching notes with their metadata header, or a no-match message.
  */
-export const recallMemoryTool = tool<{ query: string; limit?: number }>({
+export const recallMemoryTool = tool<{
+  query: string
+  limit?: number
+  tags?: string[]
+  stickyOnly?: boolean
+  minImportance?: MemoryImportance
+}>({
   name: "recall_memory",
   description:
-    "Search stored notes by keyword. Returns the best-matching notes, " +
-    "ranked by relevance and importance.",
+    "Search stored notes by keyword, ranked by relevance and importance. " +
+    "Optional filters: tags (any-of), stickyOnly, minImportance. An empty " +
+    "query with a filter returns the whole filtered set.",
   parameters: {
     type: "object",
     properties: {
-      query: { type: "string", description: "Search terms" },
+      query: {
+        type: "string",
+        description: "Search terms; may be empty when a filter is given"
+      },
       limit: {
         type: "number",
         description: "Max notes to return (default 5)"
+      },
+      tags: {
+        type: "array",
+        items: { type: "string" },
+        description: "Only notes carrying at least one of these tags"
+      },
+      stickyOnly: {
+        type: "boolean",
+        description: "Only sticky notes"
+      },
+      minImportance: {
+        type: "string",
+        enum: ["low", "medium", "high"],
+        description: "Only notes at or above this importance"
       }
     },
     required: ["query"]
@@ -104,17 +144,38 @@ export const recallMemoryTool = tool<{ query: string; limit?: number }>({
     const tokens = args.query.toLowerCase().split(/\s+/).filter(Boolean)
 
     const scored = Object.entries(store)
+      .filter(([, note]) => {
+        if (args.stickyOnly && !note.sticky) return false
+        if (
+          args.minImportance &&
+          IMPORTANCE_WEIGHT[note.importance] <
+            IMPORTANCE_WEIGHT[args.minImportance]
+        )
+          return false
+        if (
+          args.tags &&
+          args.tags.length > 0 &&
+          !note.tags.some((tag) => args.tags!.includes(tag))
+        )
+          return false
+        return true
+      })
       .map(([key, note]) => {
         const haystack =
           `${note.content} ${note.tags.join(" ")} ${key}`.toLowerCase()
-        const hits = tokens.reduce(
-          (count, tok) => count + (haystack.includes(tok) ? 1 : 0),
-          0
-        )
+        // An empty query means "everything the filters allow", ranked purely
+        // by importance — one synthetic hit gives each note its weight.
+        const hits =
+          tokens.length === 0
+            ? 1
+            : tokens.reduce(
+                (count, tok) => count + (haystack.includes(tok) ? 1 : 0),
+                0
+              )
         const score = hits * IMPORTANCE_WEIGHT[note.importance]
         return { key, note, score }
       })
-      .filter((entry) => tokens.length === 0 || entry.score > 0)
+      .filter((entry) => entry.score > 0)
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score
         return b.note.createdAt.localeCompare(a.note.createdAt)
@@ -123,61 +184,111 @@ export const recallMemoryTool = tool<{ query: string; limit?: number }>({
 
     if (scored.length === 0) return "(no matching notes)"
 
+    const result = scored
+      .map(({ key, note }) => `${noteHeader(key, note)}: ${note.content}`)
+      .join("\n")
+
     const now = new Date().toISOString()
     for (const { key, note } of scored) {
       store[key] = { ...note, lastUsedAt: now, useCount: note.useCount + 1 }
     }
     await saveMemory(store)
 
-    return scored.map(({ key, note }) => `${key}: ${note.content}`).join("\n")
+    return result
   }
 })
 
 /**
- * Deletes one note by exact key.
+ * Deletes notes by exact key, by tag, or by key glob pattern.
  *
- * @param args.key - The note's key.
+ * @param args.key - Exact key of one note to delete.
+ * @param args.tag - Delete every note carrying this tag.
+ * @param args.pattern - Delete every note whose key matches this glob, e.g. "test:*".
  */
-export const forgetNoteTool = tool<{ key: string }>({
+export const forgetNoteTool = tool<{
+  key?: string
+  tag?: string
+  pattern?: string
+}>({
   name: "forget_note",
-  description: "Delete a stored note by its exact key.",
+  description:
+    "Delete stored notes. Provide exactly one selector: key (exact), tag " +
+    "(every note carrying it), or pattern (key glob like 'test:*'). " +
+    "Returns the forgotten keys.",
   parameters: {
     type: "object",
     properties: {
-      key: { type: "string", description: "The note's key" }
+      key: { type: "string", description: "Exact key of one note to delete" },
+      tag: {
+        type: "string",
+        description: "Delete every note carrying this tag"
+      },
+      pattern: {
+        type: "string",
+        description:
+          "Delete every note whose key matches this glob, e.g. 'test:*'"
+      }
     },
-    required: ["key"]
+    required: []
   },
   execute: async (args) => {
+    const selectors = [args.key, args.tag, args.pattern].filter(
+      (s) => s !== undefined
+    )
+    if (selectors.length !== 1)
+      return "Provide exactly one of: key, tag, pattern."
+
     const store = await loadMemory()
-    if (!(args.key in store)) return "(no note with that key)"
-    delete store[args.key]
+    let victims: string[]
+    if (args.key !== undefined) {
+      if (!(args.key in store)) return "(no note with that key)"
+      victims = [args.key]
+    } else if (args.tag !== undefined) {
+      victims = Object.entries(store)
+        .filter(([, note]) => note.tags.includes(args.tag!))
+        .map(([key]) => key)
+    } else {
+      const glob = new Bun.Glob(args.pattern!)
+      victims = Object.keys(store).filter((key) => glob.match(key))
+    }
+    if (victims.length === 0) return "(no matching notes)"
+
+    for (const key of victims) delete store[key]
     await saveMemory(store)
-    return `Forgot "${args.key}".`
+    return `Forgot: ${victims.join(", ")}`
   }
 })
 
 /**
- * Lists every stored note's key, importance, and sticky flag, for auditing what's remembered.
+ * Lists every stored note with its metadata, for auditing what's remembered.
+ *
+ * @param args.full - When true, include each note's content below its header.
  */
-export const listNotesTool = tool<Record<string, never>>({
+export const listNotesTool = tool<{ full?: boolean }>({
   name: "list_notes",
   description:
-    "List every stored note's key, importance, and sticky flag — use to " +
-    "audit what's currently remembered.",
+    "List every stored note's key, importance, sticky flag, tags, and " +
+    "last-used date — use to audit what's currently remembered. Pass " +
+    "full: true to include each note's content.",
   parameters: {
     type: "object",
-    properties: {},
+    properties: {
+      full: {
+        type: "boolean",
+        description: "Include each note's content below its header"
+      }
+    },
     required: []
   },
-  execute: async () => {
+  execute: async (args) => {
     const store = await loadMemory()
     const entries = Object.entries(store)
     if (entries.length === 0) return "(no notes stored)"
     return entries
-      .map(
-        ([key, note]) =>
-          `${note.sticky ? "*" : " "} [${note.importance}] ${key}`
+      .map(([key, note]) =>
+        args.full
+          ? `${noteHeader(key, note)}\n  ${note.content}`
+          : noteHeader(key, note)
       )
       .join("\n")
   }
