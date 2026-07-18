@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   test:
@@ -24,5 +25,25 @@ jobs:
       - name: Lint
         run: bunx --bun @biomejs/biome check --config-path=.
 
+      - name: Write fake config
+        # lib/openai.ts reads the config file at import time, so tests that
+        # import it (transitively, e.g. lib/agents.ts) need one to exist.
+        run: |
+          mkdir -p "$XDG_CONFIG_HOME/kaja"
+          cat > "$XDG_CONFIG_HOME/kaja/config.json" <<'EOF'
+          {
+            "braveApiKey": "test",
+            "openaiApiBaseUrl": "http://localhost:1",
+            "openaiApiKey": "test",
+            "openaiApiModel": "test",
+            "geoServiceUrl": "http://localhost:1",
+            "geoServiceApiKey": "00000000-0000-0000-0000-000000000000"
+          }
+          EOF
+        env:
+          XDG_CONFIG_HOME: ${{ runner.temp }}/xdg-config
+
       - name: Test
         run: bun test
+        env:
+          XDG_CONFIG_HOME: ${{ runner.temp }}/xdg-config
