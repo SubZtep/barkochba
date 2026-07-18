@@ -55,14 +55,18 @@ if (cli.flags.wizard || !(await validate(true))) {
 // load, so a static import would crash before the first-run flow above.
 const { default: App } = await import("./components/layout/app")
 
-const { settings } = await config()
+const { settings, openaiApiModel } = await config()
 const models = await loadModels()
 // Alternate screen: full-viewport app (header / chat / input). Restores the
 // primary buffer on exit; no terminal scrollback while running.
 // Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
 // send the same `\r` for both and cannot do Shift+Enter newlines otherwise.
 const { waitUntilExit } = render(
-  <App initialSettings={settings} models={models} />,
+  <App
+    initialSettings={settings}
+    models={models}
+    openaiApiModel={openaiApiModel}
+  />,
   {
     alternateScreen: true,
     kittyKeyboard: {

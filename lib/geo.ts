@@ -1,3 +1,5 @@
+import { config } from "./config"
+
 export interface GeoLocation {
   continent: { geonameId: number; name: string }
   country: { geonameId: number; name: string }
@@ -25,9 +27,10 @@ export async function lookupMyLocation(): Promise<GeoLocation> {
   if (!ipRes.ok) throw new Error(`Public IP lookup failed: ${ipRes.status}`)
   const ip = (await ipRes.text()).trim()
 
-  const res = await fetch(`${process.env.GEO_SERVICE_URL}/lookup/${ip}`, {
+  const { geoServiceUrl, geoServiceApiKey } = await config()
+  const res = await fetch(`${geoServiceUrl}/lookup/${ip}`, {
     headers: {
-      "X-API-Key": process.env.GEO_SERVICE_API_KEY!
+      "X-API-Key": geoServiceApiKey
     }
   })
   if (!res.ok)

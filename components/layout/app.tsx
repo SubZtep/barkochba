@@ -16,10 +16,12 @@ import { UserInput } from "./user-input"
 
 export default function App({
   initialSettings,
-  models = []
+  models = [],
+  openaiApiModel
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
+  openaiApiModel: string
 }) {
   const {
     model,
@@ -31,7 +33,7 @@ export default function App({
     pending,
     send
   } = useAgent({
-    model: process.env.OPENAI_API_MODEL!,
+    model: openaiApiModel,
     tools: defaultTools
   })
   const { thinking, sounds, voice, toggleThinking, toggleSounds, toggleVoice } =
