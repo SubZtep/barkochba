@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { createLocalSource } from "../lib/frontends/local"
+import { createLocalSource } from "../lib/audio"
 import { createStt, type Stt, type SttState } from "../lib/stt"
 
 /**

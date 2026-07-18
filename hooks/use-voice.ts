@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { createLocalSink } from "../lib/frontends/local"
+import { createLocalSink } from "../lib/audio"
 import { log } from "../lib/logger"
 import { toSpeakable } from "../lib/speakable"
 import { createTts, warmupTts } from "../lib/tts"
