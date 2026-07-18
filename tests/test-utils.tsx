@@ -34,7 +34,10 @@ export function renderForTest(node: ReactNode) {
     stdout,
     stdin,
     exitOnCtrlC: false,
-    patchConsole: false
+    patchConsole: false,
+    // Ink's CI autodetection (is-in-ci) would otherwise force non-interactive
+    // mode here too, which stops it painting anything but the final frame.
+    interactive: true
   })
 
   const tick = () => new Promise((resolve) => setTimeout(resolve, 100))
