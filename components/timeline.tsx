@@ -27,6 +27,8 @@ export function TimelineItem({
           <Markdown>{item.question}</Markdown>
         </Text>
       )
+    case "confirm_command":
+      return <Text color="yellow">{`$ ${item.command}`}</Text>
     case "error":
       return <Text color="red">{`✗ ${item.text}`}</Text>
     case "final":

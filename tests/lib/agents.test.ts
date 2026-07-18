@@ -4,7 +4,8 @@ import {
   type AgentEvent,
   askUserTool,
   createSession,
-  run
+  run,
+  runCommandTool
 } from "../../lib/agents"
 
 type FakeMessage = {
@@ -48,7 +49,7 @@ function fakeAgent(script: FakeMessage[]): Agent {
   return {
     name: "Tester",
     model: "fake-model",
-    tools: [askUserTool],
+    tools: [askUserTool, runCommandTool],
     client: fakeClient(script)
   } as unknown as Agent
 }
@@ -94,4 +95,70 @@ test("content without tool calls still arrives as final only", async () => {
   expect(finalized).toEqual([
     { type: "final", content: "The answer was a platypus." }
   ])
+})
+
+test("run_command call is intercepted and yielded as confirm_command", async () => {
+  const agent = fakeAgent([
+    {
+      content: null,
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: {
+            name: "run_command",
+            arguments: JSON.stringify({
+              command: "echo hi",
+              description: "Say hi"
+            })
+          }
+        }
+      ]
+    }
+  ])
+
+  const events = await collect(agent)
+  const finalized = events.filter((e) => e.type !== "delta")
+  expect(finalized).toEqual([
+    { type: "confirm_command", command: "echo hi", description: "Say hi" }
+  ])
+})
+
+test("resuming after run_command threads the result back as a tool response", async () => {
+  const agent = fakeAgent([
+    {
+      content: null,
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: {
+            name: "run_command",
+            arguments: JSON.stringify({
+              command: "echo hi",
+              description: "Say hi"
+            })
+          }
+        }
+      ]
+    },
+    { content: "Done." }
+  ])
+
+  const session = createSession()
+  const first: AgentEvent[] = []
+  for await (const event of run(agent, "play a beep", session)) {
+    first.push(event)
+  }
+  expect(session.pendingRunCommandId).toBe("call_1")
+
+  const second: AgentEvent[] = []
+  for await (const event of run(agent, "Exit code: 0", session)) {
+    second.push(event)
+  }
+  expect(session.pendingRunCommandId).toBeUndefined()
+  expect(second.filter((e) => e.type !== "delta")).toEqual([
+    { type: "final", content: "Done." }
+  ])
+  expect(session.messages.some((m) => m.role === "tool")).toBe(true)
 })

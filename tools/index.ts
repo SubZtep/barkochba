@@ -1,6 +1,7 @@
-import { askUserTool } from "../lib/agents"
+import { askUserTool, runCommandTool } from "../lib/agents"
 import { config } from "../lib/config"
 import { currentTimeTool } from "./current-time"
+import { fetchUrlTool } from "./fetch-url"
 import { listFilesTool } from "./list-files"
 import { myLocationTool } from "./my-location"
 import { readFileTool } from "./read-file"
@@ -16,8 +17,10 @@ export async function getDefaultTools() {
   return [
     readFileTool,
     listFilesTool,
+    fetchUrlTool,
     currentTimeTool,
     askUserTool,
+    runCommandTool,
     ...(webSearch ? [webSearchTool] : []),
     ...(location ? [myLocationTool] : [])
   ]

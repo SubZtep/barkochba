@@ -1,3 +1,4 @@
+import { homedir } from "node:os"
 import OpenAI from "openai"
 import type {
   ChatCompletionMessageParam,
@@ -112,6 +113,31 @@ const HUNGARIAN_REPLY_INSTRUCTIONS =
   "The user speaks Hungarian. Always reply in Hungarian, including " +
   "questions asked through the ask_user tool."
 
+/** Grounds the model in the host OS and home directory so path-related tools (list_files, read_file) get correct conventions instead of guessing (e.g. assuming /root). */
+const PLATFORM_INSTRUCTIONS = `You are running on ${process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "macOS" : "Linux"}. Use ${process.platform === "win32" ? "backslash" : "forward-slash"} paths accordingly. The user's home directory is ${homedir()}.`
+
+/**
+ * Name of the built-in tool the model calls to propose a shell command. Like
+ * {@link ASK_USER_TOOL}, {@link run} intercepts calls to this tool by name
+ * instead of executing it: it ends the generator so the caller can show the
+ * human the proposed command, get their approval, run it (or not), and
+ * continue the conversation with the result.
+ */
+export const RUN_COMMAND_TOOL = "run_command"
+
+/**
+ * System-prompt guidance injected by {@link run} when an agent has the
+ * {@link runCommandTool}.
+ */
+const RUN_COMMAND_INSTRUCTIONS =
+  `Use ${RUN_COMMAND_TOOL} to run a shell command on the user's computer — ` +
+  `e.g. playing a sound, converting a file, checking installed tools. The ` +
+  `human will be shown the exact command and must approve it before it ` +
+  `runs; if they decline, treat it as not done and tell them so, don't ` +
+  `retry the same command silently. Prefer read-only tools for anything ` +
+  `that only needs to inspect something — reserve this for when you ` +
+  `actually need to change state or invoke an external program.`
+
 /**
  * Tool the model calls to ask the human a question and wait for their reply,
  * instead of ending its turn with a plain final message. Include this in an
@@ -144,6 +170,37 @@ export const askUserTool = tool<{ question: string }>({
 })
 
 /**
+ * Tool the model calls to propose a shell command, pausing until the human
+ * approves or declines it. Never actually executed — {@link run} intercepts
+ * calls to it by name before dispatch; the caller runs the command (or not)
+ * and feeds the result back as the next `run()` call's prompt.
+ */
+export const runCommandTool = tool<{ command: string; description: string }>({
+  name: RUN_COMMAND_TOOL,
+  description:
+    "Propose a shell command to run on the user's computer. Requires " +
+    "human approval before it executes. Use for actions like playing a " +
+    "sound, converting media, or invoking a CLI tool.",
+  parameters: {
+    type: "object",
+    properties: {
+      command: { type: "string", description: "The shell command to run" },
+      description: {
+        type: "string",
+        description:
+          "One short sentence explaining what this command does, shown to the human alongside it"
+      }
+    },
+    required: ["command", "description"]
+  },
+  execute: async () => {
+    throw new Error(
+      `${RUN_COMMAND_TOOL} should be intercepted by run(), not executed`
+    )
+  }
+})
+
+/**
  * Ephemeral token fragment yielded by {@link run} while a completion streams
  * in, before the round's finalized events. `channel` says which part of the
  * message the text belongs to. Presentation-only: consumers may render these
@@ -165,6 +222,7 @@ export type AgentEvent =
   | { type: "message"; content: string }
   | { type: "tool_call"; name: string; arguments: string }
   | { type: "ask_user"; question: string }
+  | { type: "confirm_command"; command: string; description: string }
   | { type: "final"; content: string | null }
 
 /**
@@ -175,13 +233,15 @@ export type FinalizedAgentEvent = Exclude<AgentEvent, AgentDelta>
 
 /**
  * Conversation state threaded through repeated {@link run} calls: the
- * message history, and the id of a pending {@link ASK_USER_TOOL} call (if
- * the previous {@link run} stopped on one) so the next call can resolve it
- * with a tool response instead of a fresh user message.
+ * message history, and the id of a pending {@link ASK_USER_TOOL} or
+ * {@link RUN_COMMAND_TOOL} call (if the previous {@link run} stopped on one)
+ * so the next call can resolve it with a tool response instead of a fresh
+ * user message.
  */
 export type Session = {
   messages: ChatCompletionMessageParam[]
   pendingAskUserId?: string
+  pendingRunCommandId?: string
 }
 
 /**
@@ -223,7 +283,9 @@ export async function* run(
   if (messages.length === 0) {
     const system = [
       agent.instructions,
+      PLATFORM_INSTRUCTIONS,
       toolsByName.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
+      toolsByName.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
       getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
     ]
       .filter(Boolean)
@@ -238,6 +300,13 @@ export async function* run(
       content: prompt
     })
     session.pendingAskUserId = undefined
+  } else if (session.pendingRunCommandId) {
+    messages.push({
+      role: "tool",
+      tool_call_id: session.pendingRunCommandId,
+      content: prompt
+    })
+    session.pendingRunCommandId = undefined
   } else {
     messages.push({ role: "user", content: prompt })
   }
@@ -313,11 +382,14 @@ export async function* run(
     if (typeof message.content === "string" && message.content.trim())
       yield { type: "message", content: message.content }
 
-    // Otherwise execute tool calls. ask_user is handled last so every other
-    // tool_call_id in this message still gets a matching tool response
-    // pushed before we stop for the human's reply (its own tool response is
-    // pushed on the next run() call, once the human has answered).
+    // Otherwise execute tool calls. ask_user/run_command are handled last so
+    // every other tool_call_id in this message still gets a matching tool
+    // response pushed before we stop for the human (their own tool response
+    // is pushed on the next run() call, once the human has answered).
     let ask: { id: string; question: string } | undefined
+    let confirm:
+      | { id: string; command: string; description: string }
+      | undefined
     for (const call of message.tool_calls) {
       if (call.type !== "function") continue
 
@@ -325,6 +397,16 @@ export async function* run(
         ask = {
           id: call.id,
           question: JSON.parse(call.function.arguments).question
+        }
+        continue
+      }
+
+      if (call.function.name === RUN_COMMAND_TOOL) {
+        const args = JSON.parse(call.function.arguments)
+        confirm = {
+          id: call.id,
+          command: args.command,
+          description: args.description
         }
         continue
       }
@@ -347,6 +429,16 @@ export async function* run(
     if (ask) {
       session.pendingAskUserId = ask.id
       yield { type: "ask_user", question: ask.question }
+      return
+    }
+
+    if (confirm) {
+      session.pendingRunCommandId = confirm.id
+      yield {
+        type: "confirm_command",
+        command: confirm.command,
+        description: confirm.description
+      }
       return
     }
   }

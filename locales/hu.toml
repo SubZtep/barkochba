@@ -62,6 +62,11 @@ placeholder = "`/` menü · Alt+Enter új sor · PgUp előzmények"
 [viewport]
 older = "↑ régebbi · PageDown vagy Ctrl+End a követéshez"
 
+[confirmCommand]
+yes = "Igen, futtasd"
+no = "Nem, mégse"
+running = "Fut…"
+
 [activity]
 thinking = "Gondolkozom… {seconds}s"
 tokens = " · ~{tokens} token"

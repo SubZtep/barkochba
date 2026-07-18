@@ -11,6 +11,7 @@ import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
 import type { getDefaultTools } from "../../tools"
 import { ChatViewport } from "./chat-viewport"
+import { ConfirmCommand } from "./confirm-command"
 import { Header } from "./header"
 import { UserInput } from "./user-input"
 
@@ -18,12 +19,15 @@ export default function App({
   initialSettings,
   models = [],
   openaiApiModel,
-  tools
+  tools,
+  clearRef
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
   openaiApiModel: string
   tools: Awaited<ReturnType<typeof getDefaultTools>>
+  /** Ink's render().clear, populated after mount — see cli.tsx. */
+  clearRef?: { current?: () => void }
 }) {
   const {
     model,
@@ -33,11 +37,16 @@ export default function App({
     events,
     partial,
     pending,
-    send
+    send,
+    resolveCommand,
+    runningCommand
   } = useAgent({
     model: openaiApiModel,
     tools
   })
+  const lastEvent = events.at(-1)
+  const pendingCommand =
+    !pending && lastEvent?.type === "confirm_command" ? lastEvent : undefined
   const { thinking, sounds, voice, toggleThinking, toggleSounds, toggleVoice } =
     useSettings(initialSettings)
   useSound(events, sounds)
@@ -112,15 +121,32 @@ export default function App({
         thinking={thinking}
         partial={partial}
         pending={pending}
+        bottomChromeKey={
+          pendingCommand ? (runningCommand ? "running" : "confirm") : "input"
+        }
+        clearScreen={() => clearRef?.current?.()}
       />
-      <UserInput
-        pending={pending}
-        speaking={speaking}
-        send={send}
-        menuItems={commands.map((command) => command.label)}
-        onMenuSelect={(index) => commands[index]?.run()}
-        onMenuClose={() => setMenuMode("main")}
-      />
+      {pendingCommand ? (
+        <ConfirmCommand
+          key="confirm-command"
+          command={pendingCommand.command}
+          description={pendingCommand.description}
+          running={runningCommand}
+          onResolve={(approved) =>
+            resolveCommand(pendingCommand.command, approved)
+          }
+        />
+      ) : (
+        <UserInput
+          key="user-input"
+          pending={pending}
+          speaking={speaking}
+          send={send}
+          menuItems={commands.map((command) => command.label)}
+          onMenuSelect={(index) => commands[index]?.run()}
+          onMenuClose={() => setMenuMode("main")}
+        />
+      )}
     </Box>
   )
 }

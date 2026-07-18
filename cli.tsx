@@ -60,16 +60,22 @@ const { getDefaultTools } = await import("./tools")
 const { settings, llm } = await config()
 const models = await loadModels()
 const tools = await getDefaultTools()
+// render()'s own clear() isn't available until after it returns, but App
+// needs it (to force a full repaint after a mouse-wheel scroll — some
+// terminals drift out of sync with Ink's diffed frames on tall content).
+// A ref populated right after render() closes that loop.
+const clearRef: { current?: () => void } = {}
 // Alternate screen: full-viewport app (header / chat / input). Restores the
 // primary buffer on exit; no terminal scrollback while running.
 // Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
 // send the same `\r` for both and cannot do Shift+Enter newlines otherwise.
-const { waitUntilExit } = render(
+const { waitUntilExit, clear } = render(
   <App
     initialSettings={settings}
     models={models}
     openaiApiModel={llm.model}
     tools={tools}
+    clearRef={clearRef}
   />,
   {
     alternateScreen: true,
@@ -79,6 +85,7 @@ const { waitUntilExit } = render(
     }
   }
 )
+clearRef.current = clear
 await waitUntilExit()
 
 console.log(t("cli.bye"))

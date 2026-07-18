@@ -62,6 +62,11 @@ placeholder = "`/` menu · Alt+Enter newline · PgUp history"
 [viewport]
 older = "↑ older · PageDown or Ctrl+End to follow"
 
+[confirmCommand]
+yes = "Yes, run it"
+no = "No, cancel"
+running = "Running…"
+
 [activity]
 thinking = "Thinking… {seconds}s"
 tokens = " · ~{tokens} tokens"

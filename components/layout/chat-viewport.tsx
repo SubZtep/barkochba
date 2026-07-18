@@ -52,12 +52,24 @@ export function ChatViewport({
   events,
   thinking,
   partial,
-  pending
+  pending,
+  bottomChromeKey,
+  clearScreen
 }: {
   events: TimelineEvent[]
   thinking: boolean
   partial: PartialMessageData | null
   pending: boolean
+  /** Changes whenever the sibling below (input / confirm prompt) swaps to a
+   * differently-sized layout, so the viewport remeasures even though none of
+   * the other props changed. */
+  bottomChromeKey?: string | number
+  /** Forces Ink to drop its diffed-frame model and repaint clean. Some
+   * terminals' mouse-wheel handling (alternate-scroll translation) can drift
+   * out of sync with Ink's own tracking once content is taller than the
+   * viewport, leaving most of the screen stuck until something forces a
+   * full repaint — this is called on every wheel scroll to prevent that. */
+  clearScreen?: () => void
 }) {
   const scrollRef = useRef<ScrollViewRef>(null)
   const stickRef = useRef(true)
@@ -158,7 +170,7 @@ export function ChatViewport({
     // Let ScrollView measure new children, then pad + follow.
     const timer = setTimeout(followIfPinned, 0)
     return () => clearTimeout(timer)
-  }, [events, partial, pending, thinking, topPad])
+  }, [events, partial, pending, thinking, topPad, bottomChromeKey])
 
   useInput((input, key) => {
     const view = scrollRef.current
@@ -171,11 +183,13 @@ export function ChatViewport({
       const wheel = parseWheelDirection(input)
       if (wheel === "up") {
         if (maxScroll <= 0) return
+        clearScreen?.()
         setStick(false)
         scrollByClamped(view, -WHEEL_LINES)
         updateStickFromView()
       } else if (wheel === "down") {
         if (maxScroll <= 0) return
+        clearScreen?.()
         scrollByClamped(view, WHEEL_LINES)
         updateStickFromView()
       }
