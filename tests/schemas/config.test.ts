@@ -30,3 +30,14 @@ test("partial settings are allowed", () => {
   })
   expect(parsed.settings).toEqual({ sounds: false })
 })
+
+test("settings language accepts en and hu only", () => {
+  const parsed = KajaConfigSchema.parse({
+    ...base,
+    settings: { language: "hu" }
+  })
+  expect(parsed.settings).toEqual({ language: "hu" })
+  expect(() =>
+    KajaConfigSchema.parse({ ...base, settings: { language: "de" } })
+  ).toThrow()
+})

@@ -8,6 +8,7 @@ import {
   readConfigLoose,
   validate
 } from "./lib/config"
+import { detectLanguage, setLanguage, t } from "./lib/i18n"
 import { log } from "./lib/logger"
 import { loadModels } from "./lib/models"
 
@@ -17,6 +18,13 @@ import { loadModels } from "./lib/models"
 if (!process.env.LOG_LEVEL) log.level = "warn"
 
 log.trace("Startup")
+
+// i18n first: meow builds --help at module load, so the language must be set
+// before the args import. Config wins; without one (or on first run) the
+// system locale decides.
+const loose = await readConfigLoose()
+const lang = loose.settings?.language
+setLanguage(lang === "hu" || lang === "en" ? lang : detectLanguage())
 
 // Meow runs at module load (exits on --help/--version/--config). Before the
 // config guard on purpose, so those flags work even with a missing or
@@ -30,13 +38,15 @@ const { cli } = await import("./lib/args")
 if (!(await isExists())) await create()
 if (cli.flags.wizard || !(await validate(true))) {
   const { runConfigWizard } = await import("./components/config-wizard")
-  const outcome = await runConfigWizard(await readConfigLoose())
+  const outcome = await runConfigWizard(loose)
   if (outcome !== "saved") {
-    console.log("Config not saved. Bye!")
+    console.log(t("cli.notSaved"))
     process.exit(0)
   }
   if (!(await validate())) {
-    console.log(`${color("red", "ansi")}Invalid config file: ${configPath}`)
+    console.log(
+      `${color("red", "ansi")}${t("cli.invalidConfig", { path: configPath })}`
+    )
     process.exit(1)
   }
 }
@@ -63,5 +73,5 @@ const { waitUntilExit } = render(
 )
 await waitUntilExit()
 
-console.log("Bye, bye!")
+console.log(t("cli.bye"))
 process.exit(0)

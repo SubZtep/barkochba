@@ -1,0 +1,72 @@
+[cli]
+notSaved = "A konfiguráció nincs elmentve. Szia!"
+invalidConfig = "Érvénytelen konfigurációs fájl: {path}"
+bye = "Pá, pá!"
+
+[args]
+help = """
+Használat
+  $ kaja
+
+Kapcsolók
+  --help     Kiírja ezt a súgót
+  --config   Kiírja a konfigurációs fájl helyét és a vágólapra másolja
+  --wizard   A konfiguráció áttekintése és szerkesztése a varázslóban
+  --version  Kiírja a telepített verziót
+
+Példák
+  $ kaja --config
+  /home/dcr/.config/kaja/config.json
+"""
+clipboardFailed = "A vágólapkezelő hibázott"
+
+[config]
+invalidAt = "Érvénytelen konfigurációs fájl ({path}): {message}"
+notExists = "Nem létezik a konfigurációs fájl: {path}"
+
+[models]
+invalidAt = "Érvénytelen modell fájl ({path}): {message}"
+
+[wizard]
+title = "Kaja beállítás"
+stepLanguage = "Nyelv"
+review = "Áttekintés"
+invalid = "Érvénytelen"
+groupLlm = "LLM"
+groupBrave = "Brave keresés"
+groupGeo = "Geo szolgáltatás"
+openaiApiBaseUrl = "OpenAI-kompatibilis alap URL"
+openaiApiKey = "API kulcs"
+openaiApiModel = "Modell azonosító"
+braveApiKey = "Brave keresés API kulcs"
+geoServiceUrl = "Geo szolgáltatás URL"
+geoServiceApiKey = "Geo szolgáltatás API kulcs (UUID)"
+reviewHint = "Enter: mentés és indítás · Esc: vissza"
+footer = "Enter tovább · Tab mezőváltás · Esc vissza/mégse"
+
+[header]
+na = "N/A"
+
+[input]
+placeholder = "`/` menü · Alt+Enter új sor · PgUp előzmények"
+
+[viewport]
+older = "↑ régebbi · PageDown vagy Ctrl+End a követéshez"
+
+[activity]
+thinking = "Gondolkodik… {seconds}s"
+tokens = " · ~{tokens} token"
+
+[menu]
+on = "be"
+off = "ki"
+toggleThinking = "Gondolkodás átkapcsolása [{state}]"
+toggleSounds = "Hangok átkapcsolása [{state}]"
+toggleVoice = "Beszéd átkapcsolása [{state}]"
+changeModel = "Modellváltás"
+changePersona = "Személyiségváltás"
+
+[personas]
+kaja = "Kaja"
+barkochba = "Barkochba kérdező"
+care = "Öngondoskodó társ"

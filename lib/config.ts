@@ -6,6 +6,7 @@ import {
   KajaConfigSchema,
   type KajaSettings
 } from "../schemas/config"
+import { t } from "./i18n"
 
 const paths = envPaths("kaja", { suffix: "" })
 export const configDir = paths.config
@@ -45,11 +46,13 @@ export async function config() {
     try {
       return (await f.json()) as KajaConfig
     } catch (error: any) {
-      console.log(`Invalid config file at ${configPath}: ${error.message}`)
+      console.log(
+        t("config.invalidAt", { path: configPath, message: error.message })
+      )
       process.exit(1)
     }
   } else {
-    console.log(`Config file not exists: ${configPath}`)
+    console.log(t("config.notExists", { path: configPath }))
     process.exit(1)
   }
 }
@@ -62,7 +65,16 @@ export async function saveConfig(data: KajaConfig) {
 export async function saveSettings(settings: KajaSettings) {
   const current = await config()
   const f = file(configPath, { type: "application/json" })
-  await write(f, JSON.stringify({ ...current, settings }, null, 2))
+  // Merge into the existing block: callers persist only the keys they manage
+  // (thinking/sounds/voice) and must not drop others like language.
+  await write(
+    f,
+    JSON.stringify(
+      { ...current, settings: { ...current.settings, ...settings } },
+      null,
+      2
+    )
+  )
 }
 
 export async function create() {

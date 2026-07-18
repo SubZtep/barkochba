@@ -4,6 +4,7 @@ import type {
   ChatCompletionTool
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
+import { getLanguage } from "./i18n"
 import { client } from "./openai"
 
 /**
@@ -105,6 +106,11 @@ const ASK_USER_INSTRUCTIONS =
   `if..." — the conversation is over the moment you send plain text, so ` +
   `either call ${ASK_USER_TOOL} because you genuinely need an answer, or ` +
   `just state the result and stop.`
+
+/** Appended when the app runs in Hungarian (settings.language). */
+const HUNGARIAN_REPLY_INSTRUCTIONS =
+  "The user speaks Hungarian. Always reply in Hungarian, including " +
+  "questions asked through the ask_user tool."
 
 /**
  * Tool the model calls to ask the human a question and wait for their reply,
@@ -217,7 +223,8 @@ export async function* run(
   if (messages.length === 0) {
     const system = [
       agent.instructions,
-      toolsByName.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined
+      toolsByName.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
+      getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
     ]
       .filter(Boolean)
       .join("\n\n")

@@ -6,6 +6,7 @@ import type {
   TimelineEvent
 } from "../../hooks/use-agent"
 import { useMouseTracking } from "../../hooks/use-mouse-tracking"
+import { t } from "../../lib/i18n"
 import { isAtBottom, STICK_SLOP } from "../../lib/scroll-stick"
 import {
   isTerminalMouseSequence,
@@ -238,7 +239,7 @@ export function ChatViewport({
     >
       {showAffordance && (
         <Box flexShrink={0} width="100%">
-          <Text dimColor>↑ older · PageDown or Ctrl+End to follow</Text>
+          <Text dimColor>{t("viewport.older")}</Text>
         </Box>
       )}
       <ScrollView

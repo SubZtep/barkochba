@@ -5,6 +5,7 @@ import { useGeoLocation } from "../../hooks/use-geo-location"
 import { useSettings } from "../../hooks/use-settings"
 import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
+import { t } from "../../lib/i18n"
 import { personas } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
@@ -50,19 +51,25 @@ export default function App({
     menuMode === "main"
       ? [
           {
-            label: `Toggle thinking [${thinking ? "on" : "off"}]`,
+            label: t("menu.toggleThinking", {
+              state: t(thinking ? "menu.on" : "menu.off")
+            }),
             run: toggleThinking
           },
           {
-            label: `Toggle sounds [${sounds ? "on" : "off"}]`,
+            label: t("menu.toggleSounds", {
+              state: t(sounds ? "menu.on" : "menu.off")
+            }),
             run: toggleSounds
           },
           {
-            label: `Toggle voice [${voice ? "on" : "off"}]`,
+            label: t("menu.toggleVoice", {
+              state: t(voice ? "menu.on" : "menu.off")
+            }),
             run: toggleVoice
           },
           {
-            label: "Change model",
+            label: t("menu.changeModel"),
             run: () => {
               if (chatModels.length === 0) return
               setMenuMode("model")
@@ -70,7 +77,7 @@ export default function App({
             }
           },
           {
-            label: "Change persona",
+            label: t("menu.changePersona"),
             run: () => {
               setMenuMode("persona")
               return true

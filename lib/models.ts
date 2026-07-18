@@ -6,6 +6,7 @@ import {
   type ResolvedModel
 } from "../schemas/models"
 import { configDir } from "./config"
+import { t } from "./i18n"
 
 export const modelsPath = join(configDir, "models.toml")
 
@@ -64,7 +65,9 @@ export async function loadModels(): Promise<ResolvedModel[]> {
   try {
     return resolveModels(ModelsFileSchema.parse(TOML.parse(await f.text())))
   } catch (error: any) {
-    console.log(`Invalid models file at ${modelsPath}: ${error.message}`)
+    console.log(
+      t("models.invalidAt", { path: modelsPath, message: error.message })
+    )
     process.exit(1)
   }
 }

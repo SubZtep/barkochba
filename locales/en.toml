@@ -1,0 +1,72 @@
+[cli]
+notSaved = "Config not saved. Bye!"
+invalidConfig = "Invalid config file: {path}"
+bye = "Bye, bye!"
+
+[args]
+help = """
+Usage
+  $ kaja
+
+Options
+  --help     Print this help
+  --config   Print the config file location and copy it to the clipboard
+  --wizard   Review and edit the configuration in the setup wizard
+  --version  Print the installed app version
+
+Examples
+  $ kaja --config
+  /home/dcr/.config/kaja/config.json
+"""
+clipboardFailed = "Clipboard tool failed"
+
+[config]
+invalidAt = "Invalid config file at {path}: {message}"
+notExists = "Config file not exists: {path}"
+
+[models]
+invalidAt = "Invalid models file at {path}: {message}"
+
+[wizard]
+title = "Kaja setup"
+stepLanguage = "Language"
+review = "Review"
+invalid = "Invalid"
+groupLlm = "LLM"
+groupBrave = "Brave Search"
+groupGeo = "Geo service"
+openaiApiBaseUrl = "OpenAI-compatible base URL"
+openaiApiKey = "API key"
+openaiApiModel = "Model id"
+braveApiKey = "Brave Search API key"
+geoServiceUrl = "Geo service URL"
+geoServiceApiKey = "Geo service API key (UUID)"
+reviewHint = "Enter: save and start · Esc: back"
+footer = "Enter next · Tab switch field · Esc back/cancel"
+
+[header]
+na = "N/A"
+
+[input]
+placeholder = "`/` menu · Alt+Enter newline · PgUp history"
+
+[viewport]
+older = "↑ older · PageDown or Ctrl+End to follow"
+
+[activity]
+thinking = "Thinking… {seconds}s"
+tokens = " · ~{tokens} tokens"
+
+[menu]
+on = "on"
+off = "off"
+toggleThinking = "Toggle thinking [{state}]"
+toggleSounds = "Toggle sounds [{state}]"
+toggleVoice = "Toggle voice [{state}]"
+changeModel = "Change model"
+changePersona = "Change persona"
+
+[personas]
+kaja = "Kaja"
+barkochba = "Barkochba guesser"
+care = "Self-care companion"

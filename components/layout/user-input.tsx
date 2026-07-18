@@ -1,6 +1,7 @@
 import { Box, useApp, useInput, useWindowSize } from "ink"
 import { useEffect, useState } from "react"
 import { useDictation } from "../../hooks/use-dictation"
+import { t } from "../../lib/i18n"
 import { TextInput } from "../elem/text-input"
 import { Menu } from "../menu"
 
@@ -128,11 +129,7 @@ export function UserInput({
           onChange={setInput}
           onSubmit={handleSubmit}
           showCursor={!mic || (sttState === "listening" && idle % 2 === 0)}
-          placeholder={
-            idle > 20
-              ? undefined
-              : "`/` menu · Alt+Enter newline · PgUp history"
-          }
+          placeholder={idle > 20 ? undefined : t("input.placeholder")}
           prefix={prefix}
           prefixCols={PREFIX_COLS}
           columns={fieldColumns}

@@ -23,30 +23,44 @@ rm ~/.local/bin/kaja
 
 ## Config
 
-> _<sub>Everything is temporary.</sub>_
-
-Fill all the fields here: `~/.config/kaja/config.json`
+Fill all the fields here: `~/.config/kaja/config.json` — or let the setup
+wizard do it: it opens automatically when the config is missing or invalid,
+and anytime via `kaja --wizard`.
 
 ```json
 {
-  "braveApiKey": "",
   "openaiApiBaseUrl": "",
   "openaiApiKey": "",
   "openaiApiModel": "",
+  "braveApiKey": "",
   "geoServiceUrl": "https://few-booklet-31770.ondis.co/",
-  "geoServiceApiKey": "019ea05a-eacc-7ce7-8af9-e0cbf842d483"
+  "geoServiceApiKey": "019ea05a-eacc-7ce7-8af9-e0cbf842d483",
+  "settings": {
+    "thinking": false,
+    "sounds": true,
+    "voice": false,
+    "language": "hu"
+  }
 }
 ```
 
-### Collect credentials
+### Where to get credentials?
 
-- **Brave search**: free key from [brave.com/search/api](https://brave.com/search/api/).
-- **OpenAI-compatible API** (e.g. Fireworks): set base URL, key, and model. Example:
-  - `openaiApiBaseUrl`: `https://api.fireworks.ai/inference/v1`
-  - `openaiApiModel`: `accounts/fireworks/models/minimax-m3`
+- **Brave search**: get a free key from [their website](https://brave.com/search/api/).
+- **OpenAI API**: any compatible LLM with REST API works (e.g. Ollama). My values:
+  - openaiApiBaseUrl: `https://api.fireworks.ai/inference/v1`
+  - openaiApiModel: `accounts/fireworks/models/minimax-m3`
 - **Geo service**: the example URL and API key work for a while.
 
-Optional multi-model list: `models.jsonc` in the config directory (see schema / repo copy).
+Optional multi-model list: `models.toml` in the config directory (a commented template is written on first run).
+
+### Language
+
+English or Magyar, covering the UI and the assistant's replies. The setup wizard (`kaja --wizard`) starts with a language picker, saved as `settings.language` and read once at startup; without a saved choice the system locale decides (a Hungarian locale → Magyar, anything else → English).
+
+Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model;
+
+`STT_MODEL`/`STT_LANGUAGE` env vars override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `TTS_MODEL`/`TTS_VOICE` point somewhere Hungarian-capable.
 
 ## Voice & dictation
 

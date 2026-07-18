@@ -1,6 +1,7 @@
 import { Text } from "ink"
 import { useEffect, useState } from "react"
 import type { PartialMessage } from "../hooks/use-agent"
+import { t } from "../lib/i18n"
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const TICK_MS = 120
@@ -44,7 +45,9 @@ export function Activity({
 
   return (
     <Text color="magenta" dimColor>
-      {`${frame} Thinking… ${seconds}s${tokens ? ` · ~${tokens} tokens` : ""}`}
+      {`${frame} ${t("activity.thinking", { seconds })}${
+        tokens ? t("activity.tokens", { tokens }) : ""
+      }`}
     </Text>
   )
 }

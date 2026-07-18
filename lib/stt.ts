@@ -9,10 +9,18 @@
 
 import type { AudioSource } from "./audio"
 import { createAsyncQueue, SAMPLE_RATE } from "./audio"
+import { getLanguage } from "./i18n"
 import { log } from "./logger"
 
-const MODEL = process.env.STT_MODEL ?? "Systran/faster-distil-whisper-small.en"
-const LANGUAGE = process.env.STT_LANGUAGE ?? "en"
+// Env overrides win; otherwise the app language picks the model — the
+// English default is an English-only distil model, other languages need a
+// multilingual one.
+const MODEL =
+  process.env.STT_MODEL ??
+  (getLanguage() === "hu"
+    ? "Systran/faster-whisper-small"
+    : "Systran/faster-distil-whisper-small.en")
+const LANGUAGE = process.env.STT_LANGUAGE ?? getLanguage()
 const BASE = process.env.SPEACHES_URL ?? "ws://localhost:8000"
 
 export interface Stt {

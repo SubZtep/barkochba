@@ -6,6 +6,8 @@
 // The ask_user contract (questions must go through the ask_user tool) is
 // injected by run() itself, so prompts here shouldn't restate it.
 
+import { t } from "./i18n"
+
 export type Persona = {
   id: string
   label: string
@@ -48,7 +50,7 @@ stories from their life — situations, how they behaved, and how things turned 
 Keep replies to a few short plain sentences — conversational, no lists.`
 
 export const personas: Persona[] = [
-  { id: "kaja", label: "Kaja" },
-  { id: "barkochba", label: "Barkochba guesser", instructions: GUESSER },
-  { id: "care", label: "Self-care companion", instructions: CARE }
+  { id: "kaja", label: t("personas.kaja") },
+  { id: "barkochba", label: t("personas.barkochba"), instructions: GUESSER },
+  { id: "care", label: t("personas.care"), instructions: CARE }
 ]

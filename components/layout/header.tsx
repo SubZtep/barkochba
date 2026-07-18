@@ -1,5 +1,6 @@
 import { Box, Text } from "ink"
 import Gradient from "ink-gradient"
+import { t } from "../../lib/i18n"
 import Link from "../elem/link"
 import { MonsterMate } from "../monster"
 
@@ -28,7 +29,7 @@ export function Header({
       </Box>
       <Box flexShrink={0} gap={1}>
         <Text color="red">@</Text>
-        <Text dimColor>{location ?? "N/A"}</Text>
+        <Text dimColor>{location ?? t("header.na")}</Text>
       </Box>
     </Box>
   )

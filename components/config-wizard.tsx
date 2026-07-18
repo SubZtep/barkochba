@@ -1,16 +1,18 @@
 /**
- * First-run / invalid-config setup wizard. Steps are grouped by service;
- * fields validate against KajaConfigSchema per keystroke and a step can't
- * advance until its fields pass.
+ * First-run / invalid-config setup wizard. Step 0 picks the UI language,
+ * then steps grouped by service; fields validate against KajaConfigSchema
+ * per keystroke and a step can't advance until its fields pass.
  *
  * Key routing: Enter is owned by TextInput.onSubmit (next field, or next
  * step on the last), a step-level useInput owns Tab (switch field) and
- * Escape (back/cancel). TextInput ignores both.
+ * Escape (back/cancel). TextInput ignores both. The language and review
+ * steps have no TextInput and own their keys directly.
  */
 
 import { Box, render, Text, useInput } from "ink"
 import { useState } from "react"
 import { configPath, saveConfig } from "../lib/config"
+import { getLanguage, type Language, setLanguage, t } from "../lib/i18n"
 import {
   type KajaConfig,
   KajaConfigSchema,
@@ -20,41 +22,38 @@ import { TextInput } from "./elem/text-input"
 
 type FieldName = Exclude<keyof KajaConfig, "settings">
 
-const FIELDS: Record<FieldName, { label: string; placeholder: string }> = {
-  openaiApiBaseUrl: {
-    label: "OpenAI-compatible base URL",
-    placeholder: "https://api.fireworks.ai/inference/v1"
-  },
-  openaiApiKey: { label: "API key", placeholder: "fw_..." },
-  openaiApiModel: {
-    label: "Model id",
-    placeholder: "accounts/fireworks/models/minimax-m3"
-  },
-  braveApiKey: { label: "Brave Search API key", placeholder: "BSA..." },
-  geoServiceUrl: {
-    label: "Geo service URL",
-    placeholder: "https://few-booklet-31770.ondis.co/"
-  },
-  geoServiceApiKey: {
-    label: "Geo service API key (UUID)",
-    placeholder: "019ea05a-eacc-7ce7-8af9-e0cbf842d483"
-  }
+// Labels come from the dictionary (t(`wizard.${field}`)); placeholders are
+// sample values and stay untranslated.
+const FIELDS: Record<FieldName, { placeholder: string }> = {
+  openaiApiBaseUrl: { placeholder: "https://api.fireworks.ai/inference/v1" },
+  openaiApiKey: { placeholder: "fw_..." },
+  openaiApiModel: { placeholder: "accounts/fireworks/models/minimax-m3" },
+  braveApiKey: { placeholder: "BSA..." },
+  geoServiceUrl: { placeholder: "https://few-booklet-31770.ondis.co/" },
+  geoServiceApiKey: { placeholder: "019ea05a-eacc-7ce7-8af9-e0cbf842d483" }
 }
 
-const GROUPS: { name: string; fields: FieldName[] }[] = [
+const GROUPS: { nameKey: string; fields: FieldName[] }[] = [
   {
-    name: "LLM",
+    nameKey: "wizard.groupLlm",
     fields: ["openaiApiBaseUrl", "openaiApiKey", "openaiApiModel"]
   },
-  { name: "Brave Search", fields: ["braveApiKey"] },
-  { name: "Geo service", fields: ["geoServiceUrl", "geoServiceApiKey"] }
+  { nameKey: "wizard.groupBrave", fields: ["braveApiKey"] },
+  { nameKey: "wizard.groupGeo", fields: ["geoServiceUrl", "geoServiceApiKey"] }
 ]
 
-const STEP_NAMES = [...GROUPS.map((g) => g.name), "Review"]
+// Own-language names on purpose: the picker must be readable before the
+// right language is chosen.
+const LANGUAGES: { value: Language; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "hu", label: "Magyar" }
+]
 
 function fieldError(field: FieldName, value: string): string | null {
   const result = KajaConfigSchema.shape[field].safeParse(value)
-  return result.success ? null : (result.error.issues[0]?.message ?? "Invalid")
+  return result.success
+    ? null
+    : (result.error.issues[0]?.message ?? t("wizard.invalid"))
 }
 
 function stepValid(fields: FieldName[], values: Record<FieldName, string>) {
@@ -65,9 +64,14 @@ type Values = Record<FieldName, string>
 type Outcome = "saved" | "cancelled"
 
 function Progress({ step }: { step: number }) {
+  const names = [
+    t("wizard.stepLanguage"),
+    ...GROUPS.map((g) => t(g.nameKey)),
+    t("wizard.review")
+  ]
   return (
     <Box marginBottom={1}>
-      {STEP_NAMES.map((name, i) => (
+      {names.map((name, i) => (
         <Text
           key={name}
           color={i < step ? "green" : undefined}
@@ -75,7 +79,48 @@ function Progress({ step }: { step: number }) {
           dimColor={i > step}
         >
           {i < step ? "✓" : i === step ? "●" : "○"} {name}
-          {i < STEP_NAMES.length - 1 ? "  " : ""}
+          {i < names.length - 1 ? "  " : ""}
+        </Text>
+      ))}
+    </Box>
+  )
+}
+
+function LanguageStep({
+  value,
+  onNext,
+  onBack
+}: {
+  value: Language
+  onNext: (lang: Language) => void
+  onBack: () => void
+}) {
+  const [index, setIndex] = useState(() =>
+    Math.max(
+      LANGUAGES.findIndex((l) => l.value === value),
+      0
+    )
+  )
+
+  useInput((_input, key) => {
+    if (key.upArrow) {
+      setIndex((i) => (i + LANGUAGES.length - 1) % LANGUAGES.length)
+    } else if (key.downArrow) {
+      setIndex((i) => (i + 1) % LANGUAGES.length)
+    } else if (key.return) {
+      const choice = LANGUAGES[index]
+      if (choice) onNext(choice.value)
+    } else if (key.escape) {
+      onBack()
+    }
+  })
+
+  return (
+    <Box flexDirection="column">
+      {LANGUAGES.map((lang, i) => (
+        <Text key={lang.value} bold={i === index} dimColor={i !== index}>
+          {i === index ? "● " : "○ "}
+          {lang.label}
         </Text>
       ))}
     </Box>
@@ -131,7 +176,7 @@ function StepFields({
         return (
           <Box key={field} flexDirection="column">
             <Text bold={focused} dimColor={!focused}>
-              {FIELDS[field].label}
+              {t(`wizard.${field}`)}
             </Text>
             <Box>
               <Text dimColor={!focused}>{focused ? "> " : "  "}</Text>
@@ -171,12 +216,12 @@ function ReviewStep({
     <Box flexDirection="column">
       {(Object.keys(FIELDS) as FieldName[]).map((field) => (
         <Box key={field}>
-          <Text dimColor>{FIELDS[field].label}: </Text>
+          <Text dimColor>{t(`wizard.${field}`)}: </Text>
           <Text>{values[field]}</Text>
         </Box>
       ))}
       <Box marginTop={1}>
-        <Text color="green">Enter: save and start · Esc: back</Text>
+        <Text color="green">{t("wizard.reviewHint")}</Text>
       </Box>
     </Box>
   )
@@ -189,8 +234,10 @@ function ConfigWizard({
   initial: Partial<KajaConfig>
   onFinish: (outcome: Outcome) => void
 }) {
-  // 0..GROUPS.length-1 are field steps, GROUPS.length is the review step.
+  // 0 is the language step, 1..GROUPS.length are field steps, the last is
+  // the review step.
   const [step, setStep] = useState(0)
+  const [lang, setLang] = useState<Language>(getLanguage())
   const [values, setValues] = useState<Values>(() => {
     const out = {} as Values
     for (const field of Object.keys(FIELDS) as FieldName[]) {
@@ -202,22 +249,21 @@ function ConfigWizard({
 
   const save = async () => {
     // Keep an existing valid settings block (thinking/sounds/voice) so an
-    // invalid-config fixup doesn't drop in-app preferences.
+    // invalid-config fixup doesn't drop in-app preferences; the language
+    // choice is always recorded.
     const settings = KajaSettingsSchema.safeParse(initial.settings)
     await saveConfig({
       ...values,
-      ...(settings.success && initial.settings
-        ? { settings: settings.data }
-        : {})
+      settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
     onFinish("saved")
   }
 
-  const group = GROUPS[step]
+  const group = step >= 1 ? GROUPS[step - 1] : undefined
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      <Text bold>Kaja setup</Text>
+      <Text bold>{t("wizard.title")}</Text>
       <Text dimColor>{configPath}</Text>
       <Box
         flexDirection="column"
@@ -227,7 +273,19 @@ function ConfigWizard({
         marginTop={1}
       >
         <Progress step={step} />
-        {group ? (
+        {step === 0 ? (
+          <LanguageStep
+            value={lang}
+            onNext={(next) => {
+              // Takes effect immediately: the rest of the wizard (and the
+              // zod locale) re-renders in the chosen language.
+              setLanguage(next)
+              setLang(next)
+              setStep(1)
+            }}
+            onBack={() => onFinish("cancelled")}
+          />
+        ) : group ? (
           <StepFields
             // Remount per step so field focus starts fresh.
             key={step}
@@ -235,9 +293,7 @@ function ConfigWizard({
             values={values}
             setValues={setValues}
             onNext={() => setStep(step + 1)}
-            onBack={() =>
-              step === 0 ? onFinish("cancelled") : setStep(step - 1)
-            }
+            onBack={() => setStep(step - 1)}
           />
         ) : (
           <ReviewStep
@@ -248,7 +304,7 @@ function ConfigWizard({
         )}
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>Enter next · Tab switch field · Esc back/cancel</Text>
+        <Text dimColor>{t("wizard.footer")}</Text>
       </Box>
     </Box>
   )
