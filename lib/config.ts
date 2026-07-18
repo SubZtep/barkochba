@@ -40,11 +40,18 @@ export async function readConfigLoose(): Promise<Partial<KajaConfig>> {
   return {}
 }
 
+// Cached after the first read: the file only changes via saveConfig/
+// saveSettings below, both of which clear it, so every other reader (stt/tts/
+// geo, called often and per-utterance) doesn't hit disk each time.
+let cached: KajaConfig | undefined
+
 export async function config() {
+  if (cached) return cached
   const f = file(configPath, { type: "application/json" })
   if (await f.exists()) {
     try {
-      return (await f.json()) as KajaConfig
+      cached = (await f.json()) as KajaConfig
+      return cached
     } catch (error: any) {
       console.log(
         t("config.invalidAt", { path: configPath, message: error.message })
@@ -60,6 +67,7 @@ export async function config() {
 export async function saveConfig(data: KajaConfig) {
   const f = file(configPath, { type: "application/json" })
   await write(f, JSON.stringify(data, null, 2))
+  cached = undefined
 }
 
 export async function saveSettings(settings: KajaSettings) {
@@ -75,6 +83,7 @@ export async function saveSettings(settings: KajaSettings) {
       2
     )
   )
+  cached = undefined
 }
 
 export async function create() {

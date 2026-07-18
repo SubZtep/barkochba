@@ -35,12 +35,18 @@ invalid = "Érvénytelen"
 groupLlm = "LLM"
 groupBrave = "Brave keresés"
 groupGeo = "Geo szolgáltatás"
+groupVoice = "Hang (opcionális)"
 openaiApiBaseUrl = "OpenAI-kompatibilis alap URL"
 openaiApiKey = "API kulcs"
 openaiApiModel = "Modell azonosító"
 braveApiKey = "Brave keresés API kulcs"
 geoServiceUrl = "Geo szolgáltatás URL"
 geoServiceApiKey = "Geo szolgáltatás API kulcs (UUID)"
+speachesUrl = "Speaches szerver URL"
+sttModel = "STT modell"
+sttLanguage = "STT nyelv"
+ttsModel = "TTS modell"
+ttsVoice = "TTS hang"
 reviewHint = "Enter: mentés és indítás · Esc: vissza"
 footer = "Enter tovább · Tab mezőváltás · Esc vissza/mégse"
 
@@ -54,7 +60,7 @@ placeholder = "`/` menü · Alt+Enter új sor · PgUp előzmények"
 older = "↑ régebbi · PageDown vagy Ctrl+End a követéshez"
 
 [activity]
-thinking = "Gondolkodik… {seconds}s"
+thinking = "Gondolkozom… {seconds}s"
 tokens = " · ~{tokens} token"
 
 [menu]

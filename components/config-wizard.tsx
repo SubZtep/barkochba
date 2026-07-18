@@ -16,11 +16,21 @@ import { getLanguage, type Language, setLanguage, t } from "../lib/i18n"
 import {
   type KajaConfig,
   KajaConfigSchema,
-  KajaSettingsSchema
+  KajaSettingsSchema,
+  type KajaVoice,
+  KajaVoiceSchema
 } from "../schemas/config"
 import { TextInput } from "./elem/text-input"
 
-type FieldName = Exclude<keyof KajaConfig, "settings">
+type RequiredFieldName = Exclude<keyof KajaConfig, "settings" | "voice">
+type VoiceFieldName = keyof KajaVoice
+type FieldName = RequiredFieldName | VoiceFieldName
+
+const VOICE_FIELDS = Object.keys(KajaVoiceSchema.shape) as VoiceFieldName[]
+
+function isVoiceField(field: FieldName): field is VoiceFieldName {
+  return (VOICE_FIELDS as string[]).includes(field)
+}
 
 // Labels come from the dictionary (t(`wizard.${field}`)); placeholders are
 // sample values and stay untranslated.
@@ -30,7 +40,12 @@ const FIELDS: Record<FieldName, { placeholder: string }> = {
   openaiApiModel: { placeholder: "accounts/fireworks/models/minimax-m3" },
   braveApiKey: { placeholder: "BSA..." },
   geoServiceUrl: { placeholder: "https://few-booklet-31770.ondis.co/" },
-  geoServiceApiKey: { placeholder: "019ea05a-eacc-7ce7-8af9-e0cbf842d483" }
+  geoServiceApiKey: { placeholder: "019ea05a-eacc-7ce7-8af9-e0cbf842d483" },
+  speachesUrl: { placeholder: "ws://localhost:8000 (default)" },
+  sttModel: { placeholder: "Systran/faster-distil-whisper-small.en (default)" },
+  sttLanguage: { placeholder: "app language (default)" },
+  ttsModel: { placeholder: "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16 (default)" },
+  ttsVoice: { placeholder: "af_heart (default)" }
 }
 
 const GROUPS: { nameKey: string; fields: FieldName[] }[] = [
@@ -39,7 +54,11 @@ const GROUPS: { nameKey: string; fields: FieldName[] }[] = [
     fields: ["openaiApiBaseUrl", "openaiApiKey", "openaiApiModel"]
   },
   { nameKey: "wizard.groupBrave", fields: ["braveApiKey"] },
-  { nameKey: "wizard.groupGeo", fields: ["geoServiceUrl", "geoServiceApiKey"] }
+  { nameKey: "wizard.groupGeo", fields: ["geoServiceUrl", "geoServiceApiKey"] },
+  {
+    nameKey: "wizard.groupVoice",
+    fields: ["speachesUrl", "sttModel", "sttLanguage", "ttsModel", "ttsVoice"]
+  }
 ]
 
 // Own-language names on purpose: the picker must be readable before the
@@ -49,8 +68,14 @@ const LANGUAGES: { value: Language; label: string }[] = [
   { value: "hu", label: "Magyar" }
 ]
 
+// Voice fields are optional (blank = use the built-in default); everything
+// else must pass its schema to advance.
 function fieldError(field: FieldName, value: string): string | null {
-  const result = KajaConfigSchema.shape[field].safeParse(value)
+  if (isVoiceField(field) && value === "") return null
+  const schema = isVoiceField(field)
+    ? KajaVoiceSchema.shape[field].unwrap()
+    : KajaConfigSchema.shape[field as RequiredFieldName]
+  const result = schema.safeParse(value)
   return result.success
     ? null
     : (result.error.issues[0]?.message ?? t("wizard.invalid"))
@@ -241,7 +266,7 @@ function ConfigWizard({
   const [values, setValues] = useState<Values>(() => {
     const out = {} as Values
     for (const field of Object.keys(FIELDS) as FieldName[]) {
-      const v = initial[field]
+      const v = isVoiceField(field) ? initial.voice?.[field] : initial[field]
       out[field] = typeof v === "string" ? v : ""
     }
     return out
@@ -252,9 +277,18 @@ function ConfigWizard({
     // invalid-config fixup doesn't drop in-app preferences; the language
     // choice is always recorded.
     const settings = KajaSettingsSchema.safeParse(initial.settings)
+    const voice = {} as KajaVoice
+    for (const field of VOICE_FIELDS) {
+      if (values[field] !== "") voice[field] = values[field]
+    }
+    const required = {} as Record<RequiredFieldName, string>
+    for (const field of Object.keys(FIELDS) as FieldName[]) {
+      if (!isVoiceField(field)) required[field] = values[field]
+    }
     await saveConfig({
-      ...values,
-      settings: { ...(settings.success ? settings.data : {}), language: lang }
+      ...required,
+      settings: { ...(settings.success ? settings.data : {}), language: lang },
+      voice
     })
     onFinish("saved")
   }

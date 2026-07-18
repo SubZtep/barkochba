@@ -1,27 +1,33 @@
 // Speech-to-text: an AudioSource (mic, …) → speaches realtime API → text.
 //
 // Usage:
-//   const stt = createStt({ source: createLocalSource() })
+//   const stt = await createStt({ source: createLocalSource() })
 //   for await (const text of stt.utterances) console.log(text)
 //
-// Requires the speaches container running on SPEACHES_URL (default localhost:8000).
+// Requires the speaches container running on speachesUrl (config.json, default localhost:8000).
 // LOG_LEVEL=debug logs every server event.
 
 import type { AudioSource } from "./audio"
 import { createAsyncQueue, SAMPLE_RATE } from "./audio"
+import { config } from "./config"
 import { getLanguage } from "./i18n"
 import { log } from "./logger"
 
-// Env overrides win; otherwise the app language picks the model — the
+// Config overrides win; otherwise the app language picks the model — the
 // English default is an English-only distil model, other languages need a
 // multilingual one.
-const MODEL =
-  process.env.STT_MODEL ??
-  (getLanguage() === "hu"
-    ? "Systran/faster-whisper-small"
-    : "Systran/faster-distil-whisper-small.en")
-const LANGUAGE = process.env.STT_LANGUAGE ?? getLanguage()
-const BASE = process.env.SPEACHES_URL ?? "ws://localhost:8000"
+async function resolveSttSettings() {
+  const { voice } = await config()
+  return {
+    model:
+      voice?.sttModel ??
+      (getLanguage() === "hu"
+        ? "Systran/faster-whisper-small"
+        : "Systran/faster-distil-whisper-small.en"),
+    language: voice?.sttLanguage ?? getLanguage(),
+    base: voice?.speachesUrl ?? "ws://localhost:8000"
+  }
+}
 
 export interface Stt {
   /** Final transcripts, one per spoken phrase. Empty/noise segments are filtered out. */
@@ -48,7 +54,9 @@ export interface SttOptions {
   onState?: (state: SttState) => void
 }
 
-export function createStt({ source, onState }: SttOptions): Stt {
+export async function createStt({ source, onState }: SttOptions): Promise<Stt> {
+  const { model, language, base } = await resolveSttSettings()
+
   // Final transcripts, consumed via the `utterances` async iterable.
   const transcripts = createAsyncQueue<string>()
 
@@ -60,7 +68,7 @@ export function createStt({ source, onState }: SttOptions): Stt {
   let transcribing = false
 
   // --- speaches realtime session ---
-  const url = `${BASE}/v1/realtime?model=${encodeURIComponent(MODEL)}`
+  const url = `${base}/v1/realtime?model=${encodeURIComponent(model)}`
   log.info({ url }, "stt: connecting")
   const ws = new WebSocket(url)
 
@@ -84,8 +92,8 @@ export function createStt({ source, onState }: SttOptions): Stt {
           create_response: false
         },
         input_audio_transcription: {
-          model: MODEL,
-          language: LANGUAGE
+          model,
+          language
         }
       }
     })
@@ -127,8 +135,8 @@ export function createStt({ source, onState }: SttOptions): Stt {
       case "session.created":
         log.info(
           {
-            model: MODEL,
-            language: LANGUAGE
+            model,
+            language
           },
           "stt: connected — configuring session"
         )

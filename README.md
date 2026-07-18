@@ -39,9 +39,9 @@ Optional multi-model list: `models.toml` in the config directory (a commented te
 
 English or Magyar, covering the UI and the assistant's replies. The setup wizard ( `kaja --wizard` ) starts with a language picker, saved as `settings.language` and read once at startup; without a saved choice the system locale decides (a Hungarian locale → Magyar, anything else → English).
 
-Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model; 
+Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model;
 
-`STT_MODEL` / `STT_LANGUAGE` env vars override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `TTS_MODEL` / `TTS_VOICE` point somewhere Hungarian-capable.
+set `voice.sttModel` / `voice.sttLanguage` in the config file to override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `voice.ttsModel` / `voice.ttsVoice` point somewhere Hungarian-capable.
 
 ## Voice & dictation
 
@@ -57,7 +57,7 @@ Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `
    docker compose -f compose.cpu.yaml up -d
    ```
 
-   Default URL: `ws://localhost:8000` (override with `SPEACHES_URL` ).
+   Default URL: `ws://localhost:8000` (override with `voice.speachesUrl` in the config file, or the setup wizard's Voice group).
 
 2. First time only — download the Kokoro TTS model on the server:
 
