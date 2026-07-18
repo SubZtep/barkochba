@@ -6,6 +6,7 @@ import type {
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
 import { getLanguage } from "./i18n"
+import { loadMemory } from "./memory-store"
 import { client } from "./openai"
 
 /**
@@ -201,6 +202,21 @@ export const runCommandTool = tool<{ command: string; description: string }>({
 })
 
 /**
+ * System-prompt guidance injected by {@link run} when an agent has the
+ * `remember_note` tool. Tells the model to write proactively rather than
+ * waiting to be asked, matching the persistent-memory design.
+ */
+const MEMORY_INSTRUCTIONS =
+  "You have persistent memory across sessions via remember_note, " +
+  "recall_memory, forget_note, and list_notes. Whenever you learn a " +
+  "durable fact about the user or the project, call remember_note right " +
+  "away — don't ask permission first. Notes marked sticky are shown to " +
+  "you automatically at the start of every future session; use sticky " +
+  "for things that should always be known (who the user is, their " +
+  "preferences), and non-sticky for things only worth recalling on a " +
+  "relevant query."
+
+/**
  * Ephemeral token fragment yielded by {@link run} while a completion streams
  * in, before the round's finalized events. `channel` says which part of the
  * message the text belongs to. Presentation-only: consumers may render these
@@ -281,11 +297,24 @@ export async function* run(
   const messages = session.messages
 
   if (messages.length === 0) {
+    const hasMemory = toolsByName.has("remember_note")
+    const stickyNotes = hasMemory
+      ? Object.entries(await loadMemory()).filter(([, note]) => note.sticky)
+      : []
+    const stickyBlock =
+      stickyNotes.length > 0
+        ? `Known context about this user/project (from persistent memory):\n${stickyNotes
+            .map(([key, note]) => `- [${key}] ${note.content}`)
+            .join("\n")}`
+        : undefined
+
     const system = [
       agent.instructions,
       PLATFORM_INSTRUCTIONS,
       toolsByName.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
       toolsByName.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
+      hasMemory ? MEMORY_INSTRUCTIONS : undefined,
+      stickyBlock,
       getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
     ]
       .filter(Boolean)

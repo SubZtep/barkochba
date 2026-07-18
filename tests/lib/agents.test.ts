@@ -1,12 +1,16 @@
-import { expect, test } from "bun:test"
-import {
-  type Agent,
-  type AgentEvent,
-  askUserTool,
-  createSession,
-  run,
-  runCommandTool
-} from "../../lib/agents"
+import { afterEach, expect, test } from "bun:test"
+import { rm } from "node:fs/promises"
+import type { Agent, AgentEvent } from "../../lib/agents"
+
+// lib/agents.ts loads memory via lib/memory-store.ts, whose path is resolved
+// once at import time from XDG_DATA_HOME — set before any import touches it.
+process.env.XDG_DATA_HOME = `${import.meta.dir}/../../.tmp-test-xdg-data-agents`
+
+const { memoryPath, saveMemory } = await import("../../lib/memory-store")
+const { askUserTool, createSession, run, runCommandTool } = await import(
+  "../../lib/agents"
+)
+const { rememberNoteTool } = await import("../../tools/memory")
 
 type FakeMessage = {
   content: string | null
@@ -45,11 +49,14 @@ function fakeClient(script: FakeMessage[]) {
   }
 }
 
-function fakeAgent(script: FakeMessage[]): Agent {
+function fakeAgent(
+  script: FakeMessage[],
+  extraTools: Agent["tools"] = []
+): Agent {
   return {
     name: "Tester",
     model: "fake-model",
-    tools: [askUserTool, runCommandTool],
+    tools: [askUserTool, runCommandTool, ...extraTools],
     client: fakeClient(script)
   } as unknown as Agent
 }
@@ -61,6 +68,10 @@ async function collect(agent: Agent) {
   }
   return events
 }
+
+afterEach(async () => {
+  await rm(memoryPath, { force: true })
+})
 
 test("content alongside an ask_user call is yielded as a message event", async () => {
   const agent = fakeAgent([
@@ -161,4 +172,52 @@ test("resuming after run_command threads the result back as a tool response", as
     { type: "final", content: "Done." }
   ])
   expect(session.messages.some((m) => m.role === "tool")).toBe(true)
+})
+
+test("sticky notes are injected into the first system message, non-sticky ones aren't", async () => {
+  const now = "2026-01-01T00:00:00.000Z"
+  await saveMemory({
+    "user:sticky-fact": {
+      content: "always mentioned",
+      importance: "high",
+      tags: [],
+      sticky: true,
+      createdAt: now,
+      lastUsedAt: now,
+      useCount: 0
+    },
+    "user:quiet-fact": {
+      content: "only on recall",
+      importance: "low",
+      tags: [],
+      sticky: false,
+      createdAt: now,
+      lastUsedAt: now,
+      useCount: 0
+    }
+  })
+
+  const agent = fakeAgent([{ content: "Hi." }], [rememberNoteTool])
+  const session = createSession()
+  for await (const _ of run(agent, "hello", session)) {
+    // drain
+  }
+
+  const system = session.messages[0]
+  expect(system?.role).toBe("system")
+  const content = (system as { content: string }).content
+  expect(content).toContain("always mentioned")
+  expect(content).not.toContain("only on recall")
+})
+
+test("no sticky-note block when there are no sticky notes", async () => {
+  const agent = fakeAgent([{ content: "Hi." }], [rememberNoteTool])
+  const session = createSession()
+  for await (const _ of run(agent, "hello", session)) {
+    // drain
+  }
+
+  const system = session.messages[0]
+  const content = (system as { content: string }).content
+  expect(content).not.toContain("Known context about this user/project")
 })

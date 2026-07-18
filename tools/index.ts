@@ -3,6 +3,12 @@ import { config } from "../lib/config"
 import { currentTimeTool } from "./current-time"
 import { fetchUrlTool } from "./fetch-url"
 import { listFilesTool } from "./list-files"
+import {
+  forgetNoteTool,
+  listNotesTool,
+  recallMemoryTool,
+  rememberNoteTool
+} from "./memory"
 import { myLocationTool } from "./my-location"
 import { readFileTool } from "./read-file"
 import { webSearchTool } from "./web-search"
@@ -21,6 +27,10 @@ export async function getDefaultTools() {
     currentTimeTool,
     askUserTool,
     runCommandTool,
+    rememberNoteTool,
+    recallMemoryTool,
+    forgetNoteTool,
+    listNotesTool,
     ...(webSearch ? [webSearchTool] : []),
     ...(location ? [myLocationTool] : [])
   ]
