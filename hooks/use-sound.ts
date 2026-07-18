@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { playSound } from "../lib/my-computer"
+import { playSound } from "../lib/sounds"
 import type { TimelineEvent } from "./use-agent"
 
 const eventSound = {

@@ -4,7 +4,7 @@ Terminal chat with personas, tools, optional mic dictation, and optional TTS.
 
 ## Install
 
-> [!NOTE]  
+> [! NOTE]  
 > Only tested on Linux.
 
 ```sh
@@ -14,7 +14,7 @@ curl -fsSL https://cli.kaja.io | bash
 ### Uninstall
 
 ```sh
-# find every kaja on your PATH
+# find every kaja on your PATH (optional)
 type -a kaja
 
 # remove the one(s) you don't want
@@ -24,43 +24,24 @@ rm ~/.local/bin/kaja
 ## Config
 
 Fill all the fields here: `~/.config/kaja/config.json` — or let the setup
-wizard do it: it opens automatically when the config is missing or invalid,
-and anytime via `kaja --wizard`.
-
-```json
-{
-  "openaiApiBaseUrl": "",
-  "openaiApiKey": "",
-  "openaiApiModel": "",
-  "braveApiKey": "",
-  "geoServiceUrl": "https://few-booklet-31770.ondis.co/",
-  "geoServiceApiKey": "019ea05a-eacc-7ce7-8af9-e0cbf842d483",
-  "settings": {
-    "thinking": false,
-    "sounds": true,
-    "voice": false,
-    "language": "hu"
-  }
-}
-```
+wizard do it: it opens automatically when the config is missing or invalid, 
+and anytime via `kaja --wizard` .
 
 ### Where to get credentials?
 
-- **Brave search**: get a free key from [their website](https://brave.com/search/api/).
-- **OpenAI API**: any compatible LLM with REST API works (e.g. Ollama). My values:
-  - openaiApiBaseUrl: `https://api.fireworks.ai/inference/v1`
-  - openaiApiModel: `accounts/fireworks/models/minimax-m3`
-- **Geo service**: the example URL and API key work for a while.
+* **Brave search** : get a free key from [their website](https://brave.com/search/api/).
+* **OpenAI API** : any compatible LLM (e.g. MiniMax M3) with REST API works (e.g. Ollama, Fireworks AI).
+* **Geo service** : the example URL and API key work for a while.
 
 Optional multi-model list: `models.toml` in the config directory (a commented template is written on first run).
 
 ### Language
 
-English or Magyar, covering the UI and the assistant's replies. The setup wizard (`kaja --wizard`) starts with a language picker, saved as `settings.language` and read once at startup; without a saved choice the system locale decides (a Hungarian locale → Magyar, anything else → English).
+English or Magyar, covering the UI and the assistant's replies. The setup wizard ( `kaja --wizard` ) starts with a language picker, saved as `settings.language` and read once at startup; without a saved choice the system locale decides (a Hungarian locale → Magyar, anything else → English).
 
-Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model;
+Voice caveat for Hungarian: dictation needs the multilingual whisper model on the STT server (the English default is an English-only model; 
 
-`STT_MODEL`/`STT_LANGUAGE` env vars override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `TTS_MODEL`/`TTS_VOICE` point somewhere Hungarian-capable.
+`STT_MODEL` / `STT_LANGUAGE` env vars override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `TTS_MODEL` / `TTS_VOICE` point somewhere Hungarian-capable.
 
 ## Voice & dictation
 
@@ -68,21 +49,25 @@ Voice features need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `
 
 1. Start speaches:
 
-   ```sh
+   
+
+```sh
    docker compose up -d
    # or CPU-only:
    docker compose -f compose.cpu.yaml up -d
    ```
 
-   Default URL: `ws://localhost:8000` (override with `SPEACHES_URL`).
+   Default URL: `ws://localhost:8000` (override with `SPEACHES_URL` ).
 
 2. First time only — download the Kokoro TTS model on the server:
 
-   ```sh
+   
+
+```sh
    curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
    ```
 
-3. Run the app (`bun run start`), type `/`, turn on **Toggle voice**. Dictation: Ctrl+T (see prompt indicator below).
+3. Run the app (`bun run start`), type `/`, turn on **Toggle voice** . Dictation: Ctrl+T (see prompt indicator below).
 
 ## Hotkeys
 
