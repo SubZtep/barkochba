@@ -1,6 +1,5 @@
 import { Box, Text, useInput, useStdout, useWindowSize } from "ink"
-import { ScrollView, type ScrollViewRef } from "ink-scroll-view"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type {
   PartialMessage as PartialMessageData,
   TimelineEvent
@@ -13,24 +12,24 @@ import {
   parseWheelDirection
 } from "../../lib/terminal-input"
 import { Activity } from "../activity"
+import { VirtualScroll, type VirtualScrollRef } from "../elem/virtual-scroll"
 import { PartialMessage } from "../partial-message"
 import { TimelineItem } from "../timeline"
 
 const WHEEL_LINES = 3
 
 /**
- * ink-scroll-view's scrollTo/scrollBy clamp to contentHeight, not
- * contentHeight - viewportHeight — so you can push every line off-screen.
- * Always clamp to the real bottom offset ourselves.
+ * Clamp to the real bottom offset (VirtualScroll clamps internally too;
+ * kept here so the input handlers stay self-evidently safe).
  */
-function clampScrollTo(view: ScrollViewRef, offset: number) {
+function clampScrollTo(view: VirtualScrollRef, offset: number) {
   const bottom = view.getBottomOffset()
   const next = Math.max(0, Math.min(offset, bottom))
   view.scrollTo(next)
   return next
 }
 
-function scrollByClamped(view: ScrollViewRef, delta: number) {
+function scrollByClamped(view: VirtualScrollRef, delta: number) {
   return clampScrollTo(view, view.getScrollOffset() + delta)
 }
 
@@ -53,8 +52,7 @@ export function ChatViewport({
   thinking,
   partial,
   pending,
-  bottomChromeKey,
-  clearScreen
+  bottomChromeKey
 }: {
   events: TimelineEvent[]
   thinking: boolean
@@ -64,14 +62,8 @@ export function ChatViewport({
    * differently-sized layout, so the viewport remeasures even though none of
    * the other props changed. */
   bottomChromeKey?: string | number
-  /** Forces Ink to drop its diffed-frame model and repaint clean. Some
-   * terminals' mouse-wheel handling (alternate-scroll translation) can drift
-   * out of sync with Ink's own tracking once content is taller than the
-   * viewport, leaving most of the screen stuck until something forces a
-   * full repaint — this is called on every wheel scroll to prevent that. */
-  clearScreen?: () => void
 }) {
-  const scrollRef = useRef<ScrollViewRef>(null)
+  const scrollRef = useRef<VirtualScrollRef>(null)
   const stickRef = useRef(true)
   const topPadRef = useRef(0)
   const [stuckToBottom, setStuckToBottom] = useState(true)
@@ -183,13 +175,11 @@ export function ChatViewport({
       const wheel = parseWheelDirection(input)
       if (wheel === "up") {
         if (maxScroll <= 0) return
-        clearScreen?.()
         setStick(false)
         scrollByClamped(view, -WHEEL_LINES)
         updateStickFromView()
       } else if (wheel === "down") {
         if (maxScroll <= 0) return
-        clearScreen?.()
         scrollByClamped(view, WHEEL_LINES)
         updateStickFromView()
       }
@@ -240,6 +230,19 @@ export function ChatViewport({
 
   const showAffordance = canScroll && !stuckToBottom
 
+  // Stable element identities across scroll-tick renders: TimelineItem is
+  // memo()ed, and keeping the same elements here also stops the ScrollView's
+  // per-item measurement effect (keyed on child identity) from re-running.
+  const timelineItems = useMemo(
+    () =>
+      events.map((item, i) => (
+        <Box key={`e-${i}`}>
+          <TimelineItem item={item} thinking={thinking} />
+        </Box>
+      )),
+    [events, thinking]
+  )
+
   return (
     <Box
       flexGrow={1}
@@ -256,7 +259,7 @@ export function ChatViewport({
           <Text dimColor>{t("viewport.older")}</Text>
         </Box>
       )}
-      <ScrollView
+      <VirtualScroll
         ref={scrollRef}
         flexGrow={1}
         flexShrink={1}
@@ -278,18 +281,14 @@ export function ChatViewport({
         {topPad > 0 ? (
           <Box key="top-pad" height={topPad} flexShrink={0} width="100%" />
         ) : null}
-        {events.map((item, i) => (
-          <Box key={`e-${i}`}>
-            <TimelineItem item={item} thinking={thinking} />
-          </Box>
-        ))}
+        {timelineItems}
         <Box key="partial">
           <PartialMessage partial={partial} thinking={thinking} />
         </Box>
         <Box key="activity">
           <Activity pending={pending} partial={partial} thinking={thinking} />
         </Box>
-      </ScrollView>
+      </VirtualScroll>
     </Box>
   )
 }

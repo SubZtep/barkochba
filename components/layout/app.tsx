@@ -19,15 +19,12 @@ export default function App({
   initialSettings,
   models = [],
   openaiApiModel,
-  tools,
-  clearRef
+  tools
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
   openaiApiModel: string
   tools: Awaited<ReturnType<typeof getDefaultTools>>
-  /** Ink's render().clear, populated after mount — see cli.tsx. */
-  clearRef?: { current?: () => void }
 }) {
   const {
     model,
@@ -124,7 +121,6 @@ export default function App({
         bottomChromeKey={
           pendingCommand ? (runningCommand ? "running" : "confirm") : "input"
         }
-        clearScreen={() => clearRef?.current?.()}
       />
       {pendingCommand ? (
         <ConfirmCommand

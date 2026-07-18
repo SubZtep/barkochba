@@ -1,10 +1,16 @@
 import { Text } from "ink"
+import { memo } from "react"
 import type { TimelineEvent } from "../hooks/use-agent"
 import Markdown from "./elem/markdown"
 import { ReasoningBox } from "./reasoning-box"
 
-/** One finalized timeline entry (user message, tool call, final reply, …). */
-export function TimelineItem({
+/**
+ * One finalized timeline entry (user message, tool call, final reply, …).
+ * Memoized: events are immutable once appended, so scroll ticks and
+ * streaming flushes (which re-render the whole ScrollView subtree) bail
+ * out here instead of re-rendering every history item.
+ */
+export const TimelineItem = memo(function TimelineItem({
   item,
   thinking
 }: {
@@ -34,4 +40,4 @@ export function TimelineItem({
     case "final":
       return <Markdown>{item.content ?? "?"}</Markdown>
   }
-}
+})
