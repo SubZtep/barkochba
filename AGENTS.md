@@ -5,6 +5,7 @@ This project uses Bun toolkit.
 ## Commands
 
 * Run: `bun start`
+* Lint with autofix: `bun lint`
 * Test: `bun test`
 
 ## Boundaries
@@ -12,6 +13,7 @@ This project uses Bun toolkit.
 ### Always do
 
 * Download documentation for the project version of dependencies with Codex7 MCP.
+* Run lint before Git commit.
 
 ### Ask first
 

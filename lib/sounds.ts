@@ -1,14 +1,16 @@
-import bell from "../assets/333695__khrinx__thin-bell-ding-2.wav" with {
+import bell from "../assets/sounds/333695__khrinx__thin-bell-ding-2.wav" with {
   type: "file"
 }
-import magic from "../assets/628548__gmlh__icemagic.mp3" with { type: "file" }
-import error from "../assets/662346__fmaudio__interface-error-7.wav" with {
+import magic from "../assets/sounds/628548__gmlh__icemagic.mp3" with {
   type: "file"
 }
-import wind from "../assets/817959__jriches1__whoosh-away.mp3" with {
+import error from "../assets/sounds/662346__fmaudio__interface-error-7.wav" with {
   type: "file"
 }
-import hehe from "../assets/818171__sadiquecat__sadiquecat-mke600-laughing-nervous-laugh-hehe.wav" with {
+import wind from "../assets/sounds/817959__jriches1__whoosh-away.mp3" with {
+  type: "file"
+}
+import hehe from "../assets/sounds/818171__sadiquecat__sadiquecat-mke600-laughing-nervous-laugh-hehe.wav" with {
   type: "file"
 }
 

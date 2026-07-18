@@ -23,7 +23,7 @@ export const KajaConfigSchema = z.object({
   openaiApiKey: z.string().min(1),
   openaiApiModel: z.string().min(1),
   geoServiceUrl: z.url(),
-  geoServiceApiKey: z.uuid(),
+  geoServiceApiKey: z.string().min(1),
   // In-app preferences (slash menu); optional so existing configs stay valid.
   settings: KajaSettingsSchema.optional(),
   voice: KajaVoiceSchema.optional()
