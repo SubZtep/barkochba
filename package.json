@@ -37,16 +37,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",
+    "@types/bun": "^1.3.3",
     "@types/marked-terminal": "^6.1.1",
     "@types/react": "^19.2.17",
     "react-devtools-core": "^7.0.1"
-  },
-  "peerDependencies": {
-    "@types/bun": "^1.3.3"
-  },
-  "peerDependenciesMeta": {
-    "@types/bun": {
-      "optional": true
-    }
   }
 }
