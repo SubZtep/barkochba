@@ -80,28 +80,6 @@ set `stt.model` / `stt.language` in the config file to override), and spoken rep
 
 Voice features (the optional `stt` / `tts` config groups) need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `ffplay` for mic and playback.
 
-1. Start speaches:
-
-   
-
-```sh
-   docker compose up -d
-   # or CPU-only:
-   docker compose -f compose.cpu.yaml up -d
-   ```
-
-   Default URL: `ws://localhost:8000` (override with `stt.speachesUrl` / `tts.speachesUrl` in the config file, or the setup wizard's STT/TTS groups).
-
-2. First time only — download the Kokoro TTS model on the server:
-
-   
-
-```sh
-   curl -X POST localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX-fp16
-   ```
-
-3. Run the app (`bun run start`), type `/`, turn on **Toggle voice** . Dictation: Ctrl+T (see prompt indicator below).
-
 ## Hotkeys
 
 ### Input field
