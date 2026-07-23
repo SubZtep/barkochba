@@ -1,16 +1,28 @@
 import { Box, Text } from "ink"
 import Gradient from "ink-gradient"
-import { t } from "../../lib/i18n"
+import { useEffect, useState } from "react"
+import { describeToolCall } from "../../lib/tool-labels"
 import { MonsterMate } from "../monster"
 
-/** Live top bar: model name, current persona, and optional geo pin. */
+const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+const TICK_MS = 120
+
+/** Live top bar: model name, current persona, and in-flight tool activity. */
 export function Header({
   persona,
-  location
+  currentTool
 }: {
   persona: string
-  location?: string
+  currentTool?: { name: string; arguments: string }
 }) {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!currentTool) return
+    setTick(0)
+    const timer = setInterval(() => setTick((t) => t + 1), TICK_MS)
+    return () => clearInterval(timer)
+  }, [currentTool])
+
   return (
     <Box flexShrink={0} justifyContent="space-between" paddingX={1}>
       <Box gap={1}>
@@ -21,10 +33,13 @@ export function Header({
           </Gradient>
         </Box>
       </Box>
-      <Box flexShrink={0} gap={1}>
-        <Text color="red">@</Text>
-        <Text dimColor>{location ?? t("header.na")}</Text>
-      </Box>
+      {currentTool ? (
+        <Box flexShrink={0} gap={1}>
+          <Text color="yellow">
+            {`${FRAMES[tick % FRAMES.length]} ${describeToolCall(currentTool.name, currentTool.arguments)}`}
+          </Text>
+        </Box>
+      ) : null}
     </Box>
   )
 }

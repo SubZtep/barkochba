@@ -1,7 +1,6 @@
 import { Box, useWindowSize } from "ink"
 import { useState } from "react"
 import { useAgent } from "../../hooks/use-agent"
-import { useGeoLocation } from "../../hooks/use-geo-location"
 import { useSettings } from "../../hooks/use-settings"
 import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
@@ -45,6 +44,7 @@ export default function App({
     events,
     partial,
     pending,
+    currentTool,
     send,
     resolveCommand,
     runningCommand
@@ -75,7 +75,6 @@ export default function App({
     useSettings(initialSettings)
   useSound(events, sounds)
   const speaking = useVoice(events, voice)
-  const { location } = useGeoLocation()
   const { columns, rows } = useWindowSize()
 
   const chatModels = models.filter((m) => m.task === "chat")
@@ -139,7 +138,7 @@ export default function App({
 
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <Header persona={persona.label} location={location?.country.name} />
+      <Header persona={persona.label} currentTool={currentTool} />
       <ChatViewport
         events={events}
         thinking={thinking}

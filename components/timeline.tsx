@@ -4,7 +4,6 @@ import { memo } from "react"
 import type { TimelineEvent } from "../hooks/use-agent"
 import type { ErrorCategory } from "../lib/error-category"
 import { t } from "../lib/i18n"
-import { describeToolCall } from "../lib/tool-labels"
 import Markdown from "./elem/markdown"
 import { ReasoningBox } from "./reasoning-box"
 
@@ -35,11 +34,7 @@ export const TimelineItem = memo(function TimelineItem({
       if (!thinking) return null
       return <ReasoningBox>{item.text}</ReasoningBox>
     case "tool_call":
-      return (
-        <Text color="yellow">
-          {`> ${describeToolCall(item.name, item.arguments)}`}
-        </Text>
-      )
+      return null
     case "tool_image":
       return <Text dimColor>{`[image: ${item.path}]`}</Text>
     case "display_image":

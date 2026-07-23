@@ -106,6 +106,12 @@ export function useAgent(
   }, [])
   const [partial, setPartial] = useState<PartialMessage | null>(null)
   const [pending, setPending] = useState(false)
+  // The in-flight tool call, if the most recent event is one and a run is
+  // still pending — there's no separate "tool finished" event, so this is
+  // derived rather than tracked: any later event naturally supersedes it.
+  const lastEvent = events.at(-1)
+  const currentTool =
+    pending && lastEvent?.type === "tool_call" ? lastEvent : undefined
   // True from the moment a run_command is approved until its result is fed
   // back — separate from `pending` (which only covers the run() loop itself)
   // so the confirm UI can hide/disable while the shell command is in flight.
@@ -240,6 +246,7 @@ export function useAgent(
     events,
     partial,
     pending,
+    currentTool,
     send,
     resolveCommand,
     runningCommand

@@ -235,11 +235,16 @@ export function ChatViewport({
   // per-item measurement effect (keyed on child identity) from re-running.
   const timelineItems = useMemo(
     () =>
-      events.map((item, i) => (
-        <Box key={`e-${i}`} marginTop={i > 0 && item.type === "user" ? 1 : 0}>
-          <TimelineItem item={item} thinking={thinking} />
-        </Box>
-      )),
+      events
+        .filter((item) => item.type !== "tool_call")
+        .map((item, i) => (
+          <Box
+            key={`e-${i}`}
+            marginTop={i > 0 && item.type === "user" ? 1 : 0}
+          >
+            <TimelineItem item={item} thinking={thinking} />
+          </Box>
+        )),
     [events, thinking]
   )
 
