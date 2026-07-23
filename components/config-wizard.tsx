@@ -3,9 +3,9 @@
  * then steps grouped by feature; fields validate against their group's zod
  * schema per keystroke and a step can't advance until its fields pass.
  *
- * The LLM group is mandatory. The other groups (stt/tts/location/webSearch)
- * are optional: leaving every field in a group blank omits that group from
- * the saved config (the feature stays unavailable); filling in any field
+ * The LLM group is mandatory. The other groups (stt/tts/location/webSearch/
+ * rerank/imageGen) are optional: leaving every field in a group blank omits
+ * that group from the saved config (the feature stays unavailable); filling in any field
  * requires the whole group to validate before advancing.
  *
  * Key routing: Enter is owned by TextInput.onSubmit (next field, or next
@@ -21,6 +21,7 @@ import { getConfigPath, saveConfig } from "../lib/config"
 import { getLanguage, type Language, setLanguage, t } from "../lib/i18n"
 import {
   type KajaConfig,
+  KajaImageGenSchema,
   KajaLlmSchema,
   KajaLocationSchema,
   KajaRerankSchema,
@@ -47,8 +48,18 @@ type FieldName =
   | "rerankModel"
   | "rerankBaseUrl"
   | "rerankApiKey"
+  | "imageGenBaseUrl"
+  | "imageGenApiKey"
+  | "imageGenModel"
 
-type GroupName = "llm" | "stt" | "tts" | "location" | "webSearch" | "rerank"
+type GroupName =
+  | "llm"
+  | "stt"
+  | "tts"
+  | "location"
+  | "webSearch"
+  | "rerank"
+  | "imageGen"
 
 // Each group's fields, its zod shape for per-field validation, and whether
 // the whole group can be omitted when every field is left blank.
@@ -93,6 +104,12 @@ const GROUPS: {
     nameKey: "wizard.groupRerank",
     optional: true,
     fields: ["rerankModel", "rerankBaseUrl", "rerankApiKey"]
+  },
+  {
+    name: "imageGen",
+    nameKey: "wizard.groupImageGen",
+    optional: true,
+    fields: ["imageGenBaseUrl", "imageGenApiKey", "imageGenModel"]
   }
 ]
 
@@ -121,7 +138,10 @@ const FIELD_SCHEMAS: Record<FieldName, z.ZodType<string>> = {
   webSearchApiKey: KajaWebSearchSchema.shape.apiKey,
   rerankModel: KajaRerankSchema.shape.model.unwrap(),
   rerankBaseUrl: KajaRerankSchema.shape.baseUrl.unwrap(),
-  rerankApiKey: KajaRerankSchema.shape.apiKey.unwrap()
+  rerankApiKey: KajaRerankSchema.shape.apiKey.unwrap(),
+  imageGenBaseUrl: KajaImageGenSchema.shape.baseUrl,
+  imageGenApiKey: KajaImageGenSchema.shape.apiKey,
+  imageGenModel: KajaImageGenSchema.shape.model.unwrap()
 }
 
 // Labels come from the dictionary (t(`wizard.${field}`)); placeholders are
@@ -143,7 +163,12 @@ const FIELDS: Record<FieldName, { placeholder: string }> = {
     placeholder: "accounts/fireworks/models/qwen3-reranker-8b (default)"
   },
   rerankBaseUrl: { placeholder: "same as LLM base URL (default)" },
-  rerankApiKey: { placeholder: "same as LLM API key (default)" }
+  rerankApiKey: { placeholder: "same as LLM API key (default)" },
+  imageGenBaseUrl: { placeholder: "https://api.x.ai/v1" },
+  imageGenApiKey: { placeholder: "xai-..." },
+  imageGenModel: {
+    placeholder: "grok-imagine-image-quality (provider default)"
+  }
 }
 
 // Own-language names on purpose: the picker must be readable before the
@@ -421,7 +446,10 @@ function ConfigWizard({
     webSearchApiKey: initial.webSearch?.apiKey ?? "",
     rerankModel: initial.rerank?.model ?? "",
     rerankBaseUrl: initial.rerank?.baseUrl ?? "",
-    rerankApiKey: initial.rerank?.apiKey ?? ""
+    rerankApiKey: initial.rerank?.apiKey ?? "",
+    imageGenBaseUrl: initial.imageGen?.baseUrl ?? "",
+    imageGenApiKey: initial.imageGen?.apiKey ?? "",
+    imageGenModel: initial.imageGen?.model ?? ""
   }))
 
   const save = async () => {
@@ -468,6 +496,14 @@ function ConfigWizard({
             ...(values.rerankApiKey && { apiKey: values.rerankApiKey })
           }
         : undefined
+    const imageGen =
+      values.imageGenBaseUrl || values.imageGenApiKey || values.imageGenModel
+        ? {
+            baseUrl: values.imageGenBaseUrl,
+            apiKey: values.imageGenApiKey,
+            ...(values.imageGenModel && { model: values.imageGenModel })
+          }
+        : undefined
 
     await saveConfig({
       llm: {
@@ -480,6 +516,7 @@ function ConfigWizard({
       location,
       webSearch,
       rerank,
+      imageGen,
       browser: browserEnabled ? {} : undefined,
       settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
