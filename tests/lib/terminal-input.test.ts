@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test"
 import {
+  isDeviceAttributesReply,
   isIgnoredTerminalInput,
   isKittyKeyboardNoise,
   isTerminalMouseSequence,
@@ -30,4 +31,14 @@ test("kitty keyboard replies are noise (not typed into the prompt)", () => {
   expect(isIgnoredTerminalInput("[?0u")).toBe(true)
   expect(isIgnoredTerminalInput("hello")).toBe(false)
   expect(isIgnoredTerminalInput("/")).toBe(false)
+})
+
+test("device attributes replies are noise (not typed into the prompt)", () => {
+  // What the user saw prefilled: terminal reply to a DA1 query (\x1b[c)
+  expect(isDeviceAttributesReply("[?1;2c")).toBe(true)
+  expect(isDeviceAttributesReply("[?63;1;2;6c")).toBe(true)
+  expect(isDeviceAttributesReply("[?6c")).toBe(true)
+  expect(isDeviceAttributesReply("hello")).toBe(false)
+  expect(isDeviceAttributesReply("")).toBe(false)
+  expect(isIgnoredTerminalInput("[?1;2c")).toBe(true)
 })

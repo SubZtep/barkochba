@@ -35,9 +35,23 @@ export function isKittyKeyboardNoise(input: string): boolean {
   return false
 }
 
+/**
+ * Primary Device Attributes (DA1) reply, e.g. `[?1;2c` or `[?63;1;2;6c`.
+ * Sent by the terminal in response to a `\x1b[c` / `\x1b[0c` query.
+ */
+export function isDeviceAttributesReply(input: string): boolean {
+  if (!input) return false
+  const s = stripEsc(input)
+  return /^\[\?\d+(;\d+)*c$/.test(s)
+}
+
 /** Any non-text terminal sequence that must not be typed into the input. */
 export function isIgnoredTerminalInput(input: string): boolean {
-  return isTerminalMouseSequence(input) || isKittyKeyboardNoise(input)
+  return (
+    isTerminalMouseSequence(input) ||
+    isKittyKeyboardNoise(input) ||
+    isDeviceAttributesReply(input)
+  )
 }
 
 export type WheelDirection = "up" | "down"
