@@ -52,6 +52,14 @@ export const KajaRerankSchema = z.object({
   model: z.string().min(1).optional()
 })
 
+// All fields optional: falls back to llm.baseUrl/llm.apiKey and the
+// built-in default model when unset (see lib/embeddings.ts).
+export const KajaEmbeddingSchema = z.object({
+  baseUrl: z.url().optional(),
+  apiKey: z.string().min(1).optional(),
+  model: z.string().min(1).optional()
+})
+
 export const KajaMemorySchema = z.object({
   // Absolute path to the SQLite database file. Omit to use the default XDG
   // data location (see lib/memory-store.ts).
@@ -84,6 +92,7 @@ export const KajaConfigSchema = z.object({
   location: KajaLocationSchema.optional(),
   webSearch: KajaWebSearchSchema.optional(),
   rerank: KajaRerankSchema.optional(),
+  embedding: KajaEmbeddingSchema.optional(),
   memory: KajaMemorySchema.optional(),
   browser: KajaBrowserSchema.optional(),
   chrome: KajaChromeSchema.optional(),
@@ -100,6 +109,7 @@ export type KajaTts = z.infer<typeof KajaTtsSchema>
 export type KajaLocation = z.infer<typeof KajaLocationSchema>
 export type KajaWebSearch = z.infer<typeof KajaWebSearchSchema>
 export type KajaRerank = z.infer<typeof KajaRerankSchema>
+export type KajaEmbedding = z.infer<typeof KajaEmbeddingSchema>
 export type KajaMemory = z.infer<typeof KajaMemorySchema>
 export type KajaBrowser = z.infer<typeof KajaBrowserSchema>
 export type KajaChrome = z.infer<typeof KajaChromeSchema>

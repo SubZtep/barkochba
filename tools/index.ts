@@ -8,6 +8,7 @@ import { loadPluginTools } from "../lib/plugin-tools"
 import { currentTimeTool } from "./current-time"
 import { fetchUrlTool } from "./fetch-url"
 import { generateImageTool } from "./generate-image"
+import { likeOrNotGameTool } from "./like-or-not"
 import { listFilesTool } from "./list-files"
 import {
   forgetNoteTool,
@@ -58,6 +59,7 @@ export async function getDefaultTools() {
       recallMemoryTool,
       forgetNoteTool,
       listNotesTool,
+      likeOrNotGameTool,
       ...(webSearch ? [webSearchTool] : []),
       ...(imageGen ? [generateImageTool] : []),
       ...(playwright?.tools ?? []),

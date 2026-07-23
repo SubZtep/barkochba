@@ -1,0 +1,41 @@
+{
+  "label": "Movies to watch",
+  "entries": [
+    {
+      "name": "Alien",
+      "description": "A crew encounters a deadly extraterrestrial."
+    },
+    {
+      "name": "Aliens",
+      "description": "Marines return to the extraterrestrial-infested colony."
+    },
+    {
+      "name": "Amelie",
+      "description": "A whimsical Parisian woman changes lives around her."
+    },
+    {
+      "name": "Saw",
+      "description": "Two men wake up trapped in a room by a horror puzzle-maker."
+    },
+    {
+      "name": "Hostel",
+      "description": "Backpackers fall victim to a horror torture ring."
+    },
+    {
+      "name": "Terrifier",
+      "description": "A horror clown terrorizes victims on Halloween night."
+    },
+    {
+      "name": "Sinister",
+      "description": "A true-crime writer finds horror footage of past murders."
+    },
+    {
+      "name": "Smile",
+      "description": "A horror curse spreads through a disturbing smile."
+    },
+    {
+      "name": "Insidious",
+      "description": "A family is haunted by horror entities from another realm."
+    }
+  ]
+}

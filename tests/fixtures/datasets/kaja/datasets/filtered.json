@@ -1,0 +1,16 @@
+{
+  "label": "Filtered topic",
+  "excludeNames": ["Banned By Name"],
+  "excludeKeywords": ["forbidden"],
+  "entries": [
+    { "name": "Allowed", "description": "A perfectly fine entry." },
+    {
+      "name": "Banned By Name",
+      "description": "Excluded because of its name."
+    },
+    {
+      "name": "Banned By Keyword",
+      "description": "Contains the forbidden word."
+    }
+  ]
+}

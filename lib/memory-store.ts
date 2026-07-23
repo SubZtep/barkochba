@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { file, write } from "bun"
 import envPaths from "env-paths"
+import type { DatasetEntry } from "../schemas/datasets"
 import {
   type MemoryNote,
   type MemoryStore,
@@ -56,7 +57,7 @@ async function persistDbPathIfMissing(dbPath: string) {
   } catch {}
 }
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 5
 
 const INSERT_NOTE_SQL = `
   INSERT INTO notes (key, content, importance, tags, sticky, createdAt, lastUsedAt, useCount)
@@ -129,6 +130,24 @@ export async function getDb(): Promise<Database> {
       events    TEXT NOT NULL   -- JSON: hooks/use-agent.ts TimelineEvent[]
     )
   `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS game_results (
+      topic       TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      description TEXT NOT NULL,
+      rating      TEXT NOT NULL CHECK (rating IN ('love','like','neutral','dislike','hate')),
+      confirmedAt TEXT NOT NULL,
+      embedding   TEXT NOT NULL,  -- JSON: number[]
+      PRIMARY KEY (topic, name)
+    )
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS game_rounds (
+      topic     TEXT PRIMARY KEY,
+      remaining TEXT NOT NULL,  -- JSON: DatasetEntry[]
+      updatedAt TEXT NOT NULL
+    )
+  `)
 
   const hasVersion = db
     .query("SELECT version FROM schema_version LIMIT 1")
@@ -139,8 +158,10 @@ export async function getDb(): Promise<Database> {
     )
     migrateLegacyJson(db)
   } else if (hasVersion.version < SCHEMA_VERSION) {
-    // v1 → v2 only added the sessions table, which the idempotent DDL above
-    // already created — record the version so a future non-additive
+    // v1 → v2 added the sessions table; v2 → v3 added game_results and
+    // game_rounds; v3 → v4 added game_results.rating; v4 → v5 added
+    // game_results.embedding — all purely additive, already created by the
+    // idempotent DDL above. Record the version so a future non-additive
     // migration has a real ladder to hang off.
     db.query("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION)
   }
@@ -261,4 +282,125 @@ export async function saveMemory(store: MemoryStore) {
     for (const [key, note] of Object.entries(store))
       insert.run(noteParams(key, note))
   })()
+}
+
+export type GameRating = "love" | "like" | "neutral" | "dislike" | "hate"
+
+export type GameResult = {
+  topic: string
+  name: string
+  description: string
+  rating: GameRating
+  confirmedAt: string
+}
+
+// Carries the embedding too — used only by the similarity search path
+// (tools/like-or-not.ts 'similar' action), so ordinary GameResult callers
+// (recall, listGameResults) don't have to handle the vector.
+export type GameResultWithEmbedding = GameResult & { embedding: number[] }
+
+/**
+ * Records (or re-confirms) that a candidate was picked for a topic —
+ * upserts by (topic, name), updating rating and confirmedAt on conflict so
+ * re-confirming with a new rating changes it in place. The embedding is
+ * immutable once set (omitted from the upsert's UPDATE clause) — the
+ * candidate's name+description meaning doesn't change when its rating does.
+ */
+export async function confirmGameResult(
+  topic: string,
+  name: string,
+  description: string,
+  rating: GameRating,
+  embedding: number[]
+): Promise<void> {
+  const database = await getDb()
+  database
+    .query(
+      `INSERT INTO game_results (topic, name, description, rating, confirmedAt, embedding)
+       VALUES ($topic, $name, $description, $rating, $confirmedAt, $embedding)
+       ON CONFLICT(topic, name) DO UPDATE SET rating = excluded.rating, confirmedAt = excluded.confirmedAt`
+    )
+    .run({
+      $topic: topic,
+      $name: name,
+      $description: description,
+      $rating: rating,
+      $confirmedAt: new Date().toISOString(),
+      $embedding: JSON.stringify(embedding)
+    })
+}
+
+export async function unconfirmGameResult(
+  topic: string,
+  name: string
+): Promise<boolean> {
+  const database = await getDb()
+  const result = database
+    .query("DELETE FROM game_results WHERE topic = $topic AND name = $name")
+    .run({ $topic: topic, $name: name })
+  return result.changes > 0
+}
+
+export async function listGameResults(topic: string): Promise<GameResult[]> {
+  const database = await getDb()
+  return database
+    .query(
+      "SELECT topic, name, description, rating, confirmedAt FROM game_results WHERE topic = $topic ORDER BY confirmedAt DESC"
+    )
+    .all({ $topic: topic }) as GameResult[]
+}
+
+/**
+ * All confirmed results across every topic, with their embeddings — used by
+ * the 'similar' action to find semantically related picks regardless of
+ * which topic they belong to.
+ */
+export async function listAllGameResults(): Promise<GameResultWithEmbedding[]> {
+  const database = await getDb()
+  const rows = database
+    .query(
+      "SELECT topic, name, description, rating, confirmedAt, embedding FROM game_results"
+    )
+    .all() as (GameResult & { embedding: string })[]
+  return rows.map((row) => ({ ...row, embedding: JSON.parse(row.embedding) }))
+}
+
+/**
+ * Persists a topic's in-progress round (the narrowed candidate pool) so it
+ * survives a process restart — every 'filter' call saves here, not just
+ * 'confirm'. Upserts by topic (one round per topic at a time).
+ */
+export async function saveGameRound(
+  topic: string,
+  remaining: DatasetEntry[]
+): Promise<void> {
+  const database = await getDb()
+  database
+    .query(
+      `INSERT INTO game_rounds (topic, remaining, updatedAt)
+       VALUES ($topic, $remaining, $updatedAt)
+       ON CONFLICT(topic) DO UPDATE SET remaining = excluded.remaining, updatedAt = excluded.updatedAt`
+    )
+    .run({
+      $topic: topic,
+      $remaining: JSON.stringify(remaining),
+      $updatedAt: new Date().toISOString()
+    })
+}
+
+export async function loadGameRound(
+  topic: string
+): Promise<DatasetEntry[] | undefined> {
+  const database = await getDb()
+  const row = database
+    .query("SELECT remaining FROM game_rounds WHERE topic = $topic")
+    .get({ $topic: topic }) as { remaining: string } | null
+  return row ? (JSON.parse(row.remaining) as DatasetEntry[]) : undefined
+}
+
+export async function clearGameRound(topic: string): Promise<void> {
+  const database = await getDb()
+  database.query("DELETE FROM game_rounds WHERE topic = $topic").run({
+    $topic: topic
+  })
 }
