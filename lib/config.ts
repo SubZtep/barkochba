@@ -8,17 +8,25 @@ import {
 } from "../schemas/config"
 import { t } from "./i18n"
 
-const paths = envPaths("kaja", { suffix: "" })
-export const configDir = paths.config
-export const configPath = join(configDir, "config.json")
+// Computed fresh on every call rather than as a module-level constant: tests
+// run many spec files in one process and mutate XDG_CONFIG_HOME per file, so
+// a frozen constant would lock in whichever file happened to import this
+// module first, for the rest of the process.
+export function getConfigDir() {
+  return envPaths("kaja", { suffix: "" }).config
+}
+
+export function getConfigPath() {
+  return join(getConfigDir(), "config.json")
+}
 
 export async function isExists() {
-  const f = file(configPath)
+  const f = file(getConfigPath())
   return await f.exists()
 }
 
 export async function validate(quiet = false) {
-  const f = file(configPath, { type: "application/json" })
+  const f = file(getConfigPath(), { type: "application/json" })
   if (await f.exists()) {
     try {
       const data = await f.json()
@@ -34,19 +42,28 @@ export async function validate(quiet = false) {
 // file (possibly schema-invalid), or {} when missing/unparseable.
 export async function readConfigLoose(): Promise<Partial<KajaConfig>> {
   try {
-    const data = await file(configPath, { type: "application/json" }).json()
+    const data = await file(getConfigPath(), {
+      type: "application/json"
+    }).json()
     if (data && typeof data === "object") return data as Partial<KajaConfig>
   } catch {}
   return {}
 }
 
 // Cached after the first read: the file only changes via saveConfig/
-// saveSettings below, both of which clear it, so every other reader (stt/tts/
-// geo, called often and per-utterance) doesn't hit disk each time.
+// saveSettings below (and invalidateConfigCache, for writers outside this
+// module), so every other reader (stt/tts/geo, called often and
+// per-utterance) doesn't hit disk each time.
 let cached: KajaConfig | undefined
+
+/** Clears the config() cache after a write made outside saveConfig/saveSettings — e.g. lib/memory-store.ts persisting a resolved default path into config.json. */
+export function invalidateConfigCache() {
+  cached = undefined
+}
 
 export async function config() {
   if (cached) return cached
+  const configPath = getConfigPath()
   const f = file(configPath, { type: "application/json" })
   if (await f.exists()) {
     try {
@@ -65,14 +82,14 @@ export async function config() {
 }
 
 export async function saveConfig(data: KajaConfig) {
-  const f = file(configPath, { type: "application/json" })
+  const f = file(getConfigPath(), { type: "application/json" })
   await write(f, JSON.stringify(data, null, 2))
   cached = undefined
 }
 
 export async function saveSettings(settings: KajaSettings) {
   const current = await config()
-  const f = file(configPath, { type: "application/json" })
+  const f = file(getConfigPath(), { type: "application/json" })
   // Merge into the existing block: callers persist only the keys they manage
   // (thinking/sounds/voice) and must not drop others like language.
   await write(
@@ -90,6 +107,6 @@ export async function create() {
   const data: KajaConfig = {
     llm: { baseUrl: "", apiKey: "", model: "" }
   }
-  const f = file(configPath, { type: "application/json" })
+  const f = file(getConfigPath(), { type: "application/json" })
   await write(f, JSON.stringify(data, null, 2))
 }

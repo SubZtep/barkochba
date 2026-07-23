@@ -41,12 +41,19 @@ export const KajaWebSearchSchema = z.object({
   apiKey: z.string().min(1)
 })
 
+export const KajaMemorySchema = z.object({
+  // Absolute path to the SQLite database file. Omit to use the default XDG
+  // data location (see lib/memory-store.ts).
+  dbPath: z.string().min(1).optional()
+})
+
 export const KajaConfigSchema = z.object({
   llm: KajaLlmSchema,
   stt: KajaSttSchema.optional(),
   tts: KajaTtsSchema.optional(),
   location: KajaLocationSchema.optional(),
   webSearch: KajaWebSearchSchema.optional(),
+  memory: KajaMemorySchema.optional(),
   // In-app preferences (slash menu); optional so existing configs stay valid.
   settings: KajaSettingsSchema.optional()
 })
@@ -58,3 +65,4 @@ export type KajaStt = z.infer<typeof KajaSttSchema>
 export type KajaTts = z.infer<typeof KajaTtsSchema>
 export type KajaLocation = z.infer<typeof KajaLocationSchema>
 export type KajaWebSearch = z.infer<typeof KajaWebSearchSchema>
+export type KajaMemory = z.infer<typeof KajaMemorySchema>

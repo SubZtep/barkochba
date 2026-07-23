@@ -1,6 +1,6 @@
 import meow from "meow"
 import { writeText } from "tinyclip"
-import { configPath } from "./config"
+import { getConfigPath } from "./config"
 import { t } from "./i18n"
 
 // Injected at compile time by CI via `bun build --define CLI_VERSION=...`
@@ -22,6 +22,7 @@ export const cli = meow(t("args.help"), {
 })
 
 if (cli.flags.config) {
+  const configPath = getConfigPath()
   console.log(configPath)
   try {
     await writeText(configPath)

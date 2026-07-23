@@ -1,16 +1,53 @@
-import { afterEach, expect, test } from "bun:test"
-import { rm } from "node:fs/promises"
+import { afterEach, beforeEach, expect, test } from "bun:test"
+import { mkdirSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import type { Agent, AgentEvent } from "../../lib/agents"
 
-// lib/agents.ts loads memory via lib/memory-store.ts, whose path is resolved
-// once at import time from XDG_DATA_HOME — set before any import touches it.
-process.env.XDG_DATA_HOME = `${import.meta.dir}/../../.tmp-test-xdg-data-agents`
+// XDG_DATA_HOME/XDG_CONFIG_HOME are read fresh on every call by
+// lib/config.ts and lib/memory-store.ts (not cached at module load), so
+// setting them before each test isolates this file from the real
+// ~/.local/share/kaja and ~/.config/kaja even though other test files run
+// in the same `bun test` process and may set these vars between tests.
+// Set before any import: lib/openai.ts does `const { llm } = await config()`
+// at its own module top level (transitively reached from lib/agents.ts), so
+// a *static* import of lib/agents.ts here would resolve before this file's
+// own body — including these env vars — ever ran. Dynamic imports below
+// keep the sequencing: env vars and the config.json fixture are in place
+// before lib/agents.ts (and everything it pulls in) is ever evaluated.
+const dataDir = `${import.meta.dir}/../../.tmp-test-xdg-data-agents`
+const configDir = `${import.meta.dir}/../../.tmp-test-xdg-config-agents`
+process.env.XDG_DATA_HOME = dataDir
+process.env.XDG_CONFIG_HOME = configDir
 
-const { memoryPath, saveMemory } = await import("../../lib/memory-store")
+// config() hard-exits the process if config.json is missing, so this
+// isolated config dir needs a minimal valid file — no `location` block, so
+// run() never attempts a real network geo lookup.
+const configKajaDir = join(configDir, "kaja")
+mkdirSync(configKajaDir, { recursive: true })
+writeFileSync(
+  join(configKajaDir, "config.json"),
+  JSON.stringify({
+    llm: { baseUrl: "http://localhost", apiKey: "x", model: "x" }
+  })
+)
+
+const { invalidateConfigCache } = await import("../../lib/config")
 const { askUserTool, createSession, run, runCommandTool } = await import(
   "../../lib/agents"
 )
+const { saveMemory } = await import("../../lib/memory-store")
 const { rememberNoteTool } = await import("../../tools/memory")
+
+// config()'s parsed *contents* are cached in-process on top of the path
+// resolution (see lib/config.ts) — invalidate before every test in case
+// another test file's process-wide cache last populated it with a
+// different config (e.g. a real location block, triggering a real network
+// call from run()).
+beforeEach(() => {
+  process.env.XDG_DATA_HOME = dataDir
+  process.env.XDG_CONFIG_HOME = configDir
+  invalidateConfigCache()
+})
 
 type FakeMessage = {
   content: string | null
@@ -70,7 +107,7 @@ async function collect(agent: Agent) {
 }
 
 afterEach(async () => {
-  await rm(memoryPath, { force: true })
+  await saveMemory({})
 })
 
 test("content alongside an ask_user call is yielded as a message event", async () => {

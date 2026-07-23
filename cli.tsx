@@ -2,8 +2,8 @@ import { color } from "bun"
 import { render } from "ink"
 import {
   config,
-  configPath,
   create,
+  getConfigPath,
   isExists,
   readConfigLoose,
   validate
@@ -54,7 +54,7 @@ if (cli.flags.wizard || !(await validate(true))) {
   }
   if (!(await validate())) {
     console.log(
-      `${color("red", "ansi")}${t("cli.invalidConfig", { path: configPath })}`
+      `${color("red", "ansi")}${t("cli.invalidConfig", { path: getConfigPath() })}`
     )
     process.exit(1)
   }

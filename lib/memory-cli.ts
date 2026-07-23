@@ -1,11 +1,5 @@
 import { t } from "./i18n"
-import {
-  forgetNotes,
-  loadMemory,
-  memoryPath,
-  noteHeader,
-  saveMemory
-} from "./memory-store"
+import { forgetNotes, loadMemory, noteHeader, saveMemory } from "./memory-store"
 
 /**
  * Handles the `kaja memory <list|forget|export>` subcommand. Returns the
@@ -43,9 +37,9 @@ export async function runMemoryCli(
   }
 
   if (command === "export" && !arg) {
-    const f = Bun.file(memoryPath)
-    if (!(await f.exists())) return { code: 0, text: "{}" }
-    return { code: 0, text: (await f.text()).trimEnd() }
+    const store = await loadMemory()
+    if (Object.keys(store).length === 0) return { code: 0, text: "{}" }
+    return { code: 0, text: JSON.stringify(store, null, 2) }
   }
 
   return { code: 1, text: t("memory.usage") }

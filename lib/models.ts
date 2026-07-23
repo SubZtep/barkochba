@@ -5,10 +5,12 @@ import {
   ModelsFileSchema,
   type ResolvedModel
 } from "../schemas/models"
-import { configDir } from "./config"
+import { getConfigDir } from "./config"
 import { t } from "./i18n"
 
-export const modelsPath = join(configDir, "models.toml")
+export function getModelsPath() {
+  return join(getConfigDir(), "models.toml")
+}
 
 // Written on first run; everything is commented out, which parses as an
 // empty (valid) file until the user fills it in.
@@ -57,6 +59,7 @@ export function resolveModels(data: KajaModelsFile): ResolvedModel[] {
  * error and exits, same policy as {@link config}.
  */
 export async function loadModels(): Promise<ResolvedModel[]> {
+  const modelsPath = getModelsPath()
   const f = file(modelsPath)
   if (!(await f.exists())) {
     await write(f, TEMPLATE)

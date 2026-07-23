@@ -17,7 +17,7 @@
 import { Box, render, Text, useInput } from "ink"
 import { useState } from "react"
 import type * as z from "zod"
-import { configPath, saveConfig } from "../lib/config"
+import { getConfigPath, saveConfig } from "../lib/config"
 import { getLanguage, type Language, setLanguage, t } from "../lib/i18n"
 import {
   type KajaConfig,
@@ -407,7 +407,7 @@ function ConfigWizard({
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
       <Text bold>{t("wizard.title")}</Text>
-      <Text dimColor>{configPath}</Text>
+      <Text dimColor>{getConfigPath()}</Text>
       <Box
         flexDirection="column"
         borderStyle="round"

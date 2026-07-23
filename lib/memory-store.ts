@@ -1,14 +1,164 @@
-import { rename } from "node:fs/promises"
-import { join } from "node:path"
+import { Database } from "bun:sqlite"
+import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { file, write } from "bun"
 import envPaths from "env-paths"
 import {
   type MemoryNote,
   type MemoryStore,
   MemoryStoreSchema
 } from "../schemas/memory"
+import { getConfigPath, invalidateConfigCache, readConfigLoose } from "./config"
 
-const paths = envPaths("kaja", { suffix: "" })
-export const memoryPath = join(paths.data, "memory.json")
+// Computed fresh on every call, not as a module-level constant: see the same
+// note on getConfigDir/getConfigPath in lib/config.ts — tests run many spec
+// files in one process and mutate XDG_DATA_HOME per file.
+export function getDefaultMemoryDbPath() {
+  return join(envPaths("kaja", { suffix: "" }).data, "memory.sqlite")
+}
+
+function getLegacyJsonPath() {
+  return join(envPaths("kaja", { suffix: "" }).data, "memory.json")
+}
+
+/**
+ * Resolves the database path to open: `config.memory.dbPath` if set,
+ * otherwise the default XDG data location. Uses {@link readConfigLoose},
+ * not {@link import("./config").config}, because managing memory (the
+ * `kaja memory` CLI, and this module in general) must keep working even
+ * with a missing or invalid config.json.
+ */
+export async function resolveMemoryDbPath(): Promise<string> {
+  const loose = await readConfigLoose()
+  return loose.memory?.dbPath || getDefaultMemoryDbPath()
+}
+
+/**
+ * After a database has been opened successfully at `dbPath` (proving that
+ * path works), writes it into config.json's `memory.dbPath` if that key
+ * wasn't already set there — so the effective path becomes explicit and
+ * user-editable instead of implicit. Never touches config.json if it
+ * doesn't exist yet (fresh install with no config) or already has
+ * `memory.dbPath` set. Best-effort: a write failure here must not break
+ * memory itself, so errors are swallowed.
+ */
+async function persistDbPathIfMissing(dbPath: string) {
+  try {
+    const configPath = getConfigPath()
+    if (!(await file(configPath).exists())) return
+    const loose = await readConfigLoose()
+    if (loose.memory?.dbPath) return
+    await write(
+      file(configPath),
+      JSON.stringify({ ...loose, memory: { ...loose.memory, dbPath } }, null, 2)
+    )
+    invalidateConfigCache()
+  } catch {}
+}
+
+const SCHEMA_VERSION = 1
+
+const INSERT_NOTE_SQL = `
+  INSERT INTO notes (key, content, importance, tags, sticky, createdAt, lastUsedAt, useCount)
+  VALUES ($key, $content, $importance, $tags, $sticky, $createdAt, $lastUsedAt, $useCount)
+`
+
+function noteParams(key: string, note: MemoryNote) {
+  return {
+    $key: key,
+    $content: note.content,
+    $importance: note.importance,
+    $tags: JSON.stringify(note.tags),
+    $sticky: note.sticky ? 1 : 0,
+    $createdAt: note.createdAt,
+    $lastUsedAt: note.lastUsedAt,
+    $useCount: note.useCount
+  }
+}
+
+let db: Database | undefined
+let dbPathInUse: string | undefined
+
+/**
+ * Opens (creating if needed) the memory database, migrating any pre-existing
+ * `memory.json` into it on first run. Cached module-wide (SQLite wants a
+ * persistent connection, unlike the JSON file this replaces), but keyed by
+ * the resolved path: if `resolveMemoryDbPath()` returns something different
+ * from the cached connection's path, that connection is closed and a fresh
+ * one opened. In a real run the resolved path never changes mid-process, so
+ * this never fires — it only matters for tests, which run many logically
+ * separate "sessions" (each with its own XDG_DATA_HOME/config.memory.dbPath)
+ * in one shared `bun test` process.
+ */
+async function getDb(): Promise<Database> {
+  const dbPath = await resolveMemoryDbPath()
+  if (db && dbPathInUse === dbPath) return db
+
+  db?.close()
+  mkdirSync(dirname(dbPath), { recursive: true })
+  db = new Database(dbPath, { create: true })
+  dbPathInUse = dbPath
+  db.exec("PRAGMA journal_mode = WAL")
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)"
+  )
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notes (
+      key         TEXT PRIMARY KEY,
+      content     TEXT NOT NULL,
+      importance  TEXT NOT NULL CHECK (importance IN ('low','medium','high')),
+      tags        TEXT NOT NULL,
+      sticky      INTEGER NOT NULL,
+      createdAt   TEXT NOT NULL,
+      lastUsedAt  TEXT NOT NULL,
+      useCount    INTEGER NOT NULL
+    )
+  `)
+
+  const hasVersion = db
+    .query("SELECT version FROM schema_version LIMIT 1")
+    .get()
+  if (!hasVersion) {
+    db.query("INSERT INTO schema_version (version) VALUES (?)").run(
+      SCHEMA_VERSION
+    )
+    migrateLegacyJson(db)
+  }
+
+  // Only persist the path back to config.json once we know it works — the
+  // database above opened and initialized without throwing.
+  await persistDbPathIfMissing(dbPath)
+
+  return db
+}
+
+/**
+ * One-time import of a pre-existing `memory.json` into a freshly created
+ * database, run inside the same "no schema_version row yet" check so it
+ * never re-runs. The source file is kept as `memory.json.bak` (never
+ * deleted) so a bad migration can be recovered from by hand.
+ */
+function migrateLegacyJson(database: Database) {
+  const legacyJsonPath = getLegacyJsonPath()
+  if (!existsSync(legacyJsonPath)) return
+
+  let store: MemoryStore
+  try {
+    store = MemoryStoreSchema.parse(
+      JSON.parse(readFileSync(legacyJsonPath, "utf8"))
+    )
+  } catch {
+    return
+  }
+
+  const insert = database.query(INSERT_NOTE_SQL)
+  database.transaction(() => {
+    for (const [key, note] of Object.entries(store))
+      insert.run(noteParams(key, note))
+  })()
+
+  renameSync(legacyJsonPath, `${legacyJsonPath}.bak`)
+}
 
 /**
  * One-line note header shared by the memory tools and the `kaja memory`
@@ -47,18 +197,48 @@ export function forgetNotes(
   return victims
 }
 
-export async function loadMemory(): Promise<MemoryStore> {
-  const f = Bun.file(memoryPath)
-  if (!(await f.exists())) return {}
-  try {
-    return MemoryStoreSchema.parse(await f.json())
-  } catch {
-    return {}
+function rowToNote(row: {
+  content: string
+  importance: string
+  tags: string
+  sticky: number
+  createdAt: string
+  lastUsedAt: string
+  useCount: number
+}): MemoryNote {
+  return {
+    content: row.content,
+    importance: row.importance as MemoryNote["importance"],
+    tags: JSON.parse(row.tags),
+    sticky: row.sticky === 1,
+    createdAt: row.createdAt,
+    lastUsedAt: row.lastUsedAt,
+    useCount: row.useCount
   }
 }
 
+export async function loadMemory(): Promise<MemoryStore> {
+  const database = await getDb()
+  const rows = database
+    .query(
+      "SELECT key, content, importance, tags, sticky, createdAt, lastUsedAt, useCount FROM notes"
+    )
+    .all() as ({ key: string } & Parameters<typeof rowToNote>[0])[]
+
+  const store: MemoryStore = {}
+  for (const row of rows) store[row.key] = rowToNote(row)
+  return store
+}
+
 export async function saveMemory(store: MemoryStore) {
-  const tmp = `${memoryPath}.tmp`
-  await Bun.write(tmp, JSON.stringify(store, null, 2))
-  await rename(tmp, memoryPath)
+  const database = await getDb()
+
+  const deleteAll = database.query("DELETE FROM notes")
+  const insert = database.query(INSERT_NOTE_SQL)
+
+  database.transaction(() => {
+    deleteAll.run()
+    for (const [key, note] of Object.entries(store))
+      insert.run(noteParams(key, note))
+  })()
 }

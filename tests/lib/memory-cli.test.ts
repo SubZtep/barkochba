@@ -1,9 +1,11 @@
 import { afterEach, expect, test } from "bun:test"
-import { rm } from "node:fs/promises"
 
+// XDG_CONFIG_HOME is isolated too, since memory-store.ts can write
+// config.memory.dbPath back into config.json on first successful open.
 process.env.XDG_DATA_HOME = `${import.meta.dir}/../../.tmp-test-xdg-data-cli`
+process.env.XDG_CONFIG_HOME = `${import.meta.dir}/../../.tmp-test-xdg-config-cli`
 
-const { memoryPath, saveMemory } = await import("../../lib/memory-store")
+const { saveMemory } = await import("../../lib/memory-store")
 const { runMemoryCli } = await import("../../lib/memory-cli")
 
 const NOTE = {
@@ -16,7 +18,7 @@ const NOTE = {
 }
 
 afterEach(async () => {
-  await rm(memoryPath, { force: true })
+  await saveMemory({})
 })
 
 test("list prints headers with content", async () => {
