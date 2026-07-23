@@ -504,13 +504,15 @@ test("round progress survives a fresh process (module re-import), not just confi
   ])
 })
 
-test("similar ranks other confirmed candidates across all topics by cosine similarity", async () => {
+test("similar ranks other confirmed candidates across all topics by cosine similarity, with a header showing the query's own rating", async () => {
   vectorOverrides = {
     "Alien: A crew encounters a deadly extraterrestrial.": [1, 0, 0],
     "Aliens: Marines return to the extraterrestrial-infested colony.": [
       0.9, 0.1, 0
     ],
-    "Amelie: A whimsical Parisian woman changes lives around her.": [0, 0, 1],
+    "Amelie: A whimsical Parisian woman changes lives around her.": [
+      0.5, 0.5, 0
+    ],
     "Allowed: A perfectly fine entry.": [0.8, 0.2, 0]
   }
 
@@ -530,7 +532,7 @@ test("similar ranks other confirmed candidates across all topics by cosine simil
     action: "confirm",
     topic: "movies",
     name: "Amelie",
-    rating: "dislike"
+    rating: "neutral"
   })
   await likeOrNotGameTool.execute({
     action: "confirm",
@@ -546,13 +548,53 @@ test("similar ranks other confirmed candidates across all topics by cosine simil
   })) as string
   const lines = result.split("\n")
 
-  // Closest to Alien's [1,0,0]: Aliens ([0.9,0.1,0], same topic) first,
-  // then Allowed ([0.8,0.2,0], a DIFFERENT topic — proving cross-topic
-  // search works), Amelie ([0,0,1], orthogonal) last.
-  expect(lines[0]).toContain("movies/Aliens")
-  expect(lines[1]).toContain("filtered/Allowed")
-  expect(lines[2]).toContain("movies/Amelie")
+  // Header line first, showing the query's own rating.
+  expect(lines[0]).toBe("Alien (love) — similar confirmed picks:")
+  // Then closest to Alien's [1,0,0]: Aliens ([0.9,0.1,0], same topic)
+  // first, then Allowed ([0.8,0.2,0], a DIFFERENT topic — proving
+  // cross-topic search works), Amelie ([0.5,0.5,0]) last.
+  expect(lines[1]).toContain("movies/Aliens")
+  expect(lines[2]).toContain("filtered/Allowed")
+  expect(lines[3]).toContain("movies/Amelie")
   expect(result).not.toContain("movies/Alien:")
+})
+
+test("similar excludes dislike/hate candidates by default, includes them with includeDisliked", async () => {
+  vectorOverrides = {
+    "Alien: A crew encounters a deadly extraterrestrial.": [1, 0, 0],
+    "Aliens: Marines return to the extraterrestrial-infested colony.": [
+      0.9, 0.1, 0
+    ]
+  }
+
+  await likeOrNotGameTool.execute({
+    action: "confirm",
+    topic: "movies",
+    name: "Alien",
+    rating: "love"
+  })
+  await likeOrNotGameTool.execute({
+    action: "confirm",
+    topic: "movies",
+    name: "Aliens",
+    rating: "hate"
+  })
+
+  const excluded = (await likeOrNotGameTool.execute({
+    action: "similar",
+    topic: "movies",
+    name: "Alien"
+  })) as string
+  expect(excluded).toBe("No other confirmed results to compare against.")
+
+  const included = (await likeOrNotGameTool.execute({
+    action: "similar",
+    topic: "movies",
+    name: "Alien",
+    includeDisliked: true
+  })) as string
+  expect(included).toContain("movies/Aliens")
+  expect(included).toContain("(hate,")
 })
 
 test("similar excludes the query candidate itself from the results", async () => {
@@ -579,4 +621,100 @@ test("similar on a candidate that hasn't been confirmed returns a message instea
   expect(result).toBe(
     'Alien hasn\'t been confirmed yet in "movies" — nothing to compare against.'
   )
+})
+
+test("recommend ranks unrated candidates by similarity to loved/liked picks, ignoring dislikes", async () => {
+  vectorOverrides = {
+    "Alien: A crew encounters a deadly extraterrestrial.": [1, 0, 0],
+    // Unrated candidates, scored against Alien's [1,0,0]:
+    "Aliens: Marines return to the extraterrestrial-infested colony.": [
+      0.9, 0.1, 0
+    ],
+    "Amelie: A whimsical Parisian woman changes lives around her.": [0, 1, 0],
+    "Saw: Two men wake up trapped in a room by a horror puzzle-maker.": [
+      0, 0, 1
+    ]
+  }
+
+  await likeOrNotGameTool.execute({
+    action: "confirm",
+    topic: "movies",
+    name: "Alien",
+    rating: "love"
+  })
+
+  const result = (await likeOrNotGameTool.execute({
+    action: "recommend",
+    topic: "movies"
+  })) as string
+  const lines = result.split("\n")
+
+  // Aliens ([0.9,0.1,0]) is closest to loved Alien ([1,0,0]), ranked first.
+  expect(lines[0]).toContain("Aliens:")
+  expect(lines[0]).toContain("% similar to your liked picks")
+  // Alien itself (already rated) must never appear as a recommendation.
+  expect(result).not.toContain("Alien:")
+})
+
+test("recommend returns a message when there are no loved/liked picks yet", async () => {
+  await likeOrNotGameTool.execute({
+    action: "confirm",
+    topic: "movies",
+    name: "Alien",
+    rating: "dislike"
+  })
+  const result = await likeOrNotGameTool.execute({
+    action: "recommend",
+    topic: "movies"
+  })
+  expect(result).toBe(
+    'No loved or liked picks yet in "movies" to base recommendations on.'
+  )
+})
+
+test("recommend returns a message when every candidate is already rated", async () => {
+  const dataset = await import("../../lib/datasets").then((m) =>
+    m.loadDataset("movies")
+  )
+  for (const entry of dataset!.entries) {
+    await likeOrNotGameTool.execute({
+      action: "confirm",
+      topic: "movies",
+      name: entry.name,
+      rating: "like"
+    })
+  }
+  const result = await likeOrNotGameTool.execute({
+    action: "recommend",
+    topic: "movies"
+  })
+  expect(result).toBe(
+    'Every candidate in "movies" has already been rated — nothing left to recommend.'
+  )
+})
+
+test("recommend does not write anything to game_results (read-only)", async () => {
+  await likeOrNotGameTool.execute({
+    action: "confirm",
+    topic: "movies",
+    name: "Alien",
+    rating: "love"
+  })
+  await likeOrNotGameTool.execute({ action: "recommend", topic: "movies" })
+
+  const recall = (await likeOrNotGameTool.execute({
+    action: "recall",
+    topic: "movies"
+  })) as string
+  // Only the one explicit confirm — recommend must not have saved anything.
+  expect(recall.split("\n")).toHaveLength(1)
+  expect(recall).toContain("Alien")
+})
+
+test("recommend on an unknown topic returns a message instead of throwing", async () => {
+  const result = await likeOrNotGameTool.execute({
+    action: "recommend",
+    topic: "nonexistent"
+  })
+  expect(result).toBe("Unknown topic: nonexistent")
 })

@@ -31,7 +31,13 @@ type Args =
   | { action: "recall"; topic: string }
   | { action: "reveal"; topic: string }
   | { action: "reset"; topic: string }
-  | { action: "similar"; topic: string; name: string }
+  | {
+      action: "similar"
+      topic: string
+      name: string
+      includeDisliked?: boolean
+    }
+  | { action: "recommend"; topic: string }
 
 /**
  * Twenty-Questions-style "like or not" game: narrows a topic's candidate
@@ -90,7 +96,15 @@ export const likeOrNotGameTool = tool<Args>({
     "similar OTHER confirmed candidates across ALL topics, ranked by " +
     "meaning rather than keyword overlap — use this when the user asks " +
     "what else they might like based on something they've already " +
-    "confirmed (e.g. 'what else have I loved that's like this').",
+    "confirmed (e.g. 'what else have I loved that's like this'); by " +
+    "default it excludes candidates rated dislike/hate (the usual intent " +
+    "is 'what else might I like'), pass includeDisliked=true to include " +
+    "them too (e.g. 'what similar things have I rejected'); 'recommend' " +
+    "finds UNRATED candidates in one topic — ones the user hasn't reacted " +
+    "to yet — that are most similar to what they've loved/liked so far in " +
+    "that topic, for when the user asks what else they might want to try " +
+    "(distinct from 'similar', which only ever compares among already-" +
+    "confirmed picks).",
   parameters: {
     type: "object",
     properties: {
@@ -105,7 +119,8 @@ export const likeOrNotGameTool = tool<Args>({
           "recall",
           "reveal",
           "reset",
-          "similar"
+          "similar",
+          "recommend"
         ],
         description: "Which game action to perform"
       },
@@ -149,6 +164,13 @@ export const likeOrNotGameTool = tool<Args>({
         enum: RATINGS,
         description:
           "Required for 'confirm'. How the user feels about this candidate."
+      },
+      includeDisliked: {
+        type: "boolean",
+        description:
+          "Optional for 'similar'. When true, also includes candidates " +
+          "rated dislike/hate in the results — by default they're " +
+          "excluded, since the intent is usually 'what else might I like'."
       }
     },
     required: ["action"]
@@ -357,6 +379,11 @@ export const likeOrNotGameTool = tool<Args>({
           .filter(
             (row) => !(row.topic === query.topic && row.name === query.name)
           )
+          .filter(
+            (row) =>
+              args.includeDisliked ||
+              (row.rating !== "dislike" && row.rating !== "hate")
+          )
           .map((row) => ({
             row,
             score: cosineSimilarity(query.embedding, row.embedding)
@@ -367,10 +394,63 @@ export const likeOrNotGameTool = tool<Args>({
         if (ranked.length === 0)
           return "No other confirmed results to compare against."
 
+        const lines = ranked.map(
+          ({ row, score }) =>
+            `${row.topic}/${row.name}: ${row.description} (${row.rating}, ${Math.round(score * 100)}% similar)`
+        )
+        return [
+          `${query.name} (${query.rating}) — similar confirmed picks:`,
+          ...lines
+        ].join("\n")
+      }
+
+      case "recommend": {
+        const dataset = await loadDataset(args.topic)
+        if (!dataset) return `Unknown topic: ${args.topic}`
+
+        const confirmed = await listGameResults(args.topic)
+        const confirmedNames = new Set(confirmed.map((row) => row.name))
+        const lovedLiked = confirmed.filter(
+          (row) => row.rating === "love" || row.rating === "like"
+        )
+        if (lovedLiked.length === 0)
+          return `No loved or liked picks yet in "${args.topic}" to base recommendations on.`
+
+        const unrated = dataset.entries.filter(
+          (entry) => !confirmedNames.has(entry.name)
+        )
+        if (unrated.length === 0)
+          return `Every candidate in "${args.topic}" has already been rated — nothing left to recommend.`
+
+        // Reuse the loved/liked picks' already-stored embeddings (computed
+        // at confirm-time) instead of re-embedding their text — only the
+        // unrated pool needs a fresh (batched) embedding call.
+        const all = await listAllGameResults()
+        const lovedLikedEmbeddings = lovedLiked.map(
+          (row) =>
+            all.find((r) => r.topic === args.topic && r.name === row.name)!
+              .embedding
+        )
+        const unratedVectors = await embed(
+          unrated.map((entry) => `${entry.name}: ${entry.description}`)
+        )
+
+        const ranked = unrated
+          .map((entry, i) => ({
+            entry,
+            score: Math.max(
+              ...lovedLikedEmbeddings.map((e) =>
+                cosineSimilarity(unratedVectors[i]!, e)
+              )
+            )
+          }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, SIMILAR_TOP_N)
+
         return ranked
           .map(
-            ({ row, score }) =>
-              `${row.topic}/${row.name}: ${row.description} (${row.rating}, ${Math.round(score * 100)}% similar)`
+            ({ entry, score }) =>
+              `${entry.name}: ${entry.description} (${Math.round(score * 100)}% similar to your liked picks)`
           )
           .join("\n")
       }
