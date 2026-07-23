@@ -1,7 +1,6 @@
 import { tool } from "../lib/agents"
 import { config } from "../lib/config"
 import { tryLookupMyLocation } from "../lib/geo"
-import { isoCountryCode } from "../lib/iso-countries"
 
 /**
  * Searches the web via Brave Search API.
@@ -112,7 +111,7 @@ async function braveSearch(
   search_lang?: string
 ) {
   const location = await tryLookupMyLocation()
-  const country = location && isoCountryCode(location.country.name)
+  const country = location?.country.isoCode
   const params = new URLSearchParams({
     q: query,
     count: "20",

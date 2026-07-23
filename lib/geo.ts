@@ -1,9 +1,16 @@
 import { config } from "./config"
 
 export interface GeoLocation {
-  continent: { geonameId: number; name: string }
-  country: { geonameId: number; name: string }
+  continent: { geonameId: number; name: string; code: string }
+  country: {
+    geonameId: number
+    name: string
+    isoCode: string
+    isInEuropeanUnion: boolean
+  }
+  subdivisions: { geonameId: number; name: string; isoCode: string }[]
   city: { geonameId: number; name: string }
+  postalCode?: string
   location: {
     accuracyRadius: number
     latitude: number
