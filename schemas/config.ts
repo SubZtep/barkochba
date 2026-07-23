@@ -59,6 +59,15 @@ export const KajaBrowserSchema = z.object({
   headless: z.boolean().optional()
 })
 
+// baseUrl/apiKey are mandatory (xAI's Images API, not the main llm
+// provider); model is optional — the tool only sends `model` to the API
+// when it's set here, otherwise the provider's own default is used.
+export const KajaImageGenSchema = z.object({
+  baseUrl: z.url(),
+  apiKey: z.string().min(1),
+  model: z.string().min(1).optional()
+})
+
 export const KajaConfigSchema = z.object({
   llm: KajaLlmSchema,
   stt: KajaSttSchema.optional(),
@@ -68,6 +77,7 @@ export const KajaConfigSchema = z.object({
   rerank: KajaRerankSchema.optional(),
   memory: KajaMemorySchema.optional(),
   browser: KajaBrowserSchema.optional(),
+  imageGen: KajaImageGenSchema.optional(),
   // In-app preferences (slash menu); optional so existing configs stay valid.
   settings: KajaSettingsSchema.optional()
 })
@@ -82,3 +92,4 @@ export type KajaWebSearch = z.infer<typeof KajaWebSearchSchema>
 export type KajaRerank = z.infer<typeof KajaRerankSchema>
 export type KajaMemory = z.infer<typeof KajaMemorySchema>
 export type KajaBrowser = z.infer<typeof KajaBrowserSchema>
+export type KajaImageGen = z.infer<typeof KajaImageGenSchema>

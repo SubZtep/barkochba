@@ -3,6 +3,7 @@ import { config } from "../lib/config"
 import { connectPlaywrightMcp } from "../lib/mcp-client"
 import { currentTimeTool } from "./current-time"
 import { fetchUrlTool } from "./fetch-url"
+import { generateImageTool } from "./generate-image"
 import { listFilesTool } from "./list-files"
 import {
   forgetNoteTool,
@@ -26,7 +27,7 @@ import { webSearchTool } from "./web-search"
  * caller must call it on shutdown to let the spawned MCP subprocess exit.
  */
 export async function getDefaultTools() {
-  const { webSearch, browser } = await config()
+  const { webSearch, browser, imageGen } = await config()
   const mcp = browser ? await connectPlaywrightMcp(browser) : undefined
   return {
     tools: [
@@ -43,6 +44,7 @@ export async function getDefaultTools() {
       forgetNoteTool,
       listNotesTool,
       ...(webSearch ? [webSearchTool] : []),
+      ...(imageGen ? [generateImageTool] : []),
       ...(mcp?.tools ?? [])
     ],
     closeTools: mcp?.close ?? (async () => {})
