@@ -23,6 +23,7 @@ import {
   type KajaConfig,
   KajaLlmSchema,
   KajaLocationSchema,
+  KajaRerankSchema,
   KajaSettingsSchema,
   KajaSttSchema,
   KajaTtsSchema,
@@ -43,8 +44,11 @@ type FieldName =
   | "locationServiceUrl"
   | "locationApiKey"
   | "webSearchApiKey"
+  | "rerankModel"
+  | "rerankBaseUrl"
+  | "rerankApiKey"
 
-type GroupName = "llm" | "stt" | "tts" | "location" | "webSearch"
+type GroupName = "llm" | "stt" | "tts" | "location" | "webSearch" | "rerank"
 
 // Each group's fields, its zod shape for per-field validation, and whether
 // the whole group can be omitted when every field is left blank.
@@ -83,6 +87,12 @@ const GROUPS: {
     nameKey: "wizard.groupWebSearch",
     optional: true,
     fields: ["webSearchApiKey"]
+  },
+  {
+    name: "rerank",
+    nameKey: "wizard.groupRerank",
+    optional: true,
+    fields: ["rerankModel", "rerankBaseUrl", "rerankApiKey"]
   }
 ]
 
@@ -108,7 +118,10 @@ const FIELD_SCHEMAS: Record<FieldName, z.ZodType<string>> = {
   ttsVoice: KajaTtsSchema.shape.voice.unwrap(),
   locationServiceUrl: KajaLocationSchema.shape.serviceUrl,
   locationApiKey: KajaLocationSchema.shape.apiKey,
-  webSearchApiKey: KajaWebSearchSchema.shape.apiKey
+  webSearchApiKey: KajaWebSearchSchema.shape.apiKey,
+  rerankModel: KajaRerankSchema.shape.model.unwrap(),
+  rerankBaseUrl: KajaRerankSchema.shape.baseUrl.unwrap(),
+  rerankApiKey: KajaRerankSchema.shape.apiKey.unwrap()
 }
 
 // Labels come from the dictionary (t(`wizard.${field}`)); placeholders are
@@ -125,7 +138,12 @@ const FIELDS: Record<FieldName, { placeholder: string }> = {
   ttsVoice: { placeholder: "af_heart (default)" },
   locationServiceUrl: { placeholder: "https://ip2geo.demo.land/" },
   locationApiKey: { placeholder: "kaja" },
-  webSearchApiKey: { placeholder: "BSA..." }
+  webSearchApiKey: { placeholder: "BSA..." },
+  rerankModel: {
+    placeholder: "accounts/fireworks/models/qwen3-reranker-8b (default)"
+  },
+  rerankBaseUrl: { placeholder: "same as LLM base URL (default)" },
+  rerankApiKey: { placeholder: "same as LLM API key (default)" }
 }
 
 // Own-language names on purpose: the picker must be readable before the
@@ -347,7 +365,10 @@ function ConfigWizard({
     ttsVoice: initial.tts?.voice ?? "",
     locationServiceUrl: initial.location?.serviceUrl ?? "",
     locationApiKey: initial.location?.apiKey ?? "",
-    webSearchApiKey: initial.webSearch?.apiKey ?? ""
+    webSearchApiKey: initial.webSearch?.apiKey ?? "",
+    rerankModel: initial.rerank?.model ?? "",
+    rerankBaseUrl: initial.rerank?.baseUrl ?? "",
+    rerankApiKey: initial.rerank?.apiKey ?? ""
   }))
 
   const save = async () => {
@@ -386,6 +407,14 @@ function ConfigWizard({
     const webSearch = values.webSearchApiKey
       ? { apiKey: values.webSearchApiKey }
       : undefined
+    const rerank =
+      values.rerankModel || values.rerankBaseUrl || values.rerankApiKey
+        ? {
+            ...(values.rerankModel && { model: values.rerankModel }),
+            ...(values.rerankBaseUrl && { baseUrl: values.rerankBaseUrl }),
+            ...(values.rerankApiKey && { apiKey: values.rerankApiKey })
+          }
+        : undefined
 
     await saveConfig({
       llm: {
@@ -397,6 +426,7 @@ function ConfigWizard({
       tts,
       location,
       webSearch,
+      rerank,
       settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
     onFinish("saved")
