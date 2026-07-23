@@ -173,6 +173,65 @@ test("run_command call is intercepted and yielded as confirm_command", async () 
   ])
 })
 
+test("run_command with mutates: false runs immediately, no confirm_command", async () => {
+  const agent = fakeAgent([
+    {
+      content: null,
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: {
+            name: "run_command",
+            arguments: JSON.stringify({
+              command: "echo hi",
+              description: "Say hi",
+              mutates: false
+            })
+          }
+        }
+      ]
+    },
+    { content: "Done." }
+  ])
+
+  const events = await collect(agent)
+  const finalized = events.filter((e) => e.type !== "delta")
+  expect(finalized).toEqual([{ type: "final", content: "Done." }])
+})
+
+test("run_command with mutates: false but a dangerous command still confirms", async () => {
+  const agent = fakeAgent([
+    {
+      content: null,
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: {
+            name: "run_command",
+            arguments: JSON.stringify({
+              command: "sudo rm -rf /tmp/x",
+              description: "Clean up",
+              mutates: false
+            })
+          }
+        }
+      ]
+    }
+  ])
+
+  const events = await collect(agent)
+  const finalized = events.filter((e) => e.type !== "delta")
+  expect(finalized).toEqual([
+    {
+      type: "confirm_command",
+      command: "sudo rm -rf /tmp/x",
+      description: "Clean up"
+    }
+  ])
+})
+
 test("resuming after run_command threads the result back as a tool response", async () => {
   const agent = fakeAgent([
     {
