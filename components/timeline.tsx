@@ -26,7 +26,7 @@ export const TimelineItem = memo(function TimelineItem({
     case "tool_call":
       return <Text color="yellow">{`> ${item.name}(${item.arguments})`}</Text>
     case "tool_image":
-      return <Text dimColor>{`[screenshot: ${item.path}]`}</Text>
+      return <Text dimColor>{`[image: ${item.path}]`}</Text>
     case "message":
       return <Markdown>{item.content}</Markdown>
     case "ask_user":

@@ -14,6 +14,7 @@ import {
 import { readFileTool } from "./read-file"
 import { rerankTool } from "./rerank"
 import { summarizeTool } from "./summarize"
+import { viewImageTool } from "./view-image"
 import { webSearchTool } from "./web-search"
 
 /**
@@ -34,6 +35,7 @@ export async function getDefaultTools() {
       readFileTool,
       listFilesTool,
       fetchUrlTool,
+      viewImageTool,
       summarizeTool,
       rerankTool,
       currentTimeTool,
