@@ -4,6 +4,7 @@ import {
   connectChromeDevToolsMcp,
   connectPlaywrightMcp
 } from "../lib/mcp-client"
+import { loadPluginTools } from "../lib/plugin-tools"
 import { currentTimeTool } from "./current-time"
 import { fetchUrlTool } from "./fetch-url"
 import { generateImageTool } from "./generate-image"
@@ -29,15 +30,18 @@ import { webSearchTool } from "./web-search"
  * When the `browser` config group is present, connects to the Playwright MCP
  * server and folds its tools in too. When the `chrome` config group is
  * present, connects to the Chrome DevTools MCP server (attached to the
- * user's already-running Chrome) and folds its tools in as well. Returns
- * `closeTools` alongside — the caller must call it on shutdown to let the
- * spawned MCP subprocesses exit.
+ * user's already-running Chrome) and folds its tools in as well. Also folds
+ * in any user-supplied tools from `~/.config/kaja/tools/*.ts` (see
+ * lib/plugin-tools.ts) — a way to add tools locally without shipping them in
+ * this repo. Returns `closeTools` alongside — the caller must call it on
+ * shutdown to let the spawned MCP subprocesses exit.
  */
 export async function getDefaultTools() {
   const { webSearch, browser, chrome, imageGen } = await config()
-  const [playwright, chromeDevTools] = await Promise.all([
+  const [playwright, chromeDevTools, pluginTools] = await Promise.all([
     browser ? connectPlaywrightMcp(browser) : undefined,
-    chrome ? connectChromeDevToolsMcp() : undefined
+    chrome ? connectChromeDevToolsMcp() : undefined,
+    loadPluginTools()
   ])
   return {
     tools: [
@@ -57,7 +61,8 @@ export async function getDefaultTools() {
       ...(webSearch ? [webSearchTool] : []),
       ...(imageGen ? [generateImageTool] : []),
       ...(playwright?.tools ?? []),
-      ...(chromeDevTools?.tools ?? [])
+      ...(chromeDevTools?.tools ?? []),
+      ...pluginTools
     ],
     closeTools: async () => {
       await Promise.all([playwright?.close(), chromeDevTools?.close()])
