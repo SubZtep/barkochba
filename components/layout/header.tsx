@@ -1,15 +1,16 @@
 import { Box, Text } from "ink"
 import Gradient from "ink-gradient"
 import { t } from "../../lib/i18n"
-import Link from "../elem/link"
 import { MonsterMate } from "../monster"
 
-/** Live top bar: model name and optional geo pin. */
+/** Live top bar: model name, current persona, and optional geo pin. */
 export function Header({
   model,
+  persona,
   location
 }: {
   model: string
+  persona: string
   location?: string
 }) {
   return (
@@ -23,9 +24,7 @@ export function Header({
         </Box>
       </Box>
       <Box flexShrink={0}>
-        <Link href="https://github.com/SubZtep/barkochba" color="grey" dimColor>
-          GitHub
-        </Link>
+        <Text dimColor>{persona}</Text>
       </Box>
       <Box flexShrink={0} gap={1}>
         <Text color="red">@</Text>

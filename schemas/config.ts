@@ -4,7 +4,10 @@ export const KajaSettingsSchema = z.object({
   thinking: z.boolean().optional(),
   sounds: z.boolean().optional(),
   voice: z.boolean().optional(),
-  language: z.enum(["en", "hu"]).optional()
+  language: z.enum(["en", "hu"]).optional(),
+  // Id of the last-selected persona (see schemas/personas.ts), so the app
+  // reopens with it instead of always defaulting to the first one.
+  persona: z.string().min(1).optional()
 })
 
 // Feature groups: each is a self-contained block of config for one feature.

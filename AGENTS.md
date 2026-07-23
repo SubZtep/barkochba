@@ -19,10 +19,10 @@ This project uses Bun toolkit.
 
 * When anything is ambiguous.
 * Refactor a code with multiple references.
+* Any git mutation
 
 ### Never do
 
-* Git push without explicit permission.
 * Extend feature without discussion.
 
 ### Project Structure

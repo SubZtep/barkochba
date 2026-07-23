@@ -6,7 +6,9 @@ import { useSettings } from "../../hooks/use-settings"
 import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
 import type { Tool } from "../../lib/agents"
+import { saveSettings } from "../../lib/config"
 import { t } from "../../lib/i18n"
+import { log } from "../../lib/logger"
 import type { Persona } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
@@ -39,7 +41,7 @@ export default function App({
     model,
     switchModel,
     persona,
-    switchPersona,
+    switchPersona: switchPersonaAgent,
     events,
     partial,
     pending,
@@ -52,12 +54,20 @@ export default function App({
     personas,
     // A stored persona/model that no longer exists resolves to undefined and
     // the resume proceeds with defaults — messages restore verbatim anyway.
+    initialPersona: personas.find((p) => p.id === initialSettings?.persona),
     resume: initialSession && {
       session: initialSession,
       persona: personas.find((p) => p.id === initialSession.persona),
       model: models.find((m) => m.id === initialSession.model)
     }
   })
+  const switchPersona = (next: Persona) => {
+    if (pending) return
+    switchPersonaAgent(next)
+    saveSettings({ persona: next.id }).catch((error) => {
+      log.warn({ error }, "Failed to save settings")
+    })
+  }
   const lastEvent = events.at(-1)
   const pendingCommand =
     !pending && lastEvent?.type === "confirm_command" ? lastEvent : undefined
@@ -129,7 +139,11 @@ export default function App({
 
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <Header model={model} location={location?.country.name} />
+      <Header
+        model={model}
+        persona={persona.label}
+        location={location?.country.name}
+      />
       <ChatViewport
         events={events}
         thinking={thinking}

@@ -53,6 +53,8 @@ const DELTA_INTERVAL_MS = 80
 export function useAgent(
   config: ConstructorParameters<typeof Agent>[0] & {
     personas: Persona[]
+    /** Fallback persona when not resuming a session; defaults to personas[0]. */
+    initialPersona?: Persona
     resume?: {
       session: PersistedSession
       persona?: Persona
@@ -60,11 +62,14 @@ export function useAgent(
     }
   }
 ) {
-  const { resume, personas, ...agentConfig } = config
+  const { resume, personas, initialPersona, ...agentConfig } = config
   const [agent] = useState(() => {
     const created = new Agent({
       ...agentConfig,
-      instructions: resume?.persona?.instructions ?? agentConfig.instructions
+      instructions:
+        resume?.persona?.instructions ??
+        initialPersona?.instructions ??
+        agentConfig.instructions
     })
     if (resume?.model) created.setModel(resume.model)
     return created
@@ -109,7 +114,7 @@ export function useAgent(
   // session/timeline — run() bakes instructions into the first system
   // message, so they can't change mid-conversation.
   const [persona, setPersona] = useState<Persona>(
-    resume?.persona ?? personas[0]!
+    resume?.persona ?? initialPersona ?? personas[0]!
   )
   const personaRef = useRef(persona)
   const switchPersona = useCallback(
