@@ -46,7 +46,7 @@ async function connectStdioMcp(
 }
 
 /**
- * Connects to the Playwright MCP server (spawned via `npx @playwright/mcp`)
+ * Connects to the Playwright MCP server (spawned via `bunx @playwright/mcp`)
  * — an isolated, automation-only browser — and adapts its tools for the
  * agent loop.
  */
@@ -55,12 +55,12 @@ export async function connectPlaywrightMcp(
 ): Promise<{ tools: Tool<any>[]; close: () => Promise<void> }> {
   const args = ["@playwright/mcp@latest", "--isolated"]
   if (options.headless ?? true) args.push("--headless")
-  return connectStdioMcp("npx", args)
+  return connectStdioMcp("bunx", args)
 }
 
 /**
  * Connects to the Chrome DevTools MCP server (spawned via
- * `npx chrome-devtools-mcp`), attached to the user's already-running Chrome
+ * `bunx chrome-devtools-mcp`), attached to the user's already-running Chrome
  * via `--autoConnect` — so the agent sees whatever page the user actually
  * has open, rather than an isolated automation browser. Requires Chrome's
  * remote debugging server to be enabled (chrome://inspect/#remote-debugging).
@@ -69,10 +69,7 @@ export async function connectChromeDevToolsMcp(): Promise<{
   tools: Tool<any>[]
   close: () => Promise<void>
 }> {
-  return connectStdioMcp("npx", [
-    "chrome-devtools-mcp@latest",
-    "--autoConnect"
-  ])
+  return connectStdioMcp("bunx", ["chrome-devtools-mcp@latest", "--autoConnect"])
 }
 
 async function callTool(

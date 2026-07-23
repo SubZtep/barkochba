@@ -1,6 +1,9 @@
 import { askUserTool, runCommandTool } from "../lib/agents"
 import { config } from "../lib/config"
-import { connectChromeDevToolsMcp, connectPlaywrightMcp } from "../lib/mcp-client"
+import {
+  connectChromeDevToolsMcp,
+  connectPlaywrightMcp
+} from "../lib/mcp-client"
 import { currentTimeTool } from "./current-time"
 import { fetchUrlTool } from "./fetch-url"
 import { generateImageTool } from "./generate-image"

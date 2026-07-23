@@ -1,5 +1,6 @@
 import { color } from "bun"
 import { render } from "ink"
+import { InkPictureProvider } from "ink-picture"
 import {
   config,
   create,
@@ -126,15 +127,17 @@ process.on("SIGTERM", async () => {
 // Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
 // send the same `\r` for both and cannot do Shift+Enter newlines otherwise.
 const { waitUntilExit } = render(
-  <App
-    initialSettings={settings}
-    models={models}
-    personas={personas}
-    openaiApiModel={llm.model}
-    tools={tools}
-    initialSession={initialSession}
-    promptHistory={promptHistory}
-  />,
+  <InkPictureProvider>
+    <App
+      initialSettings={settings}
+      models={models}
+      personas={personas}
+      openaiApiModel={llm.model}
+      tools={tools}
+      initialSession={initialSession}
+      promptHistory={promptHistory}
+    />
+  </InkPictureProvider>,
   {
     alternateScreen: true,
     kittyKeyboard: {

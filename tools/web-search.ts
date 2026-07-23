@@ -1,4 +1,4 @@
-import { tool } from "../lib/agents"
+import { type ToolResult, tool } from "../lib/agents"
 import { config } from "../lib/config"
 import { tryLookupMyLocation } from "../lib/geo"
 
@@ -36,10 +36,25 @@ export const webSearchTool = tool<{
     },
     required: ["query"]
   },
-  execute: async (args) =>
-    JSON.stringify(
-      await braveSearch(args.query, args.freshness, args.search_lang)
+  execute: async (args): Promise<ToolResult> => {
+    const results = await braveSearch(
+      args.query,
+      args.freshness,
+      args.search_lang
     )
+
+    // console.log("RESULT", results)
+    // throw new Error(JSON.stringify(results))
+    // process.exit(0)
+
+    const thumbnail = results.find((r) => r.thumbnail)?.thumbnail
+    return {
+      text: JSON.stringify(results),
+      ...(thumbnail && {
+        displayImage: { url: thumbnail, alt: args.query }
+      })
+    }
+  }
 })
 
 interface BraveSearchResult {
@@ -119,7 +134,8 @@ async function braveSearch(
     text_decorations: "false",
     ...(country ? { country } : {}),
     search_lang: search_lang ?? "hu",
-    result_filter: "web"
+    result_filter: "web",
+    save_search: "off"
   })
   const res = await fetch(
     `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
@@ -132,9 +148,11 @@ async function braveSearch(
   if (!res.ok)
     throw new Error(`Brave search failed: ${res.status} ${await res.text()}`)
   const data = (await res.json()) as BraveSearchResult
+
   return (data.web?.results ?? []).map((result) => ({
     title: result.title,
     url: result.url,
-    description: result.description
+    description: result.description,
+    thumbnail: result.thumbnail?.src
   }))
 }

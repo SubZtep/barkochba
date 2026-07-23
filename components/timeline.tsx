@@ -1,4 +1,5 @@
-import { Text } from "ink"
+import { Box, Text } from "ink"
+import Image from "ink-picture"
 import { memo } from "react"
 import type { TimelineEvent } from "../hooks/use-agent"
 import Markdown from "./elem/markdown"
@@ -27,6 +28,13 @@ export const TimelineItem = memo(function TimelineItem({
       return <Text color="yellow">{`> ${item.name}(${item.arguments})`}</Text>
     case "tool_image":
       return <Text dimColor>{`[image: ${item.path}]`}</Text>
+    case "display_image":
+      return (
+        <Box gap={1}>
+          <Text dimColor>{item.alt}</Text>
+          <Image src={item.url} width={20} height={10} alt={item.alt} />
+        </Box>
+      )
     case "message":
       return <Markdown>{item.content}</Markdown>
     case "ask_user":

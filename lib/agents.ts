@@ -23,6 +23,13 @@ import { client } from "./openai"
 export type ToolResult = {
   text: string
   images?: { path: string; mimeType: string }[]
+  /**
+   * A remote image to show next to the tool's result in the timeline —
+   * display-only, e.g. a search result thumbnail. Unlike {@link images},
+   * this never reaches the model: it's not fed back as vision content, just
+   * yielded as a `display_image` event for the UI.
+   */
+  displayImage?: { url: string; alt: string }
 }
 
 /**
@@ -279,6 +286,7 @@ export type AgentEvent =
   | { type: "message"; content: string }
   | { type: "tool_call"; name: string; arguments: string }
   | { type: "tool_image"; path: string }
+  | { type: "display_image"; url: string; alt: string }
   | { type: "ask_user"; question: string }
   | { type: "confirm_command"; command: string; description: string }
   | { type: "final"; content: string | null }
@@ -508,6 +516,8 @@ export async function* run(
         tool_call_id: call.id,
         content: result.text
       })
+      if (result.displayImage)
+        yield { type: "display_image", ...result.displayImage }
       for (const image of result.images ?? []) {
         yield { type: "tool_image", path: image.path }
         const data = await file(image.path).arrayBuffer()
