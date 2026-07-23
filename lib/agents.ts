@@ -254,7 +254,7 @@ export const runCommandTool = tool<{
         description:
           "Whether this command changes any state — files, git history, " +
           "installed packages, system config, network resources, etc. " +
-          'false only for purely read-only commands (e.g. ls, cat, git ' +
+          "false only for purely read-only commands (e.g. ls, cat, git " +
           'status, python3 -c "print(...)"). When unsure, say true.'
       }
     },
