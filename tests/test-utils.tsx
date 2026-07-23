@@ -40,7 +40,9 @@ export function renderForTest(node: ReactNode) {
     interactive: true
   })
 
-  const tick = () => new Promise((resolve) => setTimeout(resolve, 100))
+  // 100ms was occasionally too short under load on CI, reading a stale
+  // frame before Ink's repaint landed — bumped for headroom.
+  const tick = () => Bun.sleep(300)
 
   return {
     ...app,
