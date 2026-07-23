@@ -5,6 +5,9 @@ import type {
   ChatCompletionTool
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
+import { config } from "./config"
+import type { GeoLocation } from "./geo"
+import { lookupMyLocation } from "./geo"
 import { getLanguage } from "./i18n"
 import { loadMemory } from "./memory-store"
 import { client } from "./openai"
@@ -116,6 +119,17 @@ const HUNGARIAN_REPLY_INSTRUCTIONS =
 
 /** Grounds the model in the host OS and home directory so path-related tools (list_files, read_file) get correct conventions instead of guessing (e.g. assuming /root). */
 const PLATFORM_INSTRUCTIONS = `You are running on ${process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "macOS" : "Linux"}. Use ${process.platform === "win32" ? "backslash" : "forward-slash"} paths accordingly. The user's home directory is ${homedir()}.`
+
+/** Grounds the model in the user's resolved location, so it doesn't have to guess a city/timezone from a bare UTC offset or ask before defaulting web_search / current_time. */
+function locationInstructions(loc: GeoLocation) {
+  return (
+    `The user is located in ${loc.city.name}, ${loc.country.name} ` +
+    `(timezone ${loc.location.timeZone}, lat ${loc.location.latitude}, ` +
+    `lon ${loc.location.longitude}), resolved from their public IP. Use ` +
+    `this as the default for location-specific questions (weather, "near ` +
+    `me", local time) unless the user says otherwise.`
+  )
+}
 
 /**
  * Name of the built-in tool the model calls to propose a shell command. Like
@@ -321,9 +335,15 @@ export async function* run(
             .join("\n")}`
         : undefined
 
+    const { location } = await config()
+    const locationBlock = location
+      ? locationInstructions(await lookupMyLocation())
+      : undefined
+
     const system = [
       agent.instructions,
       PLATFORM_INSTRUCTIONS,
+      locationBlock,
       toolsByName.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
       toolsByName.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
       hasMemory ? MEMORY_INSTRUCTIONS : undefined,

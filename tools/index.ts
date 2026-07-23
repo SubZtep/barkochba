@@ -9,17 +9,17 @@ import {
   recallMemoryTool,
   rememberNoteTool
 } from "./memory"
-import { myLocationTool } from "./my-location"
 import { readFileTool } from "./read-file"
 import { webSearchTool } from "./web-search"
 
 /**
- * The toolset a chat session starts with: webSearchTool/myLocationTool are
- * only included when their config group is present, since each is only
- * usable with its own credentials.
+ * The toolset a chat session starts with: webSearchTool is only included
+ * when its config group is present, since it's only usable with its own
+ * credentials. Location is resolved once per session and grounded into the
+ * system prompt (see lib/agents.ts run()), not exposed as a tool.
  */
 export async function getDefaultTools() {
-  const { webSearch, location } = await config()
+  const { webSearch } = await config()
   return [
     readFileTool,
     listFilesTool,
@@ -31,7 +31,6 @@ export async function getDefaultTools() {
     recallMemoryTool,
     forgetNoteTool,
     listNotesTool,
-    ...(webSearch ? [webSearchTool] : []),
-    ...(location ? [myLocationTool] : [])
+    ...(webSearch ? [webSearchTool] : [])
   ]
 }

@@ -26,7 +26,7 @@ export async function lookupMyLocation(): Promise<GeoLocation> {
   const { location } = await config()
   if (!location) throw new Error("Location feature not configured")
 
-  const ipRes = await fetch("https://ipinfo.io/ip")
+  const ipRes = await fetch("https://api.ipify.org")
   if (!ipRes.ok) throw new Error(`Public IP lookup failed: ${ipRes.status}`)
   const ip = (await ipRes.text()).trim()
 
@@ -39,4 +39,17 @@ export async function lookupMyLocation(): Promise<GeoLocation> {
     throw new Error(`Geo lookup failed: ${res.status} ${await res.text()}`)
   myLocation = (await res.json()) as GeoLocation
   return myLocation
+}
+
+/**
+ * Like {@link lookupMyLocation}, but resolves to `undefined` instead of
+ * throwing when location isn't configured or the lookup fails — for callers
+ * (tools) that want to use it as an optional default, not a hard requirement.
+ */
+export async function tryLookupMyLocation(): Promise<GeoLocation | undefined> {
+  try {
+    return await lookupMyLocation()
+  } catch {
+    return undefined
+  }
 }

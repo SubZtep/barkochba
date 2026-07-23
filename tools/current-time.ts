@@ -5,12 +5,14 @@ import { tool } from "../lib/agents"
  * ISO 8601 string with UTC offset (e.g. `2026-07-14T15:04:05-04:00`).
  *
  * @param args.timezone - IANA timezone name (e.g. `America/New_York`).
- * Defaults to the host system's local timezone.
+ * Defaults to the host system's local timezone; the model should pass the
+ * user's own timezone (from the location grounding in the system prompt)
+ * when it wants that instead.
  */
 export const currentTimeTool = tool<{ timezone?: string }>({
   name: "current_time",
   description:
-    "Get the current date and time in a given IANA timezone (e.g. 'America/New_York'). Defaults to the local timezone.",
+    "Get the current date and time in a given IANA timezone (e.g. 'America/New_York'). Defaults to the local timezone — pass the user's timezone explicitly if you know it.",
   parameters: {
     type: "object",
     properties: {
@@ -43,6 +45,6 @@ export const currentTimeTool = tool<{ timezone?: string }>({
 
     const offset = (get("timeZoneName") ?? "GMT").replace("GMT", "") || "+00:00"
 
-    return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}${offset}`
+    return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}${offset} (${timeZone})`
   }
 })
