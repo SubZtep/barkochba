@@ -53,7 +53,11 @@ export const likeOrNotGameTool = tool<Args>({
     "topic's dataset, persisting confirmed results across sessions. " +
     "Actions: 'list_topics' lists available topics — call this first if " +
     "you don't know which topics exist; 'start' loads a topic's pool and " +
-    "begins a round; 'filter' narrows the remaining pool, in one of two " +
+    "begins a round; 'filter' narrows the remaining pool and returns how " +
+    "many candidates remain — always tell the user this count in your " +
+    "reply (e.g. 'down to 12 left') before asking the next question, so " +
+    "they can feel the game actually narrowing instead of an endless " +
+    "unnumbered stream of questions. It narrows the pool in one of two " +
     "ways — EITHER a keyword match against name+description (keep=true " +
     "keeps matches, keep=false discards them), used after a yes/no/unsure " +
     "answer about a theme, picking a keyword from what was just asked " +
@@ -65,8 +69,14 @@ export const likeOrNotGameTool = tool<Args>({
     "keep=false) and removes it from the pool, no separate 'confirm' call " +
     "needed; if a keyword filter with keep=true narrows the pool down to " +
     "exactly one candidate, that candidate is likewise automatically saved " +
-    "with rating='like'; if a keyword filter with keep=false matches a " +
-    "small set of candidates (5 or fewer) — a real theme the user said no " +
+    "with rating='like' — but present it to the user as a question ('Is it " +
+    "X?') and wait for their confirmation before treating it as settled, " +
+    "don't just declare it as the answer; if they say no, immediately fix " +
+    "the wrongly-saved record with 'unconfirm' (or 'confirm' with the " +
+    "right rating if they clarify what it actually was) rather than " +
+    "leaving the incorrect guess saved; if a keyword filter with " +
+    "keep=false matches a small set of candidates (5 or fewer) — a real " +
+    "theme the user said no " +
     "to, e.g. 'pain' — every matched candidate is automatically saved with " +
     "rating='dislike' too (a broader keyword matching more than 5 is " +
     "treated as an exploratory search sweep, not a specific reaction, so " +
