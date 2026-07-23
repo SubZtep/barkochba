@@ -1,10 +1,27 @@
 import { afterEach, expect, test } from "bun:test"
+import { mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 // XDG_CONFIG_HOME is isolated too, since memory-store.ts can write
 // config.memory.dbPath back into config.json on first successful open.
-process.env.XDG_DATA_HOME = `${tmpdir()}/kaja-test-xdg-data-tools`
-process.env.XDG_CONFIG_HOME = `${tmpdir()}/kaja-test-xdg-config-tools`
+const dataDir = `${tmpdir()}/kaja-test-xdg-data-tools`
+const configDir = `${tmpdir()}/kaja-test-xdg-config-tools`
+process.env.XDG_DATA_HOME = dataDir
+process.env.XDG_CONFIG_HOME = configDir
+
+// tools/memory.ts pulls in lib/agents.ts -> lib/openai.ts, which reads
+// config() at module load — config() hard-exits the process if config.json
+// is missing, so this isolated config dir needs a minimal valid file (same
+// fixture as tests/lib/agents.test.ts).
+const configKajaDir = join(configDir, "kaja")
+mkdirSync(configKajaDir, { recursive: true })
+writeFileSync(
+  join(configKajaDir, "config.json"),
+  JSON.stringify({
+    llm: { baseUrl: "http://localhost", apiKey: "x", model: "x" }
+  })
+)
 
 const { saveMemory } = await import("../../lib/memory-store")
 const { forgetNoteTool, listNotesTool, recallMemoryTool, rememberNoteTool } =
