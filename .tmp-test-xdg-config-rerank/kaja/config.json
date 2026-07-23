@@ -1,0 +1,12 @@
+{
+  "llm": {
+    "baseUrl": "http://localhost/v1",
+    "apiKey": "llm-key",
+    "model": "test-model"
+  },
+  "rerank": {
+    "baseUrl": "http://rerank-host/v1",
+    "apiKey": "rerank-key",
+    "model": "custom-reranker"
+  }
+}

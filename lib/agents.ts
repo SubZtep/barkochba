@@ -1,4 +1,5 @@
 import { homedir } from "node:os"
+import { file } from "bun"
 import OpenAI from "openai"
 import type {
   ChatCompletionMessageParam,
@@ -13,12 +14,24 @@ import { loadMemory } from "./memory-store"
 import { client } from "./openai"
 
 /**
+ * A tool result that includes images alongside text — e.g. a browser
+ * screenshot. Images can't travel in the `role: "tool"` message itself (the
+ * OpenAI API restricts tool message content to text), so {@link run} sends
+ * `text` as the tool response and follows up with a separate `role: "user"`
+ * message carrying each image, so the model actually sees it.
+ */
+export type ToolResult = {
+  text: string
+  images?: { path: string; mimeType: string }[]
+}
+
+/**
  * A tool an {@link Agent} can call, pairing the OpenAI function definition
  * with the local implementation that runs when the model calls it.
  */
 export type Tool<Args> = {
   definition: ChatCompletionTool
-  execute: (args: Args) => Promise<string>
+  execute: (args: Args) => Promise<string | ToolResult>
 }
 
 /**
@@ -28,14 +41,15 @@ export type Tool<Args> = {
  * @param config.description - Description shown to the model.
  * @param config.parameters - JSON schema for the tool's arguments.
  * @param config.execute - Runs when the model calls the tool; receives the
- * parsed arguments and returns the string result to send back as the tool message.
+ * parsed arguments and returns the string (or {@link ToolResult}) to send
+ * back as the tool message.
  */
 export function tool<Args>(config: {
   name: string
   description: string
   // @ts-expect-error
   parameters: ChatCompletionTool["function"]["parameters"]
-  execute: (args: Args) => Promise<string>
+  execute: (args: Args) => Promise<string | ToolResult>
 }): Tool<Args> {
   return {
     definition: {
@@ -264,6 +278,7 @@ export type AgentEvent =
   | { type: "reasoning"; text: string }
   | { type: "message"; content: string }
   | { type: "tool_call"; name: string; arguments: string }
+  | { type: "tool_image"; path: string }
   | { type: "ask_user"; question: string }
   | { type: "confirm_command"; command: string; description: string }
   | { type: "final"; content: string | null }
@@ -481,11 +496,32 @@ export async function* run(
       const t = toolsByName.get(call.function.name)
       if (!t) throw new Error(`Unknown tool: ${call.function.name}`)
       const args = JSON.parse(call.function.arguments)
+      const result = await t.execute(args)
+
+      if (typeof result === "string") {
+        messages.push({ role: "tool", tool_call_id: call.id, content: result })
+        continue
+      }
+
       messages.push({
         role: "tool",
         tool_call_id: call.id,
-        content: await t.execute(args)
+        content: result.text
       })
+      for (const image of result.images ?? []) {
+        yield { type: "tool_image", path: image.path }
+        const data = await file(image.path).arrayBuffer()
+        const base64 = Buffer.from(data).toString("base64")
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${image.mimeType};base64,${base64}` }
+            }
+          ]
+        })
+      }
     }
 
     if (ask) {

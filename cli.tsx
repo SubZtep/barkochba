@@ -100,7 +100,25 @@ const promptHistory = await loadPromptHistory()
 
 const { settings, llm } = await config()
 const models = await loadModels()
-const tools = await getDefaultTools()
+const { tools, closeTools } = await getDefaultTools()
+// Closes any long-lived tool connection (e.g. the Playwright MCP subprocess)
+// so it isn't left orphaned; guarded so SIGINT and the normal exit path
+// below can't both try to close it.
+let closed = false
+const shutdown = async () => {
+  if (closed) return
+  closed = true
+  await closeTools()
+}
+process.on("SIGINT", async () => {
+  await shutdown()
+  process.exit(0)
+})
+process.on("SIGTERM", async () => {
+  await shutdown()
+  process.exit(0)
+})
+
 // Alternate screen: full-viewport app (header / chat / input). Restores the
 // primary buffer on exit; no terminal scrollback while running.
 // Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
@@ -123,6 +141,7 @@ const { waitUntilExit } = render(
   }
 )
 await waitUntilExit()
+await shutdown()
 
 console.log(t("cli.bye"))
 process.exit(0)

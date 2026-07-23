@@ -5,12 +5,12 @@ import { useGeoLocation } from "../../hooks/use-geo-location"
 import { useSettings } from "../../hooks/use-settings"
 import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
+import type { Tool } from "../../lib/agents"
 import { t } from "../../lib/i18n"
 import { personas } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
 import type { PersistedSession } from "../../schemas/session"
-import type { getDefaultTools } from "../../tools"
 import { ChatViewport } from "./chat-viewport"
 import { ConfirmCommand } from "./confirm-command"
 import { Header } from "./header"
@@ -27,7 +27,7 @@ export default function App({
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
   openaiApiModel: string
-  tools: Awaited<ReturnType<typeof getDefaultTools>>
+  tools: Tool<any>[]
   /** A persisted session to continue (--continue / --session <id>). */
   initialSession?: PersistedSession
   /** Past prompts across all sessions for ↑/↓ recall, newest first. */

@@ -55,7 +55,7 @@ test("rerank posts to the fireworks endpoint and returns ranked results", async 
   expect(
     (lastRequest!.init.headers as Record<string, string>).Authorization
   ).toBe("Bearer llm-key")
-  expect(JSON.parse(result)).toEqual([
+  expect(JSON.parse(result as string)).toEqual([
     { index: 1, relevance_score: 0.9, document: "b" },
     { index: 0, relevance_score: 0.1, document: "a" }
   ])

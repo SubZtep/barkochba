@@ -55,6 +55,10 @@ export const KajaMemorySchema = z.object({
   dbPath: z.string().min(1).optional()
 })
 
+export const KajaBrowserSchema = z.object({
+  headless: z.boolean().optional()
+})
+
 export const KajaConfigSchema = z.object({
   llm: KajaLlmSchema,
   stt: KajaSttSchema.optional(),
@@ -63,6 +67,7 @@ export const KajaConfigSchema = z.object({
   webSearch: KajaWebSearchSchema.optional(),
   rerank: KajaRerankSchema.optional(),
   memory: KajaMemorySchema.optional(),
+  browser: KajaBrowserSchema.optional(),
   // In-app preferences (slash menu); optional so existing configs stay valid.
   settings: KajaSettingsSchema.optional()
 })
@@ -76,3 +81,4 @@ export type KajaLocation = z.infer<typeof KajaLocationSchema>
 export type KajaWebSearch = z.infer<typeof KajaWebSearchSchema>
 export type KajaRerank = z.infer<typeof KajaRerankSchema>
 export type KajaMemory = z.infer<typeof KajaMemorySchema>
+export type KajaBrowser = z.infer<typeof KajaBrowserSchema>

@@ -67,7 +67,9 @@ test("recall_memory scores and orders by relevance and importance", async () => 
     importance: "high"
   })
 
-  const result = await recallMemoryTool.execute({ query: "typescript" })
+  const result = (await recallMemoryTool.execute({
+    query: "typescript"
+  })) as string
   const lines = result.split("\n")
   expect(lines[0]).toStartWith("b [high]")
   expect(lines[1]).toStartWith("a [low]")
@@ -218,10 +220,10 @@ test("recall_memory with an empty query returns the filtered set ranked by impor
     importance: "high"
   })
 
-  const result = await recallMemoryTool.execute({
+  const result = (await recallMemoryTool.execute({
     query: "",
     stickyOnly: true
-  })
+  })) as string
   const lines = result.split("\n")
   expect(lines).toHaveLength(2)
   expect(lines[0]).toStartWith("high-one")
@@ -291,13 +293,18 @@ test("recall_memory with an empty query is uncapped unless limit is passed", asy
     })
   }
 
-  const all = await recallMemoryTool.execute({ query: "" })
+  const all = (await recallMemoryTool.execute({ query: "" })) as string
   expect(all.split("\n")).toHaveLength(7)
 
-  const capped = await recallMemoryTool.execute({ query: "", limit: 3 })
+  const capped = (await recallMemoryTool.execute({
+    query: "",
+    limit: 3
+  })) as string
   expect(capped.split("\n")).toHaveLength(3)
 
-  const keyword = await recallMemoryTool.execute({ query: "fact" })
+  const keyword = (await recallMemoryTool.execute({
+    query: "fact"
+  })) as string
   expect(keyword.split("\n")).toHaveLength(5)
 })
 

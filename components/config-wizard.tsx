@@ -175,6 +175,7 @@ function Progress({ step }: { step: number }) {
   const names = [
     t("wizard.stepLanguage"),
     ...GROUPS.map((g) => t(g.nameKey)),
+    t("wizard.groupBrowser"),
     t("wizard.review")
   ]
   return (
@@ -229,6 +230,48 @@ function LanguageStep({
         <Text key={lang.value} bold={i === index} dimColor={i !== index}>
           {i === index ? "● " : "○ "}
           {lang.label}
+        </Text>
+      ))}
+    </Box>
+  )
+}
+
+function BrowserStep({
+  value,
+  onNext,
+  onBack
+}: {
+  value: boolean
+  onNext: (enabled: boolean) => void
+  onBack: () => void
+}) {
+  const [index, setIndex] = useState(value ? 0 : 1)
+  const choices = [
+    { value: true, label: t("wizard.yes") },
+    { value: false, label: t("wizard.no") }
+  ]
+
+  useInput((_input, key) => {
+    if (key.upArrow) {
+      setIndex((i) => (i + choices.length - 1) % choices.length)
+    } else if (key.downArrow) {
+      setIndex((i) => (i + 1) % choices.length)
+    } else if (key.return) {
+      onNext(choices[index]!.value)
+    } else if (key.escape) {
+      onBack()
+    }
+  })
+
+  return (
+    <Box flexDirection="column">
+      <Box marginBottom={1}>
+        <Text>{t("wizard.groupBrowserPrompt")}</Text>
+      </Box>
+      {choices.map((choice, i) => (
+        <Text key={choice.label} bold={i === index} dimColor={i !== index}>
+          {i === index ? "● " : "○ "}
+          {choice.label}
         </Text>
       ))}
     </Box>
@@ -315,10 +358,12 @@ function StepFields({
 
 function ReviewStep({
   values,
+  browserEnabled,
   onConfirm,
   onBack
 }: {
   values: Values
+  browserEnabled: boolean
   onConfirm: () => void
   onBack: () => void
 }) {
@@ -335,6 +380,10 @@ function ReviewStep({
           <Text>{values[field]}</Text>
         </Box>
       ))}
+      <Box>
+        <Text dimColor>{t("wizard.groupBrowser")}: </Text>
+        <Text>{browserEnabled ? t("wizard.yes") : t("wizard.no")}</Text>
+      </Box>
       <Box marginTop={1}>
         <Text color="green">{t("wizard.reviewHint")}</Text>
       </Box>
@@ -349,10 +398,14 @@ function ConfigWizard({
   initial: Partial<KajaConfig>
   onFinish: (outcome: Outcome) => void
 }) {
-  // 0 is the language step, 1..GROUPS.length are field steps, the last is
-  // the review step.
+  // 0 is the language step, 1..GROUPS.length are field steps, then the
+  // browser toggle step, then the review step (last).
+  const BROWSER_STEP = GROUPS.length + 1
   const [step, setStep] = useState(0)
   const [lang, setLang] = useState<Language>(getLanguage())
+  const [browserEnabled, setBrowserEnabled] = useState(
+    initial.browser !== undefined
+  )
   const [values, setValues] = useState<Values>(() => ({
     llmBaseUrl: initial.llm?.baseUrl ?? "",
     llmApiKey: initial.llm?.apiKey ?? "",
@@ -427,12 +480,14 @@ function ConfigWizard({
       location,
       webSearch,
       rerank,
+      browser: browserEnabled ? {} : undefined,
       settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
     onFinish("saved")
   }
 
-  const group = step >= 1 ? GROUPS[step - 1] : undefined
+  const group =
+    step >= 1 && step <= GROUPS.length ? GROUPS[step - 1] : undefined
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
@@ -469,9 +524,19 @@ function ConfigWizard({
             onNext={() => setStep(step + 1)}
             onBack={() => setStep(step - 1)}
           />
+        ) : step === BROWSER_STEP ? (
+          <BrowserStep
+            value={browserEnabled}
+            onNext={(enabled) => {
+              setBrowserEnabled(enabled)
+              setStep(step + 1)
+            }}
+            onBack={() => setStep(step - 1)}
+          />
         ) : (
           <ReviewStep
             values={values}
+            browserEnabled={browserEnabled}
             onConfirm={save}
             onBack={() => setStep(step - 1)}
           />
