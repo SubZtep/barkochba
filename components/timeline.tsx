@@ -2,8 +2,18 @@ import { Box, Text } from "ink"
 import Image from "ink-picture"
 import { memo } from "react"
 import type { TimelineEvent } from "../hooks/use-agent"
+import type { ErrorCategory } from "../lib/error-category"
+import { t } from "../lib/i18n"
+import { describeToolCall } from "../lib/tool-labels"
 import Markdown from "./elem/markdown"
 import { ReasoningBox } from "./reasoning-box"
+
+const ERROR_ICON: Record<ErrorCategory, string> = {
+  network: "⚠",
+  tool: "✗",
+  agent: "✗",
+  unknown: "✗"
+}
 
 /**
  * One finalized timeline entry (user message, tool call, final reply, …).
@@ -25,7 +35,11 @@ export const TimelineItem = memo(function TimelineItem({
       if (!thinking) return null
       return <ReasoningBox>{item.text}</ReasoningBox>
     case "tool_call":
-      return <Text color="yellow">{`> ${item.name}(${item.arguments})`}</Text>
+      return (
+        <Text color="yellow">
+          {`> ${describeToolCall(item.name, item.arguments)}`}
+        </Text>
+      )
     case "tool_image":
       return <Text dimColor>{`[image: ${item.path}]`}</Text>
     case "display_image":
@@ -36,7 +50,12 @@ export const TimelineItem = memo(function TimelineItem({
         </Box>
       )
     case "message":
-      return <Markdown>{item.content}</Markdown>
+      return (
+        <Box gap={1}>
+          <Text color="#ff1493">●</Text>
+          <Markdown>{item.content}</Markdown>
+        </Box>
+      )
     case "ask_user":
       return (
         <Text color="cyan">
@@ -46,8 +65,17 @@ export const TimelineItem = memo(function TimelineItem({
     case "confirm_command":
       return <Text color="yellow">{`$ ${item.command}`}</Text>
     case "error":
-      return <Text color="red">{`✗ ${item.text}`}</Text>
+      return (
+        <Text color="red">
+          {`${ERROR_ICON[item.category]} ${t(`error.${item.category}`)}: ${item.text}`}
+        </Text>
+      )
     case "final":
-      return <Markdown>{item.content ?? "?"}</Markdown>
+      return (
+        <Box gap={1}>
+          <Text color="#ff1493">●</Text>
+          <Markdown>{item.content ?? "?"}</Markdown>
+        </Box>
+      )
   }
 })

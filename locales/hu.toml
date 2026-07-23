@@ -126,3 +126,24 @@ toggleVoice = "Beszéd átkapcsolása [{state}]"
 changeModel = "Modellváltás"
 changePersona = "Személyiségváltás"
 
+[toolCall]
+webSearch = "Keresés: \"{query}\"..."
+fetchUrl = "Letöltés: {url}..."
+currentTime = "Idő lekérdezése{timezone}..."
+generateImage = "Kép generálása: \"{prompt}\"..."
+listFiles = "Fájlok listázása itt: {path}..."
+readFile = "Olvasás: {path}..."
+viewImage = "Megtekintés: {path}..."
+rememberNote = "Megjegyzés mentése: \"{key}\"..."
+recallMemory = "Emlékek keresése{query}..."
+forgetNote = "Jegyzet törlése..."
+listNotes = "Jegyzetek listázása..."
+rerank = "{n} találat rangsorolása..."
+summarize = "Összegzés..."
+
+[error]
+network = "Hálózati hiba"
+tool = "Eszköz hiba"
+agent = "Hiba történt"
+unknown = "Ismeretlen hiba"
+

@@ -1,4 +1,5 @@
 import { Box, Text } from "ink"
+import { isDangerousCommand } from "../../lib/command-risk"
 import { t } from "../../lib/i18n"
 import { Menu } from "../menu"
 
@@ -21,10 +22,13 @@ export function ConfirmCommand({
   running: boolean
   onResolve: (approved: boolean) => void
 }) {
+  const dangerous = isDangerousCommand(command)
+  const color = dangerous ? "red" : "yellow"
+
   return (
     <Box flexDirection="column" flexShrink={0} width="100%">
-      <Text color="yellow">{description}</Text>
-      <Text color="yellow">{`$ ${command}`}</Text>
+      <Text color={color}>{dangerous ? `⚠ ${description}` : description}</Text>
+      <Text color={color}>{`$ ${command}`}</Text>
       {running ? (
         <Text dimColor>{t("confirmCommand.running")}</Text>
       ) : (

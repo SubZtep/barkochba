@@ -236,7 +236,7 @@ export function ChatViewport({
   const timelineItems = useMemo(
     () =>
       events.map((item, i) => (
-        <Box key={`e-${i}`}>
+        <Box key={`e-${i}`} marginTop={i > 0 && item.type === "user" ? 1 : 0}>
           <TimelineItem item={item} thinking={thinking} />
         </Box>
       )),

@@ -6,6 +6,7 @@ import {
   run,
   type Session
 } from "../lib/agents"
+import { categorizeError, type ErrorCategory } from "../lib/error-category"
 import { log } from "../lib/logger"
 import type { Persona } from "../lib/personas"
 import { runShellCommand } from "../lib/run-command"
@@ -20,7 +21,7 @@ import type { PersistedSession } from "../schemas/session"
  */
 export type TimelineEvent =
   | { type: "user"; text: string }
-  | { type: "error"; text: string }
+  | { type: "error"; text: string; category: ErrorCategory }
   | FinalizedAgentEvent
 
 /**
@@ -197,9 +198,10 @@ export function useAgent(
             pushEvent(event)
           }
         }
-      } catch (error: any) {
+      } catch (error) {
         log.warn({ error }, "Agent run failed")
-        pushEvent({ type: "error", text: error?.message ?? String(error) })
+        const { category, message } = categorizeError(error)
+        pushEvent({ type: "error", text: message, category })
       } finally {
         setPartial(null)
         setPending(false)

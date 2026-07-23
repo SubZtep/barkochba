@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { write } from "bun"
 import envPaths from "env-paths"
 import OpenAI from "openai"
-import { tool } from "../lib/agents"
+import { ToolError, tool } from "../lib/agents"
 import { config } from "../lib/config"
 
 /**
@@ -45,7 +45,10 @@ export const generateImageTool = tool<{ prompt: string }>({
 
     const res = await fetch(url)
     if (!res.ok)
-      throw new Error(`Failed to download generated image: ${res.status}`)
+      throw new ToolError(
+        "generate_image",
+        `Failed to download generated image: ${res.status}`
+      )
     const mimeType = res.headers.get("content-type") ?? "image/png"
     const ext = mimeType.split("/")[1] ?? "png"
 

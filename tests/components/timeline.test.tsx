@@ -46,12 +46,12 @@ test("thinking toggle shows or hides reasoning on re-render", async () => {
 test("error events render in the timeline", async () => {
   const t = renderForTest(
     <TimelineItem
-      item={{ type: "error", text: "404 Model not found" }}
+      item={{ type: "error", text: "404 Model not found", category: "network" }}
       thinking={true}
     />
   )
   await t.tick()
-  expect(t.output()).toContain("✗ 404 Model not found")
+  expect(t.output()).toContain("404 Model not found")
 
   t.unmount()
   await t.waitUntilExit()

@@ -126,3 +126,24 @@ toggleVoice = "Toggle voice [{state}]"
 changeModel = "Change model"
 changePersona = "Change persona"
 
+[toolCall]
+webSearch = "Searching \"{query}\"..."
+fetchUrl = "Fetching {url}..."
+currentTime = "Checking the time{timezone}..."
+generateImage = "Generating an image: \"{prompt}\"..."
+listFiles = "Listing files in {path}..."
+readFile = "Reading {path}..."
+viewImage = "Viewing {path}..."
+rememberNote = "Remembering \"{key}\"..."
+recallMemory = "Recalling memory{query}..."
+forgetNote = "Forgetting a note..."
+listNotes = "Listing notes..."
+rerank = "Ranking {n} results..."
+summarize = "Summarizing..."
+
+[error]
+network = "Network error"
+tool = "Tool failed"
+agent = "Something went wrong"
+unknown = "Unknown error"
+

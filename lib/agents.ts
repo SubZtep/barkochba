@@ -33,6 +33,20 @@ export type ToolResult = {
 }
 
 /**
+ * Thrown by a tool's `execute()` on failure (e.g. a non-OK HTTP response),
+ * carrying the tool's name so the UI can label the error by source instead
+ * of showing one generic message for every kind of failure.
+ */
+export class ToolError extends Error {
+  readonly toolName: string
+
+  constructor(toolName: string, message: string) {
+    super(message)
+    this.toolName = toolName
+  }
+}
+
+/**
  * A tool an {@link Agent} can call, pairing the OpenAI function definition
  * with the local implementation that runs when the model calls it.
  */

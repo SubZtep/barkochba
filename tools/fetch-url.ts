@@ -1,4 +1,4 @@
-import { tool } from "../lib/agents"
+import { ToolError, tool } from "../lib/agents"
 
 /**
  * Fetches a URL and returns its content as plain text.
@@ -28,7 +28,11 @@ export const fetchUrlTool = tool<{ url: string }>({
   },
   execute: async (args) => {
     const res = await fetch(args.url)
-    if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${args.url}`)
+    if (!res.ok)
+      throw new ToolError(
+        "fetch_url",
+        `Fetch failed: ${res.status} ${args.url}`
+      )
     const body = await res.text()
     const contentType = res.headers.get("content-type") ?? ""
     return contentType.includes("html") ? stripHtml(body) : body

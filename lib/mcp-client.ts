@@ -69,7 +69,10 @@ export async function connectChromeDevToolsMcp(): Promise<{
   tools: Tool<any>[]
   close: () => Promise<void>
 }> {
-  return connectStdioMcp("bunx", ["chrome-devtools-mcp@latest", "--autoConnect"])
+  return connectStdioMcp("bunx", [
+    "chrome-devtools-mcp@latest",
+    "--autoConnect"
+  ])
 }
 
 async function callTool(

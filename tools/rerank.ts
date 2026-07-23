@@ -1,4 +1,4 @@
-import { tool } from "../lib/agents"
+import { ToolError, tool } from "../lib/agents"
 import { config } from "../lib/config"
 
 const DEFAULT_MODEL = "accounts/fireworks/models/qwen3-reranker-8b"
@@ -81,7 +81,10 @@ async function rerank(args: {
     })
   })
   if (!res.ok)
-    throw new Error(`Rerank failed: ${res.status} ${await res.text()}`)
+    throw new ToolError(
+      "rerank",
+      `Rerank failed: ${res.status} ${await res.text()}`
+    )
   const data = (await res.json()) as RerankResponse
   return data.data.map((result) => ({
     index: result.index,

@@ -1,4 +1,4 @@
-import { type ToolResult, tool } from "../lib/agents"
+import { ToolError, type ToolResult, tool } from "../lib/agents"
 import { config } from "../lib/config"
 import { tryLookupMyLocation } from "../lib/geo"
 
@@ -146,7 +146,10 @@ async function braveSearch(
     }
   )
   if (!res.ok)
-    throw new Error(`Brave search failed: ${res.status} ${await res.text()}`)
+    throw new ToolError(
+      "web_search",
+      `Brave search failed: ${res.status} ${await res.text()}`
+    )
   const data = (await res.json()) as BraveSearchResult
 
   return (data.web?.results ?? []).map((result) => ({

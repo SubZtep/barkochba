@@ -139,11 +139,7 @@ export default function App({
 
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <Header
-        model={model}
-        persona={persona.label}
-        location={location?.country.name}
-      />
+      <Header persona={persona.label} location={location?.country.name} />
       <ChatViewport
         events={events}
         thinking={thinking}
