@@ -238,10 +238,7 @@ export function ChatViewport({
       events
         .filter((item) => item.type !== "tool_call")
         .map((item, i) => (
-          <Box
-            key={`e-${i}`}
-            marginTop={i > 0 && item.type === "user" ? 1 : 0}
-          >
+          <Box key={`e-${i}`} marginTop={i > 0 && item.type === "user" ? 1 : 0}>
             <TimelineItem item={item} thinking={thinking} />
           </Box>
         )),

@@ -4,7 +4,7 @@ Terminal chat with personas, tools, optional mic dictation, and optional TTS.
 
 ## Install
 
-> [! NOTE]  
+> [!NOTE]  
 > Only tested on Linux.
 
 ```sh
@@ -29,36 +29,9 @@ and anytime via `kaja --wizard` .
 
 Config is grouped by feature. `llm` is required — the app can't run without a
 model. Everything else is an optional group: `stt` , `tts` , `location` , and
-`webSearch` . Leaving a group out of the config (or blank in the wizard)
+`webSearch` (Brave Search API). Leaving a group out of the config (or blank in the wizard)
 simply leaves that one feature unavailable — dictation/TTS stay off, and the
 `my_location` / `web_search` tools aren't offered to the model.
-
-```json
-{
-	"llm": {
-		"baseUrl": "...",
-		"apiKey": "...",
-		"model": "..."
-	},
-	"stt": {
-		"speachesUrl": "...",
-		"model": "...",
-		"language": "..."
-	},
-	"tts": {
-		"speachesUrl": "...",
-		"model": "...",
-		"voice": "..."
-	},
-	"location": {
-		"serviceUrl": "...",
-		"apiKey": "..."
-	},
-	"webSearch": {
-		"apiKey": "..."
-	}
-}
-```
 
 ### Where to get credentials?
 

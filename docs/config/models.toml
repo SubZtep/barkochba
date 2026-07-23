@@ -1,0 +1,30 @@
+# Kaja models — credentials live in named [providers.*] tables so they are
+# never repeated per model. A model picks one with `provider = "<name>"`;
+# models that don't name one use [providers.default].
+
+[providers.default]
+base_url = "https://api.fireworks.ai/inference/v1"
+api_key = "fw_YourSecretKey"
+
+[providers.speaches]
+base_url = "http://localhost:8000"  # local server, no key needed
+
+[[models]]
+id = "accounts/fireworks/models/minimax-m3"
+label = "MiniMax M3"
+task = "chat"
+
+[[models]]
+id = "accounts/fireworks/models/deepseek-v4-pro"
+label = "DeepSeek pro"
+task = "chat"
+
+[[models]]
+id = "accounts/fireworks/models/kimi-k2p6"
+label = "Kimi K2.6"
+task = "chat"
+
+[[models]]
+id = "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
+task = "text-to-speech"
+provider = "speaches"

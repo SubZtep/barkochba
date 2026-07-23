@@ -33,29 +33,28 @@ export const TimelineItem = memo(function TimelineItem({
     case "reasoning":
       if (!thinking) return null
       return <ReasoningBox>{item.text}</ReasoningBox>
-    case "tool_call":
-      return null
     case "tool_image":
       return <Text dimColor>{`[image: ${item.path}]`}</Text>
     case "display_image":
       return (
-        <Box gap={1}>
+        <Box flexDirection="column" marginBottom={1}>
+          <Image src={item.url} width={10} height={5} alt={item.alt} />
           <Text dimColor>{item.alt}</Text>
-          <Image src={item.url} width={20} height={10} alt={item.alt} />
         </Box>
       )
     case "message":
       return (
-        <Box gap={1}>
+        <Box gap={2} marginTop={1}>
           <Text color="#ff1493">●</Text>
           <Markdown>{item.content}</Markdown>
         </Box>
       )
     case "ask_user":
       return (
-        <Text color="cyan">
+        <Box gap={2} marginTop={1}>
+          <Text color="cyanBright">●</Text>
           <Markdown>{item.question}</Markdown>
-        </Text>
+        </Box>
       )
     case "confirm_command":
       return <Text color="yellow">{`$ ${item.command}`}</Text>
@@ -66,11 +65,6 @@ export const TimelineItem = memo(function TimelineItem({
         </Text>
       )
     case "final":
-      return (
-        <Box gap={1}>
-          <Text color="#ff1493">●</Text>
-          <Markdown>{item.content ?? "?"}</Markdown>
-        </Box>
-      )
+      return <Markdown>{item.content ?? "?"}</Markdown>
   }
 })

@@ -7,7 +7,7 @@ import { MonsterMate } from "../monster"
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const TICK_MS = 120
 
-/** Live top bar: model name, current persona, and in-flight tool activity. */
+/** Live top bar: current persona, and in-flight tool activity. */
 export function Header({
   persona,
   currentTool
@@ -35,7 +35,7 @@ export function Header({
       </Box>
       {currentTool ? (
         <Box flexShrink={0} gap={1}>
-          <Text color="yellow">
+          <Text color="green" dimColor>
             {`${FRAMES[tick % FRAMES.length]} ${describeToolCall(currentTool.name, currentTool.arguments)}`}
           </Text>
         </Box>

@@ -34,18 +34,20 @@ export function Menu({
   })
 
   return (
-    <ScrollList
-      height={Math.min(items.length, 5)}
-      selectedIndex={selectedIndex}
-    >
-      {items.map((item, i) => (
-        <Box key={item}>
-          <Text color={i === selectedIndex ? "blue" : "white"}>
-            {i === selectedIndex ? "> " : "  "}
-            {item}
-          </Text>
-        </Box>
-      ))}
-    </ScrollList>
+    <Box borderStyle="round" width={32} borderColor="blue" borderDimColor>
+      <ScrollList
+        height={Math.min(items.length, 5)}
+        selectedIndex={selectedIndex}
+      >
+        {items.map((item, i) => (
+          <Box key={item}>
+            <Text color={i === selectedIndex ? "blue" : "white"}>
+              {i === selectedIndex ? "> " : "  "}
+              {item}
+            </Text>
+          </Box>
+        ))}
+      </ScrollList>
+    </Box>
   )
 }

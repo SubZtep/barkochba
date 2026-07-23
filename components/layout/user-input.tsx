@@ -146,7 +146,7 @@ export function UserInput({
             if (recalled !== null) setInput(recalled)
             return recalled
           }}
-          showCursor={!mic || (sttState === "listening" && idle % 2 === 0)}
+          showCursor={!mic && idle % 2 === 0}
           placeholder={idle > 20 ? undefined : t("input.placeholder")}
           prefix={prefix}
           prefixCols={PREFIX_COLS}
@@ -169,7 +169,11 @@ function Border({
 
   const boxProps: any = {
     backgroundColor: "#202040",
-    padding: isPower ? 0 : 1,
+    borderColor: "#00a",
+    borderStyle: "classic",
+    borderDimColor: true,
+    borderLeftDimColor: false,
+    borderRightDimColor: false,
     width: "100%",
     flexShrink: 0,
     maxHeight: INPUT_MAX_HEIGHT,
@@ -179,7 +183,8 @@ function Border({
   if (isPower) {
     boxProps.borderStyle = "arrow"
     boxProps.borderColor = "green"
-    boxProps.borderDimColor = true
+    boxProps.borderLeftDimColor = true
+    boxProps.borderRightDimColor = true
   }
 
   return <Box {...boxProps}>{children}</Box>

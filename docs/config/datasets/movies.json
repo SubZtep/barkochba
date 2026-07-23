@@ -1,0 +1,93 @@
+{
+  "label": "Movies to watch",
+  "entries": [
+    {
+      "name": "Alien",
+      "description": "A crew encounters a deadly extraterrestrial."
+    },
+    {
+      "name": "Aliens",
+      "description": "Marines return to the extraterrestrial-infested colony."
+    },
+    {
+      "name": "Amelie",
+      "description": "A whimsical Parisian woman changes lives around her."
+    },
+    {
+      "name": "Annabelle",
+      "description": "A vintage doll wreaks horror on a young couple."
+    },
+    {
+      "name": "Get Out",
+      "description": "A black man uncovers horror secrets at his white girlfriend's family estate."
+    },
+    {
+      "name": "Hereditary",
+      "description": "A family unravels terrifying secrets after their grandmother's death."
+    },
+    {
+      "name": "Hostel",
+      "description": "Backpackers fall victim to a horror torture ring."
+    },
+    {
+      "name": "Insidious",
+      "description": "A family is haunted by horror entities from another realm."
+    },
+    {
+      "name": "It Comes at Night",
+      "description": "Survivors hide from a horror plague with paranoia and mistrust."
+    },
+    {
+      "name": "It Follows",
+      "description": "A supernatural force transmits horror through sexual encounters."
+    },
+    {
+      "name": "Midsommar",
+      "description": "A couple attends a pagan festival that turns into a horror nightmare."
+    },
+    {
+      "name": "Saw",
+      "description": "Two men wake up trapped in a room by a horror puzzle-maker."
+    },
+    {
+      "name": "Sinister",
+      "description": "A true-crime writer finds horror footage of past murders."
+    },
+    {
+      "name": "Smile",
+      "description": "A horror curse spreads through a disturbing smile."
+    },
+    {
+      "name": "Terrifier",
+      "description": "A horror clown terrorizes victims on Halloween night."
+    },
+    {
+      "name": "The Babadook",
+      "description": "A horror pop-up book creature torments a mother and son."
+    },
+    {
+      "name": "The Conjuring",
+      "description": "Paranormal investigators help a family terrorized by a dark presence."
+    },
+    {
+      "name": "The Descent",
+      "description": "Cavers encounter horror humanoid creatures in an uncharted system."
+    },
+    {
+      "name": "The Lighthouse",
+      "description": "Two lighthouse keepers descend into horror madness on a remote island."
+    },
+    {
+      "name": "The Nun",
+      "description": "A horror nun haunts a priest and novitiate in Romania."
+    },
+    {
+      "name": "The Witch",
+      "description": "A Puritan family faces horror in 1630s New England wilderness."
+    },
+    {
+      "name": "Us",
+      "description": "A family fights their horror doppelgangers during a beach vacation."
+    }
+  ]
+}

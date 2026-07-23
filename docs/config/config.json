@@ -1,0 +1,41 @@
+{
+  "llm": {
+    "baseUrl": "https://api.fireworks.ai/inference/v1",
+    "apiKey": "fw_YourSecretFireworksKey",
+    "model": "accounts/fireworks/models/minimax-m3"
+  },
+  "embedding": {
+    "model": "nomic-ai/nomic-embed-text-v1.5"
+  },
+  "stt": {
+    "speachesUrl": "ws://127.0.0.1",
+    "model": "SubZtep/whisper-small-hu-ct2"
+  },
+  "tts": {
+    "speachesUrl": "ws://127.0.0.1:8000",
+    "model": "speaches-ai/piper-hu_HU-berta-medium"
+  },
+  "location": {
+    "serviceUrl": "https://ip2geo.demo.land",
+    "apiKey": "kaja"
+  },
+  "webSearch": {
+    "apiKey": "YourSecretBraveKey"
+  },
+  "imageGen": {
+    "baseUrl": "https://api.x.ai/v1",
+    "apiKey": "xai-YourSecretTwitterKey",
+    "model": "grok-imagine-image"
+  },
+  "chrome": {},
+  "settings": {
+    "thinking": false,
+    "sounds": true,
+    "voice": false,
+    "language": "en",
+    "persona": "default"
+  },
+  "memory": {
+    "dbPath": "/home/dcr/.local/share/kaja/memory.sqlite"
+  }
+}

@@ -45,12 +45,39 @@ export function isDeviceAttributesReply(input: string): boolean {
   return /^\[\?\d+(;\d+)*c$/.test(s)
 }
 
+/**
+ * xterm window/text-area report (XTWINOPS), e.g. `[4;350;848t` (pixel size)
+ * or `[8;40;120t` (char size). Sent in response to a `\x1b[14t` / `\x1b[18t`
+ * style query.
+ */
+export function isWindowReport(input: string): boolean {
+  if (!input) return false
+  const s = stripEsc(input)
+  return /^\[\d+(;\d+){0,2}t$/.test(s)
+}
+
+/**
+ * Some terminals/multiplexers mangle escape-sequence replies into their
+ * decimal byte values instead of raw bytes, e.g. `27,91,63,48,117` for
+ * `\x1b[?0u`. Any comma-separated byte list starting with 27 (ESC) is noise,
+ * not something a human typed.
+ */
+export function isEscapeByteList(input: string): boolean {
+  if (!input) return false
+  const parts = input.split(",")
+  if (parts.length < 2) return false
+  if (!/^\d+$/.test(parts[0]!) || Number(parts[0]) !== 27) return false
+  return parts.every((p) => /^\d+$/.test(p) && Number(p) <= 255)
+}
+
 /** Any non-text terminal sequence that must not be typed into the input. */
 export function isIgnoredTerminalInput(input: string): boolean {
   return (
     isTerminalMouseSequence(input) ||
     isKittyKeyboardNoise(input) ||
-    isDeviceAttributesReply(input)
+    isDeviceAttributesReply(input) ||
+    isWindowReport(input) ||
+    isEscapeByteList(input)
   )
 }
 
