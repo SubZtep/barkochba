@@ -13,7 +13,9 @@ export const fetchUrlTool = tool<{ url: string }>({
     "Fetch a specific, known URL and return its content as plain text. Use " +
     "this instead of web_search when you already have the exact URL (e.g. " +
     "the user gave you a link, or a prior search result) — it's cheaper and " +
-    "returns the actual page instead of a search snippet.",
+    "returns the actual page instead of a search snippet. The full page " +
+    "text is returned unsummarized — if it's long, call summarize on the " +
+    "result before replying instead of condensing it yourself.",
   parameters: {
     type: "object",
     properties: {
