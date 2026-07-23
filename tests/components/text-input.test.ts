@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import {
   applyTextEdit,
+  historyDirection,
   nextWordBoundary,
   prevWordBoundary,
   type TextEditState
@@ -209,4 +210,53 @@ test("cursor is clamped after edits", () => {
   expect(edit(state("ab", 2), { rightArrow: true })).toMatchObject({
     cursorOffset: 2
   })
+})
+
+const arrow = (up: boolean, mods: { ctrl?: boolean; meta?: boolean } = {}) => ({
+  upArrow: up,
+  downArrow: !up,
+  ctrl: mods.ctrl ?? false,
+  meta: mods.meta ?? false
+})
+
+test("historyDirection: single-line and empty input recall both ways", () => {
+  expect(historyDirection("", 0, arrow(true))).toBe(-1)
+  expect(historyDirection("", 0, arrow(false))).toBe(1)
+  expect(historyDirection("hello", 3, arrow(true))).toBe(-1)
+  expect(historyDirection("hello", 3, arrow(false))).toBe(1)
+})
+
+test("historyDirection: multiline recalls only where the cursor can't move", () => {
+  const v = "a\nb\nc"
+  // middle line: both directions are cursor movement
+  expect(historyDirection(v, 2, arrow(true))).toBe(null)
+  expect(historyDirection(v, 2, arrow(false))).toBe(null)
+  // first line: up recalls, down moves
+  expect(historyDirection(v, 0, arrow(true))).toBe(-1)
+  expect(historyDirection(v, 0, arrow(false))).toBe(null)
+  // last line: down recalls, up moves
+  expect(historyDirection(v, 4, arrow(false))).toBe(1)
+  expect(historyDirection(v, 4, arrow(true))).toBe(null)
+})
+
+test("historyDirection: soft-wrapped lines count as lines", () => {
+  // "aaaa bbbb" at width 4 wraps to "aaaa" / "bbbb"
+  const v = "aaaa bbbb"
+  expect(historyDirection(v, 7, arrow(true), 4)).toBe(null)
+  expect(historyDirection(v, 7, arrow(false), 4)).toBe(1)
+  expect(historyDirection(v, 1, arrow(true), 4)).toBe(-1)
+  expect(historyDirection(v, 1, arrow(false), 4)).toBe(null)
+})
+
+test("historyDirection: Ctrl/Meta combos and non-vertical keys stay null", () => {
+  expect(historyDirection("hi", 1, arrow(true, { ctrl: true }))).toBe(null)
+  expect(historyDirection("hi", 1, arrow(false, { meta: true }))).toBe(null)
+  expect(
+    historyDirection("hi", 1, {
+      upArrow: false,
+      downArrow: false,
+      ctrl: false,
+      meta: false
+    })
+  ).toBe(null)
 })

@@ -9,6 +9,7 @@ import { t } from "../../lib/i18n"
 import { personas } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
+import type { PersistedSession } from "../../schemas/session"
 import type { getDefaultTools } from "../../tools"
 import { ChatViewport } from "./chat-viewport"
 import { ConfirmCommand } from "./confirm-command"
@@ -19,12 +20,18 @@ export default function App({
   initialSettings,
   models = [],
   openaiApiModel,
-  tools
+  tools,
+  initialSession,
+  promptHistory
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
   openaiApiModel: string
   tools: Awaited<ReturnType<typeof getDefaultTools>>
+  /** A persisted session to continue (--continue / --session <id>). */
+  initialSession?: PersistedSession
+  /** Past prompts across all sessions for ↑/↓ recall, newest first. */
+  promptHistory?: string[]
 }) {
   const {
     model,
@@ -39,7 +46,14 @@ export default function App({
     runningCommand
   } = useAgent({
     model: openaiApiModel,
-    tools
+    tools,
+    // A stored persona/model that no longer exists resolves to undefined and
+    // the resume proceeds with defaults — messages restore verbatim anyway.
+    resume: initialSession && {
+      session: initialSession,
+      persona: personas.find((p) => p.id === initialSession.persona),
+      model: models.find((m) => m.id === initialSession.model)
+    }
   })
   const lastEvent = events.at(-1)
   const pendingCommand =
@@ -138,6 +152,7 @@ export default function App({
           pending={pending}
           speaking={speaking}
           send={send}
+          history={promptHistory}
           menuItems={commands.map((command) => command.label)}
           onMenuSelect={(index) => commands[index]?.run()}
           onMenuClose={() => setMenuMode("main")}

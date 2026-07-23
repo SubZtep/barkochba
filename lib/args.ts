@@ -17,6 +17,14 @@ export const cli = meow(t("args.help"), {
     },
     wizard: {
       type: "boolean"
+    },
+    continue: {
+      type: "boolean",
+      shortFlag: "c"
+    },
+    session: {
+      type: "string",
+      shortFlag: "s"
     }
   }
 })

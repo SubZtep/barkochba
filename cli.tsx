@@ -40,6 +40,15 @@ if (cli.input[0] === "memory") {
   process.exit(code)
 }
 
+// Session subcommand: same deal — browsing past sessions must work even
+// with a missing or invalid LLM config.
+if (cli.input[0] === "session") {
+  const { runSessionCli } = await import("./lib/session-cli")
+  const { code, text } = await runSessionCli(cli.input.slice(1))
+  console.log(text)
+  process.exit(code)
+}
+
 // Missing or invalid config (or --wizard): run the setup wizard instead of
 // exiting, then fall through to the normal boot with the freshly written
 // file. A fresh blank template never validates, so first-run also lands in
@@ -65,6 +74,29 @@ if (cli.flags.wizard || !(await validate(true))) {
 // before the first-run flow above.
 const { default: App } = await import("./components/layout/app")
 const { getDefaultTools } = await import("./tools")
+const { loadLatestSessionRow, loadPromptHistory, loadSessionRow } =
+  await import("./lib/session-store")
+
+// --continue resumes the most recent session, --session <id> a specific
+// one; either way the restored conversation is handed to App as a prop.
+let initialSession: import("./schemas/session").PersistedSession | undefined
+if (cli.flags.continue) {
+  initialSession = await loadLatestSessionRow()
+  if (!initialSession) {
+    console.log(t("session.none"))
+    process.exit(1)
+  }
+} else if (cli.flags.session) {
+  const sessionId = Number.parseInt(cli.flags.session, 10)
+  initialSession = Number.isFinite(sessionId)
+    ? await loadSessionRow(sessionId)
+    : undefined
+  if (!initialSession) {
+    console.log(t("session.notFound", { id: cli.flags.session }))
+    process.exit(1)
+  }
+}
+const promptHistory = await loadPromptHistory()
 
 const { settings, llm } = await config()
 const models = await loadModels()
@@ -79,6 +111,8 @@ const { waitUntilExit } = render(
     models={models}
     openaiApiModel={llm.model}
     tools={tools}
+    initialSession={initialSession}
+    promptHistory={promptHistory}
   />,
   {
     alternateScreen: true,

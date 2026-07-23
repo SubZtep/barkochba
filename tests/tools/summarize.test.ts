@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test"
+import { tmpdir } from "node:os"
 
-process.env.XDG_CONFIG_HOME = `${import.meta.dir}/../../.tmp-test-xdg-config-summarize`
+process.env.XDG_CONFIG_HOME = `${tmpdir()}/kaja-test-xdg-config-summarize`
 
 const { saveConfig } = await import("../../lib/config")
 await saveConfig({

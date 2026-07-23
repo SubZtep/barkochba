@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   getDefaultMemoryDbPath,
@@ -14,8 +15,8 @@ import {
 // imported by another test file earlier in the same `bun test` process —
 // still isolates each test from the real ~/.local/share/kaja and
 // ~/.config/kaja.
-const dataDir = `${import.meta.dir}/../../.tmp-test-xdg-data`
-const configDir = `${import.meta.dir}/../../.tmp-test-xdg-config`
+const dataDir = `${tmpdir()}/kaja-test-xdg-data`
+const configDir = `${tmpdir()}/kaja-test-xdg-config`
 
 afterEach(async () => {
   process.env.XDG_DATA_HOME = dataDir
@@ -102,7 +103,7 @@ test("data persists across a fresh process (module re-import)", async () => {
 })
 
 test("migrates a pre-existing memory.json into SQLite on first open, keeping it as .bak", async () => {
-  const xdgDataHome = `${import.meta.dir}/../../.tmp-test-xdg-data-migration`
+  const xdgDataHome = `${tmpdir()}/kaja-test-xdg-data-migration`
   // env-paths appends its own "kaja" subdirectory under XDG_DATA_HOME.
   const migrationDir = join(xdgDataHome, "kaja")
   await rm(xdgDataHome, { recursive: true, force: true })

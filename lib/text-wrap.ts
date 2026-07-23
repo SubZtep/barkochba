@@ -112,7 +112,7 @@ export function clampWindowStart(
 /** Huge width ⇒ soft-wrap never fires; only hard `\n` breaks. */
 const HARD_LINES_ONLY = 1_000_000
 
-function layoutLines(text: string, width?: number): VisualLine[] {
+export function layoutLines(text: string, width?: number): VisualLine[] {
   return softWrapLines(text, width && width > 0 ? width : HARD_LINES_ONLY)
 }
 

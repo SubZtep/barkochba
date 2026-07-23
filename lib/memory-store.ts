@@ -56,7 +56,7 @@ async function persistDbPathIfMissing(dbPath: string) {
   } catch {}
 }
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 const INSERT_NOTE_SQL = `
   INSERT INTO notes (key, content, importance, tags, sticky, createdAt, lastUsedAt, useCount)
@@ -89,8 +89,11 @@ let dbPathInUse: string | undefined
  * this never fires — it only matters for tests, which run many logically
  * separate "sessions" (each with its own XDG_DATA_HOME/config.memory.dbPath)
  * in one shared `bun test` process.
+ *
+ * Exported as the shared seam for lib/session-store.ts, which lives in the
+ * same database file — this module stays the single owner of the schema.
  */
-async function getDb(): Promise<Database> {
+export async function getDb(): Promise<Database> {
   const dbPath = await resolveMemoryDbPath()
   if (db && dbPathInUse === dbPath) return db
 
@@ -114,15 +117,32 @@ async function getDb(): Promise<Database> {
       useCount    INTEGER NOT NULL
     )
   `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      persona   TEXT NOT NULL,
+      model     TEXT NOT NULL,
+      title     TEXT NOT NULL,
+      session   TEXT NOT NULL,  -- JSON: lib/agents.ts Session
+      events    TEXT NOT NULL   -- JSON: hooks/use-agent.ts TimelineEvent[]
+    )
+  `)
 
   const hasVersion = db
     .query("SELECT version FROM schema_version LIMIT 1")
-    .get()
+    .get() as { version: number } | null
   if (!hasVersion) {
     db.query("INSERT INTO schema_version (version) VALUES (?)").run(
       SCHEMA_VERSION
     )
     migrateLegacyJson(db)
+  } else if (hasVersion.version < SCHEMA_VERSION) {
+    // v1 → v2 only added the sessions table, which the idempotent DDL above
+    // already created — record the version so a future non-additive
+    // migration has a real ladder to hang off.
+    db.query("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION)
   }
 
   // Only persist the path back to config.json once we know it works — the

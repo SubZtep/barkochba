@@ -8,18 +8,23 @@ help = """
 Használat
   $ kaja
   $ kaja memory <list|forget <kulcs-vagy-glob>|export>
+  $ kaja session <list|diagram <id>>
 
 Kapcsolók
-  --help     Kiírja ezt a súgót
-  --config   Kiírja a konfigurációs fájl helyét és a vágólapra másolja
-  --wizard   A konfiguráció áttekintése és szerkesztése a varázslóban
-  --version  Kiírja a telepített verziót
+  --help          Kiírja ezt a súgót
+  --config        Kiírja a konfigurációs fájl helyét és a vágólapra másolja
+  --wizard        A konfiguráció áttekintése és szerkesztése a varázslóban
+  --version       Kiírja a telepített verziót
+  --continue, -c  A legutóbbi munkamenet folytatása
+  --session, -s   Munkamenet folytatása azonosító alapján (lásd: kaja session list)
 
 Példák
   $ kaja --config
   /home/dcr/.config/kaja/config.json
   $ kaja memory list
   $ kaja memory forget "test:*"
+  $ kaja --continue
+  $ kaja session list
 """
 clipboardFailed = "A vágólapkezelő hibázott"
 
@@ -33,6 +38,16 @@ Használat
 empty = "(nincs elmentett jegyzet)"
 noMatch = "(nincs egyező jegyzet)"
 forgot = "Elfelejtve: {keys}"
+
+[session]
+usage = """
+Használat
+  $ kaja session list           Kilistázza a korábbi munkameneteket (legújabb elöl)
+  $ kaja session diagram <id>   Kiír egy munkamenetet mermaid szekvenciadiagramként
+"""
+empty = "(nincs elmentett munkamenet)"
+none = "Nincs folytatható munkamenet"
+notFound = "Nincs ilyen munkamenet: {id}"
 
 [config]
 invalidAt = "Érvénytelen konfigurációs fájl ({path}): {message}"

@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from "bun:test"
+import { tmpdir } from "node:os"
 
 // XDG_CONFIG_HOME is isolated too, since memory-store.ts can write
 // config.memory.dbPath back into config.json on first successful open.
-process.env.XDG_DATA_HOME = `${import.meta.dir}/../../.tmp-test-xdg-data-tools`
-process.env.XDG_CONFIG_HOME = `${import.meta.dir}/../../.tmp-test-xdg-config-tools`
+process.env.XDG_DATA_HOME = `${tmpdir()}/kaja-test-xdg-data-tools`
+process.env.XDG_CONFIG_HOME = `${tmpdir()}/kaja-test-xdg-config-tools`
 
 const { saveMemory } = await import("../../lib/memory-store")
 const { forgetNoteTool, listNotesTool, recallMemoryTool, rememberNoteTool } =

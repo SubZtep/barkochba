@@ -17,6 +17,7 @@ import { isIgnoredTerminalInput } from "../../lib/terminal-input"
 import {
   clampWindowStart,
   cursorLineIndex,
+  layoutLines,
   lineEndOffset,
   lineStartOffset,
   moveVertical,
@@ -42,6 +43,14 @@ export type TextInputProps = {
   prefix?: string
   /** Column budget for prefix / hang-indent (must match prefix width). */
   prefixCols?: number
+  /**
+   * Shell-style ↑/↓ prompt recall, consulted only where the cursor has no
+   * line to move to (see {@link historyDirection}). Returns the replacement
+   * text — which the parent must have applied to `value` itself — or null
+   * to leave the input alone. `onChange` is deliberately not called for
+   * recalls, so it stays a reliable "human edited" signal.
+   */
+  onHistory?: (dir: -1 | 1, current: string) => string | null
 }
 
 export type TextEditState = {
@@ -53,6 +62,28 @@ export type TextEditState = {
    * position on the next vertical move.
    */
   preferredColumn: number | null
+}
+
+/**
+ * Whether an ↑/↓ press should recall history instead of moving the cursor:
+ * exactly when {@link moveVertical} would refuse the move — ↑ with the
+ * cursor already on the first visual line (`-1`), ↓ on the last (`1`).
+ * A single-line or empty input is both, like a shell prompt. Ctrl/Meta
+ * combos stay null — the chat viewport owns those for scrolling.
+ */
+export function historyDirection(
+  value: string,
+  cursorOffset: number,
+  key: Pick<Key, "upArrow" | "downArrow" | "ctrl" | "meta">,
+  columns?: number
+): -1 | 1 | null {
+  if (key.ctrl || key.meta) return null
+  if (!key.upArrow && !key.downArrow) return null
+  const lines = layoutLines(value, columns)
+  const line = cursorLineIndex(lines, cursorOffset)
+  if (key.upArrow && line === 0) return -1
+  if (key.downArrow && line === lines.length - 1) return 1
+  return null
 }
 
 export function prevWordBoundary(value: string, cursor: number): number {
@@ -234,6 +265,7 @@ export function TextInput({
   showCursor = true,
   onChange,
   onSubmit,
+  onHistory,
   columns,
   maxVisibleLines,
   prefix = "",
@@ -267,6 +299,27 @@ export function TextInput({
 
   useInput(
     (input, key) => {
+      if (onHistory && showCursor) {
+        const dir = historyDirection(
+          originalValue,
+          cursorOffset,
+          key,
+          wrapWidth
+        )
+        if (dir !== null) {
+          const replaced = onHistory(dir, originalValue)
+          if (replaced !== null) {
+            setState({
+              cursorOffset: replaced.length,
+              cursorWidth: 0,
+              preferredColumn: null
+            })
+            return
+          }
+          // Nothing in that direction: fall through to the normal no-op.
+        }
+      }
+
       const result = applyTextEdit(
         {
           value: originalValue,

@@ -8,18 +8,23 @@ help = """
 Usage
   $ kaja
   $ kaja memory <list|forget <key-or-glob>|export>
+  $ kaja session <list|diagram <id>>
 
 Options
-  --help     Print this help
-  --config   Print the config file location and copy it to the clipboard
-  --wizard   Review and edit the configuration in the setup wizard
-  --version  Print the installed app version
+  --help          Print this help
+  --config        Print the config file location and copy it to the clipboard
+  --wizard        Review and edit the configuration in the setup wizard
+  --version       Print the installed app version
+  --continue, -c  Resume the most recent session
+  --session, -s   Resume a session by id (see: kaja session list)
 
 Examples
   $ kaja --config
   /home/dcr/.config/kaja/config.json
   $ kaja memory list
   $ kaja memory forget "test:*"
+  $ kaja --continue
+  $ kaja session list
 """
 clipboardFailed = "Clipboard tool failed"
 
@@ -33,6 +38,16 @@ Usage
 empty = "(no notes stored)"
 noMatch = "(no matching notes)"
 forgot = "Forgot: {keys}"
+
+[session]
+usage = """
+Usage
+  $ kaja session list           List past sessions (newest first)
+  $ kaja session diagram <id>   Print a session as a mermaid sequence diagram
+"""
+empty = "(no sessions recorded)"
+none = "No session to continue"
+notFound = "Session not found: {id}"
 
 [config]
 invalidAt = "Invalid config file at {path}: {message}"

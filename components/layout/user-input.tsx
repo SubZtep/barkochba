@@ -1,6 +1,7 @@
 import { Box, useApp, useInput, useWindowSize } from "ink"
 import { useEffect, useState } from "react"
 import { useDictation } from "../../hooks/use-dictation"
+import { usePromptHistory } from "../../hooks/use-prompt-history"
 import { t } from "../../lib/i18n"
 import { TextInput } from "../elem/text-input"
 import { Menu } from "../menu"
@@ -40,6 +41,7 @@ export function UserInput({
   pending,
   speaking,
   send,
+  history: initialHistory,
   menuItems,
   onMenuSelect,
   onMenuClose
@@ -48,6 +50,8 @@ export function UserInput({
   /** The agent's voice is audibly playing — mute the mic so it isn't heard. */
   speaking: boolean
   send: (prompt: string) => Promise<void>
+  /** Past prompts for shell-style ↑/↓ recall, newest first. */
+  history?: string[]
   menuItems: string[]
   /** Return true to keep the menu open (the caller swapped in a submenu). */
   // biome-ignore lint/suspicious/noConfusingVoidType: most handlers naturally return nothing; only a literal `true` is meaningful
@@ -59,6 +63,13 @@ export function UserInput({
   const [mic, setMic] = useState(false)
   const { columns } = useWindowSize()
   const { exit } = useApp()
+  const history = usePromptHistory(initialHistory ?? [])
+  // Human edits (typing, dictation) reset the recall position; recalled
+  // text itself goes through plain setInput so it doesn't.
+  const editInput = (value: string) => {
+    history.markEdited()
+    setInput(value)
+  }
 
   // Typing "/" as the first character opens the menu; while it's open the
   // text input is unfocused so arrows/return/escape drive the menu instead.
@@ -72,6 +83,7 @@ export function UserInput({
   // Half-duplex: while the agent's voice plays, the mic is paused (captured
   // audio dropped) so it doesn't transcribe the agent talking to itself.
   const sttState = useDictation(mic && !speaking, (text) => {
+    history.markEdited()
     setInput((prev) => (prev ? `${prev} ${text}` : text))
   })
 
@@ -98,6 +110,7 @@ export function UserInput({
 
   const handleSubmit = (value: string) => {
     if (!value.trim() || pending) return
+    history.commit(value)
     setInput("")
     send(value)
   }
@@ -126,8 +139,13 @@ export function UserInput({
         <TextInput
           value={input}
           focus={!pending && !menuOpen}
-          onChange={setInput}
+          onChange={editInput}
           onSubmit={handleSubmit}
+          onHistory={(dir, current) => {
+            const recalled = history.recall(dir, current)
+            if (recalled !== null) setInput(recalled)
+            return recalled
+          }}
           showCursor={!mic || (sttState === "listening" && idle % 2 === 0)}
           placeholder={idle > 20 ? undefined : t("input.placeholder")}
           prefix={prefix}

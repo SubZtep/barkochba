@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test"
 import { mkdirSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Agent, AgentEvent } from "../../lib/agents"
 
@@ -14,8 +15,8 @@ import type { Agent, AgentEvent } from "../../lib/agents"
 // own body — including these env vars — ever ran. Dynamic imports below
 // keep the sequencing: env vars and the config.json fixture are in place
 // before lib/agents.ts (and everything it pulls in) is ever evaluated.
-const dataDir = `${import.meta.dir}/../../.tmp-test-xdg-data-agents`
-const configDir = `${import.meta.dir}/../../.tmp-test-xdg-config-agents`
+const dataDir = `${tmpdir()}/kaja-test-xdg-data-agents`
+const configDir = `${tmpdir()}/kaja-test-xdg-config-agents`
 process.env.XDG_DATA_HOME = dataDir
 process.env.XDG_CONFIG_HOME = configDir
 

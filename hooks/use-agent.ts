@@ -9,7 +9,9 @@ import {
 import { log } from "../lib/logger"
 import { type Persona, personas } from "../lib/personas"
 import { runShellCommand } from "../lib/run-command"
+import { createSessionRow, updateSessionRow } from "../lib/session-store"
 import type { ResolvedModel } from "../schemas/models"
+import type { PersistedSession } from "../schemas/session"
 
 /**
  * What the chat timeline is made of: the human's own messages, the agent's
@@ -41,11 +43,39 @@ const DELTA_INTERVAL_MS = 80
  * completion, collecting the yielded events as they arrive. `events` is the
  * finalized timeline (including the user's own messages); `partial` holds
  * the in-flight streaming message, if any.
+ *
+ * With `resume`, both are seeded from a persisted session instead of empty:
+ * the restored messages already contain their system prompt (run() only
+ * builds one for an empty session), so the original persona instructions
+ * and sticky notes stay baked in — by design. After every completed turn
+ * the session is saved back to the store, fire-and-forget.
  */
-export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
-  const [agent] = useState(() => new Agent(config))
+export function useAgent(
+  config: ConstructorParameters<typeof Agent>[0] & {
+    resume?: {
+      session: PersistedSession
+      persona?: Persona
+      model?: ResolvedModel
+    }
+  }
+) {
+  const { resume, ...agentConfig } = config
+  const [agent] = useState(() => {
+    const created = new Agent({
+      ...agentConfig,
+      instructions: resume?.persona?.instructions ?? agentConfig.instructions
+    })
+    if (resume?.model) created.setModel(resume.model)
+    return created
+  })
   const sessionRef = useRef<Session>(undefined)
-  if (!sessionRef.current) sessionRef.current = createSession()
+  if (!sessionRef.current)
+    sessionRef.current = resume
+      ? (resume.session.session as Session)
+      : createSession()
+  // The database row this conversation saves into; undefined until the
+  // first save (empty sessions are never recorded).
+  const sessionRowIdRef = useRef<number | undefined>(resume?.session.id)
 
   // React-state mirror of agent.model, so consumers rerender on switch.
   const [model, setModel] = useState(agent.model)
@@ -57,7 +87,16 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
     [agent]
   )
 
-  const [events, setEvents] = useState<TimelineEvent[]>([])
+  const [events, setEvents] = useState<TimelineEvent[]>(
+    () => (resume?.session.events as TimelineEvent[] | undefined) ?? []
+  )
+  // Ref mirror of `events` for send/persistSession, whose closures are
+  // memoized on [agent] and would otherwise read a stale array.
+  const eventsRef = useRef(events)
+  const pushEvent = useCallback((event: TimelineEvent) => {
+    eventsRef.current = [...eventsRef.current, event]
+    setEvents(eventsRef.current)
+  }, [])
   const [partial, setPartial] = useState<PartialMessage | null>(null)
   const [pending, setPending] = useState(false)
   // True from the moment a run_command is approved until its result is fed
@@ -68,18 +107,55 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
   // Adopting a persona swaps the agent's instructions and starts a fresh
   // session/timeline — run() bakes instructions into the first system
   // message, so they can't change mid-conversation.
-  const [persona, setPersona] = useState<Persona>(personas[0]!)
+  const [persona, setPersona] = useState<Persona>(
+    resume?.persona ?? personas[0]!
+  )
+  const personaRef = useRef(persona)
   const switchPersona = useCallback(
     (next: Persona) => {
       if (pending) return
       agent.instructions = next.instructions
       sessionRef.current = createSession()
+      sessionRowIdRef.current = undefined
+      eventsRef.current = []
       setEvents([])
       setPartial(null)
+      personaRef.current = next
       setPersona(next)
     },
     [agent, pending]
   )
+
+  // Saves the conversation after each turn, fire-and-forget like
+  // saveSettings — but serialized through a promise chain so a fast next
+  // turn can't race the row-id assignment into a duplicate INSERT.
+  const persistChainRef = useRef(Promise.resolve())
+  const persistSession = useCallback(() => {
+    const session = sessionRef.current!
+    const events = eventsRef.current
+    const first = events.find(
+      (e): e is Extract<TimelineEvent, { type: "user" }> => e.type === "user"
+    )
+    if (!first) return
+    const data = {
+      persona: personaRef.current.id,
+      model: agent.model,
+      session,
+      events
+    }
+    persistChainRef.current = persistChainRef.current
+      .then(async () => {
+        if (sessionRowIdRef.current === undefined) {
+          sessionRowIdRef.current = await createSessionRow({
+            ...data,
+            title: first.text.split(/[\r\n]/)[0]!.slice(0, 60)
+          })
+        } else {
+          await updateSessionRow(sessionRowIdRef.current, data)
+        }
+      })
+      .catch((error) => log.warn({ error }, "Failed to save session"))
+  }, [agent])
 
   // showUserEvent is false when the "prompt" isn't something the human
   // typed (e.g. resolveCommand feeding back a shell command's result) — it
@@ -88,8 +164,7 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
   const send = useCallback(
     async (prompt: string, showUserEvent = true) => {
       setPending(true)
-      if (showUserEvent)
-        setEvents((prev) => [...prev, { type: "user", text: prompt }])
+      if (showUserEvent) pushEvent({ type: "user", text: prompt })
       // Deltas can arrive many times a second; re-rendering (and Ink
       // repainting the whole frame) on every single token makes long
       // streamed responses janky — some terminals (e.g. VS Code's) visibly
@@ -113,21 +188,19 @@ export function useAgent(config: ConstructorParameters<typeof Agent>[0]) {
             }
           } else {
             setPartial(null)
-            setEvents((prev) => [...prev, event])
+            pushEvent(event)
           }
         }
       } catch (error: any) {
         log.warn({ error }, "Agent run failed")
-        setEvents((prev) => [
-          ...prev,
-          { type: "error", text: error?.message ?? String(error) }
-        ])
+        pushEvent({ type: "error", text: error?.message ?? String(error) })
       } finally {
         setPartial(null)
         setPending(false)
+        persistSession()
       }
     },
-    [agent]
+    [agent, pushEvent, persistSession]
   )
 
   // Resolves a pending confirm_command event: runs the command on approval
