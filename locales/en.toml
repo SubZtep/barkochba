@@ -56,6 +56,9 @@ notExists = "Config file not exists: {path}"
 [models]
 invalidAt = "Invalid models file at {path}: {message}"
 
+[personas]
+invalidAt = "Invalid personas file at {path}: {message}"
+
 [wizard]
 title = "Kaja setup"
 stepLanguage = "Language"
@@ -117,7 +120,3 @@ toggleVoice = "Toggle voice [{state}]"
 changeModel = "Change model"
 changePersona = "Change persona"
 
-[personas]
-kaja = "Kaja"
-barkochba = "Barkochba guesser"
-care = "Self-care companion"

@@ -11,6 +11,7 @@ import {
 import { detectLanguage, setLanguage, t } from "./lib/i18n"
 import { log } from "./lib/logger"
 import { loadModels } from "./lib/models"
+import { loadPersonas } from "./lib/personas"
 
 // The TUI owns the terminal: unless the user asked for a level explicitly,
 // silence pino's info chatter (stt/tts progress lines go to stderr and would
@@ -100,6 +101,7 @@ const promptHistory = await loadPromptHistory()
 
 const { settings, llm } = await config()
 const models = await loadModels()
+const personas = await loadPersonas()
 const { tools, closeTools } = await getDefaultTools()
 // Closes any long-lived tool connection (e.g. the Playwright MCP subprocess)
 // so it isn't left orphaned; guarded so SIGINT and the normal exit path
@@ -127,6 +129,7 @@ const { waitUntilExit } = render(
   <App
     initialSettings={settings}
     models={models}
+    personas={personas}
     openaiApiModel={llm.model}
     tools={tools}
     initialSession={initialSession}

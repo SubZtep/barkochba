@@ -7,7 +7,7 @@ import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
 import type { Tool } from "../../lib/agents"
 import { t } from "../../lib/i18n"
-import { personas } from "../../lib/personas"
+import type { Persona } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
 import type { PersistedSession } from "../../schemas/session"
@@ -19,6 +19,7 @@ import { UserInput } from "./user-input"
 export default function App({
   initialSettings,
   models = [],
+  personas,
   openaiApiModel,
   tools,
   initialSession,
@@ -26,6 +27,7 @@ export default function App({
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
+  personas: Persona[]
   openaiApiModel: string
   tools: Tool<any>[]
   /** A persisted session to continue (--continue / --session <id>). */
@@ -47,6 +49,7 @@ export default function App({
   } = useAgent({
     model: openaiApiModel,
     tools,
+    personas,
     // A stored persona/model that no longer exists resolves to undefined and
     // the resume proceeds with defaults — messages restore verbatim anyway.
     resume: initialSession && {

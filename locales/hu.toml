@@ -56,6 +56,9 @@ notExists = "Nem létezik a konfigurációs fájl: {path}"
 [models]
 invalidAt = "Érvénytelen modell fájl ({path}): {message}"
 
+[personas]
+invalidAt = "Érvénytelen persona fájl ({path}): {message}"
+
 [wizard]
 title = "Kaja beállítás"
 stepLanguage = "Nyelv"
@@ -117,7 +120,3 @@ toggleVoice = "Beszéd átkapcsolása [{state}]"
 changeModel = "Modellváltás"
 changePersona = "Személyiségváltás"
 
-[personas]
-kaja = "Kaja"
-barkochba = "Barkochba kérdező"
-care = "Öngondoskodó társ"

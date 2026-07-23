@@ -7,7 +7,7 @@ import {
   type Session
 } from "../lib/agents"
 import { log } from "../lib/logger"
-import { type Persona, personas } from "../lib/personas"
+import type { Persona } from "../lib/personas"
 import { runShellCommand } from "../lib/run-command"
 import { createSessionRow, updateSessionRow } from "../lib/session-store"
 import type { ResolvedModel } from "../schemas/models"
@@ -52,6 +52,7 @@ const DELTA_INTERVAL_MS = 80
  */
 export function useAgent(
   config: ConstructorParameters<typeof Agent>[0] & {
+    personas: Persona[]
     resume?: {
       session: PersistedSession
       persona?: Persona
@@ -59,7 +60,7 @@ export function useAgent(
     }
   }
 ) {
-  const { resume, ...agentConfig } = config
+  const { resume, personas, ...agentConfig } = config
   const [agent] = useState(() => {
     const created = new Agent({
       ...agentConfig,
