@@ -9,22 +9,19 @@ import type { KajaBrowser } from "../schemas/config"
 import { type Tool, type ToolResult, tool } from "./agents"
 
 /**
- * Connects to the Playwright MCP server (spawned via `npx @playwright/mcp`)
- * and adapts each of its tools into a Kaja {@link Tool}, so the agent loop
- * can call browser automation exactly like any built-in tool.
+ * Spawns an MCP server over stdio and adapts each of its tools into a Kaja
+ * {@link Tool}, so the agent loop can call it exactly like any built-in tool.
  *
  * @returns The adapted tools, and `close()` to shut down the connection and
- * let the spawned browser/server subprocess exit — callers must call this on
- * app shutdown to avoid leaving it orphaned.
+ * let the spawned subprocess exit — callers must call this on app shutdown
+ * to avoid leaving it orphaned.
  */
-export async function connectPlaywrightMcp(
-  options: KajaBrowser = {}
+async function connectStdioMcp(
+  command: string,
+  args: string[]
 ): Promise<{ tools: Tool<any>[]; close: () => Promise<void> }> {
-  const args = ["@playwright/mcp@latest", "--isolated"]
-  if (options.headless ?? true) args.push("--headless")
-
   const transport = new StdioClientTransport({
-    command: "npx",
+    command,
     args,
     // Default "inherit" would let the subprocess write straight to the
     // parent's stderr, corrupting Kaja's Ink terminal rendering.
@@ -46,6 +43,36 @@ export async function connectPlaywrightMcp(
   )
 
   return { tools, close: () => client.close() }
+}
+
+/**
+ * Connects to the Playwright MCP server (spawned via `npx @playwright/mcp`)
+ * — an isolated, automation-only browser — and adapts its tools for the
+ * agent loop.
+ */
+export async function connectPlaywrightMcp(
+  options: KajaBrowser = {}
+): Promise<{ tools: Tool<any>[]; close: () => Promise<void> }> {
+  const args = ["@playwright/mcp@latest", "--isolated"]
+  if (options.headless ?? true) args.push("--headless")
+  return connectStdioMcp("npx", args)
+}
+
+/**
+ * Connects to the Chrome DevTools MCP server (spawned via
+ * `npx chrome-devtools-mcp`), attached to the user's already-running Chrome
+ * via `--autoConnect` — so the agent sees whatever page the user actually
+ * has open, rather than an isolated automation browser. Requires Chrome's
+ * remote debugging server to be enabled (chrome://inspect/#remote-debugging).
+ */
+export async function connectChromeDevToolsMcp(): Promise<{
+  tools: Tool<any>[]
+  close: () => Promise<void>
+}> {
+  return connectStdioMcp("npx", [
+    "chrome-devtools-mcp@latest",
+    "--autoConnect"
+  ])
 }
 
 async function callTool(

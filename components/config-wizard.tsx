@@ -201,6 +201,7 @@ function Progress({ step }: { step: number }) {
     t("wizard.stepLanguage"),
     ...GROUPS.map((g) => t(g.nameKey)),
     t("wizard.groupBrowser"),
+    t("wizard.groupChrome"),
     t("wizard.review")
   ]
   return (
@@ -261,11 +262,13 @@ function LanguageStep({
   )
 }
 
-function BrowserStep({
+function ToggleStep({
+  prompt,
   value,
   onNext,
   onBack
 }: {
+  prompt: string
   value: boolean
   onNext: (enabled: boolean) => void
   onBack: () => void
@@ -291,7 +294,7 @@ function BrowserStep({
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
-        <Text>{t("wizard.groupBrowserPrompt")}</Text>
+        <Text>{prompt}</Text>
       </Box>
       {choices.map((choice, i) => (
         <Text key={choice.label} bold={i === index} dimColor={i !== index}>
@@ -384,11 +387,13 @@ function StepFields({
 function ReviewStep({
   values,
   browserEnabled,
+  chromeEnabled,
   onConfirm,
   onBack
 }: {
   values: Values
   browserEnabled: boolean
+  chromeEnabled: boolean
   onConfirm: () => void
   onBack: () => void
 }) {
@@ -409,6 +414,10 @@ function ReviewStep({
         <Text dimColor>{t("wizard.groupBrowser")}: </Text>
         <Text>{browserEnabled ? t("wizard.yes") : t("wizard.no")}</Text>
       </Box>
+      <Box>
+        <Text dimColor>{t("wizard.groupChrome")}: </Text>
+        <Text>{chromeEnabled ? t("wizard.yes") : t("wizard.no")}</Text>
+      </Box>
       <Box marginTop={1}>
         <Text color="green">{t("wizard.reviewHint")}</Text>
       </Box>
@@ -424,12 +433,17 @@ function ConfigWizard({
   onFinish: (outcome: Outcome) => void
 }) {
   // 0 is the language step, 1..GROUPS.length are field steps, then the
-  // browser toggle step, then the review step (last).
+  // browser toggle step, then the chrome toggle step, then the review step
+  // (last).
   const BROWSER_STEP = GROUPS.length + 1
+  const CHROME_STEP = BROWSER_STEP + 1
   const [step, setStep] = useState(0)
   const [lang, setLang] = useState<Language>(getLanguage())
   const [browserEnabled, setBrowserEnabled] = useState(
     initial.browser !== undefined
+  )
+  const [chromeEnabled, setChromeEnabled] = useState(
+    initial.chrome !== undefined
   )
   const [values, setValues] = useState<Values>(() => ({
     llmBaseUrl: initial.llm?.baseUrl ?? "",
@@ -518,6 +532,7 @@ function ConfigWizard({
       rerank,
       imageGen,
       browser: browserEnabled ? {} : undefined,
+      chrome: chromeEnabled ? {} : undefined,
       settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
     onFinish("saved")
@@ -562,10 +577,21 @@ function ConfigWizard({
             onBack={() => setStep(step - 1)}
           />
         ) : step === BROWSER_STEP ? (
-          <BrowserStep
+          <ToggleStep
+            prompt={t("wizard.groupBrowserPrompt")}
             value={browserEnabled}
             onNext={(enabled) => {
               setBrowserEnabled(enabled)
+              setStep(step + 1)
+            }}
+            onBack={() => setStep(step - 1)}
+          />
+        ) : step === CHROME_STEP ? (
+          <ToggleStep
+            prompt={t("wizard.groupChromePrompt")}
+            value={chromeEnabled}
+            onNext={(enabled) => {
+              setChromeEnabled(enabled)
               setStep(step + 1)
             }}
             onBack={() => setStep(step - 1)}
@@ -574,6 +600,7 @@ function ConfigWizard({
           <ReviewStep
             values={values}
             browserEnabled={browserEnabled}
+            chromeEnabled={chromeEnabled}
             onConfirm={save}
             onBack={() => setStep(step - 1)}
           />
