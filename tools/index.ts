@@ -10,6 +10,7 @@ import {
   rememberNoteTool
 } from "./memory"
 import { readFileTool } from "./read-file"
+import { rerankTool } from "./rerank"
 import { summarizeTool } from "./summarize"
 import { webSearchTool } from "./web-search"
 
@@ -26,6 +27,7 @@ export async function getDefaultTools() {
     listFilesTool,
     fetchUrlTool,
     summarizeTool,
+    rerankTool,
     currentTimeTool,
     askUserTool,
     runCommandTool,
