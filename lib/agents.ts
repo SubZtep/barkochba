@@ -6,12 +6,14 @@ import type {
   ChatCompletionTool
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
+import { isDangerousCommand } from "./command-risk"
 import { config } from "./config"
 import type { GeoLocation } from "./geo"
 import { lookupMyLocation } from "./geo"
 import { getLanguage } from "./i18n"
 import { loadMemory } from "./memory-store"
 import { client } from "./openai"
+import { runShellCommand } from "./run-command"
 
 /**
  * A tool result that includes images alongside text — e.g. a browser
@@ -181,12 +183,14 @@ export const RUN_COMMAND_TOOL = "run_command"
  */
 const RUN_COMMAND_INSTRUCTIONS =
   `Use ${RUN_COMMAND_TOOL} to run a shell command on the user's computer — ` +
-  `e.g. playing a sound, converting a file, checking installed tools. The ` +
-  `human will be shown the exact command and must approve it before it ` +
-  `runs; if they decline, treat it as not done and tell them so, don't ` +
-  `retry the same command silently. Prefer read-only tools for anything ` +
-  `that only needs to inspect something — reserve this for when you ` +
-  `actually need to change state or invoke an external program.`
+  `e.g. playing a sound, converting a file, checking installed tools. Set ` +
+  `mutates to false only for purely read-only commands, which run ` +
+  `immediately with no human approval — get this right, when unsure say ` +
+  `true. Mutating commands are shown to the human, who must approve them ` +
+  `before they run; if they decline, treat it as not done and tell them ` +
+  `so, don't retry the same command silently. Prefer read-only tools for ` +
+  `anything that only needs to inspect something — reserve this for when ` +
+  `you actually need to change state or invoke an external program.`
 
 /**
  * Tool the model calls to ask the human a question and wait for their reply,
@@ -225,12 +229,17 @@ export const askUserTool = tool<{ question: string }>({
  * calls to it by name before dispatch; the caller runs the command (or not)
  * and feeds the result back as the next `run()` call's prompt.
  */
-export const runCommandTool = tool<{ command: string; description: string }>({
+export const runCommandTool = tool<{
+  command: string
+  description: string
+  mutates: boolean
+}>({
   name: RUN_COMMAND_TOOL,
   description:
-    "Propose a shell command to run on the user's computer. Requires " +
-    "human approval before it executes. Use for actions like playing a " +
-    "sound, converting media, or invoking a CLI tool.",
+    "Propose a shell command to run on the user's computer. Read-only " +
+    "commands (mutates: false) run immediately; others require human " +
+    "approval first. Use for actions like playing a sound, converting " +
+    "media, or invoking a CLI tool.",
   parameters: {
     type: "object",
     properties: {
@@ -239,9 +248,17 @@ export const runCommandTool = tool<{ command: string; description: string }>({
         type: "string",
         description:
           "One short sentence explaining what this command does, shown to the human alongside it"
+      },
+      mutates: {
+        type: "boolean",
+        description:
+          "Whether this command changes any state — files, git history, " +
+          "installed packages, system config, network resources, etc. " +
+          'false only for purely read-only commands (e.g. ls, cat, git ' +
+          'status, python3 -c "print(...)"). When unsure, say true.'
       }
     },
-    required: ["command", "description"]
+    required: ["command", "description", "mutates"]
   },
   execute: async () => {
     throw new Error(
@@ -502,6 +519,17 @@ export async function* run(
 
       if (call.function.name === RUN_COMMAND_TOOL) {
         const args = JSON.parse(call.function.arguments)
+        const autoApprove =
+          args.mutates === false && !isDangerousCommand(args.command)
+        if (autoApprove) {
+          const result = await runShellCommand(args.command)
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: result
+          })
+          continue
+        }
         confirm = {
           id: call.id,
           command: args.command,
