@@ -1,12 +1,21 @@
 import { join } from "node:path"
 import { file, write } from "bun"
 import envPaths from "env-paths"
+// Written on first run: an example config with illustrative placeholder
+// values, sourced from the same file that documents config.json on the docs
+// site. Its placeholder credentials pass schema validation, so cli.tsx
+// forces the setup wizard on every first run regardless of validation.
+// TS's built-in resolveJsonModule typing wins over the `text` attribute, so
+// the raw import is typed as the parsed object rather than a string.
+import rawTemplate from "../docs/config/config.json" with { type: "text" }
 import {
   type KajaConfig,
   KajaConfigSchema,
   type KajaSettings
 } from "../schemas/config"
 import { t } from "./i18n"
+
+const TEMPLATE = rawTemplate as unknown as string
 
 // Computed fresh on every call rather than as a module-level constant: tests
 // run many spec files in one process and mutate XDG_CONFIG_HOME per file, so
@@ -104,9 +113,6 @@ export async function saveSettings(settings: KajaSettings) {
 }
 
 export async function create() {
-  const data: KajaConfig = {
-    llm: { baseUrl: "", apiKey: "", model: "" }
-  }
   const f = file(getConfigPath(), { type: "application/json" })
-  await write(f, JSON.stringify(data, null, 2))
+  await write(f, TEMPLATE)
 }
