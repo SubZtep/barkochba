@@ -40,16 +40,17 @@ or start empty and fill in everything yourself.
 
 Prefer editing files directly? Config lives in `~/.config/kaja/`:
 
-* [`config.json`](docs/config/config.json) — one required group ( `llm` ) and
+* [`config.json`](docs/config/config.json) — One required group ( `llm` ) and
   several optional ones ( `embedding` , `rerank` , `imageGen` , `stt` , `tts` ,
   `location` , `webSearch` ). Leaving a group out just disables that feature.
-* [`models.toml`](docs/config/models.fireworks.toml) — every chat/embedding/
+* [`mcp.toml`](docs/config/mcp.toml) — Model Context Protocol servers for the agent.
+* [`models.toml`](docs/config/models.fireworks.toml) — Every chat/embedding/
   rerank/image-generation model your provider offers, so you can switch
   `llm.model` (or `embedding` / `rerank` / `imageGen` ) without re-entering
   credentials. A template matching your wizard preset is written on first run
   ([Fireworks](docs/config/models.fireworks.toml) /
   [Ollama](docs/config/models.ollama.toml) examples).
-* [`personas.toml`](docs/config/personas.toml) — preconfigured system prompts
+* [`personas.toml`](docs/config/personas.toml) — Preconfigured agent behaviours.
 
 <details>
 <summary>How the wizard and models.toml fit together</summary>

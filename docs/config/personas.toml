@@ -1,6 +1,12 @@
 # Personas available in the persona switcher, one [[personas]] entry each.
 # The ask_user contract (questions must go through the ask_user tool) is
 # injected by the app itself, so instructions here shouldn't restate it.
+#
+# model, temperature, top_p, max_tokens, frequency_penalty, presence_penalty,
+# and seed are all optional. model must name an id from models.toml and only
+# sets the starting model for a fresh conversation with this persona — it can
+# still be changed afterward via the "Change model" menu. Sampling params
+# left unset fall back to the provider's own defaults.
 
 [[personas]]
 id = "default"

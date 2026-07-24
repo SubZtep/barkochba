@@ -19,6 +19,11 @@ const dataDir = `${tmpdir()}/kaja-test-xdg-data-agents`
 const configDir = `${tmpdir()}/kaja-test-xdg-config-agents`
 process.env.XDG_DATA_HOME = dataDir
 process.env.XDG_CONFIG_HOME = configDir
+// getPaths() appends "-dev" to the "kaja" subdirectory when
+// NODE_ENV=development, which would miss the fixture below if inherited
+// from the invoking shell — pin it so the hardcoded "kaja" path always
+// matches.
+process.env.NODE_ENV = "test"
 
 // config() hard-exits the process if config.json is missing, so this
 // isolated config dir needs a minimal valid file — no `location` block, so

@@ -12,6 +12,7 @@ import type { Persona } from "../lib/personas"
 import { runShellCommand } from "../lib/run-command"
 import { createSessionRow, updateSessionRow } from "../lib/session-store"
 import type { ResolvedModel } from "../schemas/models"
+import type { SamplingParams } from "../schemas/personas"
 import type { PersistedSession } from "../schemas/session"
 
 /**
@@ -38,6 +39,30 @@ export type PartialMessage = { reasoning: string; content: string }
  */
 const DELTA_INTERVAL_MS = 80
 
+/** Pulls a persona's optional sampling overrides into an Agent-shaped object. */
+function samplingOf(persona?: Persona): SamplingParams | undefined {
+  if (!persona) return undefined
+  const {
+    temperature,
+    top_p,
+    max_tokens,
+    frequency_penalty,
+    presence_penalty,
+    seed
+  } = persona
+  const sampling = {
+    temperature,
+    top_p,
+    max_tokens,
+    frequency_penalty,
+    presence_penalty,
+    seed
+  }
+  return Object.values(sampling).some((v) => v !== undefined)
+    ? sampling
+    : undefined
+}
+
 /**
  * Drives an {@link Agent} from React state: constructs the agent and its
  * {@link Session} once, and exposes a `send` function that runs a prompt to
@@ -54,6 +79,8 @@ const DELTA_INTERVAL_MS = 80
 export function useAgent(
   config: ConstructorParameters<typeof Agent>[0] & {
     personas: Persona[]
+    /** Models available to resolve a persona's optional `model` field against. */
+    models: ResolvedModel[]
     /** Fallback persona when not resuming a session; defaults to personas[0]. */
     initialPersona?: Persona
     resume?: {
@@ -63,16 +90,20 @@ export function useAgent(
     }
   }
 ) {
-  const { resume, personas, initialPersona, ...agentConfig } = config
+  const { resume, personas, initialPersona, models, ...agentConfig } = config
   const [agent] = useState(() => {
+    const startingPersona = resume?.persona ?? initialPersona
     const created = new Agent({
       ...agentConfig,
-      instructions:
-        resume?.persona?.instructions ??
-        initialPersona?.instructions ??
-        agentConfig.instructions
+      instructions: startingPersona?.instructions ?? agentConfig.instructions,
+      sampling: samplingOf(startingPersona)
     })
-    if (resume?.model) created.setModel(resume.model)
+    const startingModel =
+      resume?.model ??
+      (!resume && startingPersona?.model
+        ? models.find((m) => m.id === startingPersona.model)
+        : undefined)
+    if (startingModel) created.setModel(startingModel)
     return created
   })
   const sessionRef = useRef<Session>(undefined)
@@ -128,6 +159,16 @@ export function useAgent(
     (next: Persona) => {
       if (pending) return
       agent.instructions = next.instructions
+      agent.sampling = samplingOf(next)
+      // Only sets the starting point for the new session — the user can
+      // still switch models manually afterward via switchModel.
+      const nextModel = next.model
+        ? models.find((m) => m.id === next.model)
+        : undefined
+      if (nextModel) {
+        agent.setModel(nextModel)
+        setModel(nextModel.id)
+      }
       sessionRef.current = createSession()
       sessionRowIdRef.current = undefined
       eventsRef.current = []
@@ -136,7 +177,7 @@ export function useAgent(
       personaRef.current = next
       setPersona(next)
     },
-    [agent, pending]
+    [agent, pending, models]
   )
 
   // Saves the conversation after each turn, fire-and-forget like

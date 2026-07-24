@@ -65,6 +65,7 @@ export default function App({
     model: openaiApiModel,
     tools,
     personas,
+    models,
     // A stored persona/model that no longer exists resolves to undefined and
     // the resume proceeds with defaults — messages restore verbatim anyway.
     initialPersona: personas.find((p) => p.id === initialSettings?.persona),
@@ -91,6 +92,7 @@ export default function App({
   const { columns, rows } = useWindowSize()
 
   const chatModels = models.filter((m) => m.task === "chat")
+  const modelLabel = chatModels.find((m) => m.id === model)?.label ?? model
   const [menuMode, setMenuMode] = useState<"main" | "model" | "persona">("main")
 
   // Slash menu (opened by typing "/" in the input): label + action together.
@@ -151,7 +153,11 @@ export default function App({
 
   return (
     <Box flexDirection="column" width={columns} height={rows}>
-      <Header persona={persona.label} currentTool={currentTool} />
+      <Header
+        persona={persona.label}
+        model={modelLabel}
+        currentTool={currentTool}
+      />
       <ChatViewport
         events={events}
         thinking={thinking}

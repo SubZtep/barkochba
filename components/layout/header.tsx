@@ -4,12 +4,17 @@ import { describeToolCall } from "../../lib/tool-labels"
 import { Spinner } from "../elem/spinner"
 import { MonsterMate } from "../monster"
 
-/** Live top bar: current persona, and in-flight tool activity. */
+/**
+ * Live top bar: current persona, and the right-hand slot which shows
+ * in-flight tool activity, falling back to the active model name while idle.
+ */
 export function Header({
   persona,
+  model,
   currentTool
 }: {
   persona: string
+  model: string
   currentTool?: { name: string; arguments: string }
 }) {
   return (
@@ -29,7 +34,13 @@ export function Header({
             {` ${describeToolCall(currentTool.name, currentTool.arguments)}`}
           </Text>
         </Box>
-      ) : null}
+      ) : (
+        <Box flexShrink={0}>
+          <Text color="grey" dimColor wrap="truncate-end">
+            {model}
+          </Text>
+        </Box>
+      )}
     </Box>
   )
 }

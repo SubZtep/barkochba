@@ -293,7 +293,7 @@ function valuesFromConfig(config: Partial<KajaConfig>): Values {
     ttsModel: config.tts?.model ?? "",
     ttsVoice: config.tts?.voice ?? "",
     locationServiceUrl:
-      config.location?.serviceUrl ?? "https://ip2geo.demo.land/",
+      config.location?.serviceUrl ?? "https://ip2geo.demo.land",
     locationApiKey: config.location?.apiKey ?? "kaja",
     webSearchApiKey: config.webSearch?.apiKey ?? "",
     rerankModel: config.rerank?.model ?? "",

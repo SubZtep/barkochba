@@ -18,11 +18,11 @@ await saveConfig({
 
 const { ToolError } = await import("../../lib/agents")
 
-test("categorizes an OpenAI API error as network", () => {
+test("categorizes an OpenAI API error as network, prefixed with LLM API", () => {
   const error = new APIConnectionError({ message: "connection refused" })
   expect(categorizeError(error)).toEqual({
     category: "network",
-    message: "connection refused"
+    message: "LLM API: connection refused"
   })
 })
 

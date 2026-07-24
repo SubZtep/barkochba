@@ -5,9 +5,13 @@ import { loadPluginTools } from "../../lib/plugin-tools"
 
 // getConfigDir() reads XDG_CONFIG_HOME fresh on every call, so setting it
 // per-test isolates each test from the real ~/.config/kaja — same pattern
-// as tests/lib/memory-store.test.ts.
+// as tests/lib/memory-store.test.ts. The fixture tree only has a `kaja/`
+// subdirectory (not `kaja-dev/`), so NODE_ENV is pinned too — getConfigDir()
+// appends "-dev" to the suffix when NODE_ENV=development, which would miss
+// the fixtures entirely if inherited from the invoking shell.
 const fixtureConfigDir = join(import.meta.dir, "../fixtures/plugin-tools")
 const emptyConfigDir = `${tmpdir()}/kaja-test-plugin-tools-empty`
+process.env.NODE_ENV = "test"
 
 afterEach(() => {
   delete process.env.XDG_CONFIG_HOME

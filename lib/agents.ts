@@ -6,6 +6,7 @@ import type {
   ChatCompletionTool
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
+import type { SamplingParams } from "../schemas/personas"
 import { isDangerousCommand } from "./command-risk"
 import { config } from "./config"
 import type { GeoLocation } from "./geo"
@@ -96,18 +97,21 @@ export class Agent {
   client: OpenAI
   tools: Tool<any>[]
   instructions?: string
+  sampling?: SamplingParams
 
   constructor(config: {
     name?: string
     model: string
     tools: Tool<any>[]
     instructions?: string
+    sampling?: SamplingParams
   }) {
     this.name = config.name ?? "Assistant"
     this.model = config.model
     this.client = client
     this.tools = config.tools
     this.instructions = config.instructions
+    this.sampling = config.sampling
   }
 
   /** Point the agent at another model, swapping the client to its provider. */
@@ -434,7 +438,8 @@ export async function* run(
     const stream = agent.client.chat.completions.stream({
       model: agent.model,
       messages,
-      tools: definitions
+      tools: definitions,
+      ...agent.sampling
     })
 
     let thinking = ""
