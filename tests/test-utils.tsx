@@ -21,12 +21,21 @@ export function renderForTest(node: ReactNode) {
   stdin.unref = () => {}
 
   const chunks: string[] = []
+  // Bumped every time Ink writes a frame, so press() can wait for writes to
+  // go quiet instead of sleeping a fixed duration — a wall-clock guess is
+  // either wasted time on a fast repaint or, under a loaded runner (this was
+  // flaky in CI even at 300ms), not long enough and reads a stale frame. A
+  // single keypress can produce more than one write for the same state
+  // update, so this waits for the count to stop changing, not just for the
+  // first write to land.
+  let writeCount = 0
   const stdout = new EventEmitter() as any
   stdout.isTTY = true
   stdout.columns = 80
   stdout.rows = 24
   stdout.write = (chunk: string) => {
     chunks.push(chunk)
+    writeCount++
     return true
   }
 
@@ -40,9 +49,30 @@ export function renderForTest(node: ReactNode) {
     interactive: true
   })
 
-  // 100ms was occasionally too short under load on CI, reading a stale
-  // frame before Ink's repaint landed — bumped for headroom.
-  const tick = () => Bun.sleep(300)
+  const tick = () => Bun.sleep(100)
+
+  /**
+   * Waits for output to settle after a keypress: polls until writeCount has
+   * stopped growing for a short quiet window, capped by an overall deadline
+   * generous enough for a loaded CI runner. A legitimately no-op keypress
+   * (e.g. ↑ at the oldest history entry) never writes, so this returns as
+   * soon as the initial quiet window elapses rather than waiting the full
+   * deadline.
+   */
+  const waitForRepaint = async () => {
+    const deadline = Date.now() + 2000
+    let last = writeCount
+    let quietSince = Date.now()
+    while (Date.now() < deadline) {
+      await Bun.sleep(10)
+      if (writeCount !== last) {
+        last = writeCount
+        quietSince = Date.now()
+      } else if (Date.now() - quietSince >= 60) {
+        return
+      }
+    }
+  }
 
   return {
     ...app,
@@ -50,7 +80,7 @@ export function renderForTest(node: ReactNode) {
     /** Feed raw key bytes to stdin and wait for Ink to repaint. */
     press: async (data: string) => {
       stdin.push(data)
-      await tick()
+      await waitForRepaint()
     },
     /** The last painted frame, ANSI escapes stripped. */
     lastFrame: () => {
