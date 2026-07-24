@@ -1,8 +1,6 @@
 import OpenAI from "openai"
 import { config } from "./config"
 
-export const DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
-
 /**
  * Generates embeddings via the configured (or llm-fallback) provider, same
  * cascade pattern as tools/rerank.ts: config.embedding overrides config.llm.
@@ -10,12 +8,17 @@ export const DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
  */
 export async function embed(input: string | string[]): Promise<number[][]> {
   const { llm, embedding } = await config()
+  if (!embedding?.model) {
+    throw new Error(
+      "No embedding model configured — run `kaja --wizard` or set embedding.model in config.json"
+    )
+  }
   const client = new OpenAI({
-    baseURL: embedding?.baseUrl ?? llm.baseUrl,
-    apiKey: embedding?.apiKey ?? llm.apiKey
+    baseURL: embedding.baseUrl ?? llm.baseUrl,
+    apiKey: embedding.apiKey ?? llm.apiKey
   })
   const res = await client.embeddings.create({
-    model: embedding?.model ?? DEFAULT_MODEL,
+    model: embedding.model,
     input,
     // Without this, the SDK defaults to requesting base64-encoded vectors
     // and decodes them client-side — explicit "float" gets plain JSON

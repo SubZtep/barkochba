@@ -2,7 +2,6 @@ import { Database } from "bun:sqlite"
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { file, write } from "bun"
-import envPaths from "env-paths"
 import type { DatasetEntry } from "../schemas/datasets"
 import {
   type MemoryNote,
@@ -10,16 +9,17 @@ import {
   MemoryStoreSchema
 } from "../schemas/memory"
 import { getConfigPath, invalidateConfigCache, readConfigLoose } from "./config"
+import { getPaths } from "./paths"
 
 // Computed fresh on every call, not as a module-level constant: see the same
 // note on getConfigDir/getConfigPath in lib/config.ts — tests run many spec
 // files in one process and mutate XDG_DATA_HOME per file.
 export function getDefaultMemoryDbPath() {
-  return join(envPaths("kaja", { suffix: "" }).data, "memory.sqlite")
+  return join(getPaths().data, "memory.sqlite")
 }
 
 function getLegacyJsonPath() {
-  return join(envPaths("kaja", { suffix: "" }).data, "memory.json")
+  return join(getPaths().data, "memory.json")
 }
 
 /**

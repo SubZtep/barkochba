@@ -8,6 +8,7 @@ import {
   loadMemory,
   saveMemory
 } from "../../lib/memory-store"
+import { getPaths } from "../../lib/paths"
 
 // XDG_DATA_HOME/XDG_CONFIG_HOME are read fresh on every call (see
 // getConfigPath/getDefaultMemoryDbPath) rather than cached at module load,
@@ -104,9 +105,15 @@ test("data persists across a fresh process (module re-import)", async () => {
 
 test("migrates a pre-existing memory.json into SQLite on first open, keeping it as .bak", async () => {
   const xdgDataHome = `${tmpdir()}/kaja-test-xdg-data-migration`
-  // env-paths appends its own "kaja" subdirectory under XDG_DATA_HOME.
-  const migrationDir = join(xdgDataHome, "kaja")
   await rm(xdgDataHome, { recursive: true, force: true })
+  // getPaths() appends its own "kaja"/"kaja-dev" subdirectory under
+  // XDG_DATA_HOME, and includes the "-dev" suffix whenever NODE_ENV is
+  // "development" (as it is in a local dev shell) — so the subprocess below,
+  // which resolves the same way, must agree on this directory.
+  const priorXdgDataHome = process.env.XDG_DATA_HOME
+  process.env.XDG_DATA_HOME = xdgDataHome
+  const migrationDir = getPaths().data
+  process.env.XDG_DATA_HOME = priorXdgDataHome
   const { mkdirSync } = await import("node:fs")
   mkdirSync(migrationDir, { recursive: true })
 

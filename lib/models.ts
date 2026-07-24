@@ -2,7 +2,9 @@ import { join } from "node:path"
 import { file, TOML, write } from "bun"
 // Written on first run: an example provider/model catalog, sourced from the
 // same file that documents models.toml on the docs site.
-import TEMPLATE from "../docs/config/models.toml" with { type: "text" }
+import TEMPLATE from "../docs/config/models.fireworks.toml" with {
+  type: "text"
+}
 import type { KajaConfig } from "../schemas/config"
 import {
   type KajaModelsFile,
@@ -10,8 +12,7 @@ import {
   type ResolvedModel
 } from "../schemas/models"
 import { getConfigDir } from "./config"
-import { DEFAULT_MODEL as DEFAULT_EMBEDDING_MODEL } from "./embeddings"
-import { getLanguage, t } from "./i18n"
+import { t } from "./i18n"
 
 export function getModelsPath() {
   return join(getConfigDir(), "models.toml")
@@ -33,48 +34,30 @@ export function resolveModels(data: KajaModelsFile): ResolvedModel[] {
 }
 
 /**
- * config.json's embedding/stt/imageGen blocks aren't part of models.toml
- * (each is a single model, not a catalog), but the startup panel reports on
- * their reachability the same way as chat/tts — so resolve them into the
- * same shape here rather than teaching the panel a second data source.
+ * config.json's stt block isn't part of models.toml (embedding/rerank/
+ * imageGen now are, and are reported via loadModels() instead — see
+ * docs/config/models*.toml), but the startup panel reports on stt's
+ * reachability the same way as chat/tts — so resolve it into the same shape
+ * here rather than teaching the panel a second data source.
  */
 export function resolveConfigModels(
-  config: Pick<KajaConfig, "llm" | "embedding" | "stt" | "imageGen">
+  config: Pick<KajaConfig, "stt">
 ): ResolvedModel[] {
-  const models: ResolvedModel[] = [
-    {
-      id: config.embedding?.model ?? DEFAULT_EMBEDDING_MODEL,
-      task: "embedding",
-      baseUrl: config.embedding?.baseUrl ?? config.llm.baseUrl,
-      apiKey: config.embedding?.apiKey ?? config.llm.apiKey
-    },
-    {
-      // Mirrors lib/stt.ts's own default: an English-only distil model
-      // unless the app language picks the multilingual one.
-      id:
-        config.stt?.model ??
-        (getLanguage() === "hu"
-          ? "Systran/faster-whisper-small"
-          : "Systran/faster-distil-whisper-small.en"),
+  const models: ResolvedModel[] = []
+  // Without an explicit model, stt has no code-side default and there's no
+  // id left to check against the /models list, so there's nothing
+  // meaningful to report — skip rather than show a check that would always
+  // read as "down".
+  if (config.stt?.model) {
+    models.push({
+      id: config.stt.model,
       task: "speech-to-text",
       // speachesUrl is a ws:// URL (matching the speaches realtime API);
       // the availability check speaks plain HTTP.
-      baseUrl: (config.stt?.speachesUrl ?? "ws://localhost:8000").replace(
+      baseUrl: (config.stt.speachesUrl ?? "ws://localhost:8000").replace(
         /^ws/,
         "http"
       )
-    }
-  ]
-  // Without an explicit model, imageGen relies on the provider's own
-  // default and there's no id left to check against the /models list, so
-  // there's nothing meaningful to report — skip rather than show a check
-  // that would always read as "down".
-  if (config.imageGen?.model) {
-    models.push({
-      id: config.imageGen.model,
-      task: "image-generation",
-      baseUrl: config.imageGen.baseUrl,
-      apiKey: config.imageGen.apiKey
     })
   }
   return models

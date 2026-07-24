@@ -4,9 +4,9 @@ import { join } from "node:path"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { write } from "bun"
-import envPaths from "env-paths"
 import type { McpServerEntry } from "../schemas/mcp"
 import { type Tool, type ToolResult, tool } from "./agents"
+import { getPaths } from "./paths"
 
 /**
  * Spawns an MCP server over stdio (as configured in mcp.toml, see
@@ -70,7 +70,7 @@ async function callTool(
   )
   if (imageBlocks.length === 0) return { text: text || `${name}: done` }
 
-  const dir = envPaths("kaja", { suffix: "" }).temp
+  const dir = getPaths().temp
   await mkdir(dir, { recursive: true })
   const images = await Promise.all(
     imageBlocks.map(async (block) => {

@@ -28,6 +28,9 @@ await saveConfig({
     baseUrl: "http://localhost/v1",
     apiKey: "llm-key",
     model: "test-model"
+  },
+  embedding: {
+    model: "test-embedding-model"
   }
 })
 

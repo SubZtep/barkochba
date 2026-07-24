@@ -22,8 +22,8 @@ function taskLabel(task: ResolvedModel["task"]) {
 }
 
 // Display order for the grouped task sections, independent of the order
-// models are merged in (models.toml entries land before config.json's
-// embedding/stt/imageGen, which would otherwise put tts before embedding).
+// models are merged in (models.toml entries land before config.json's stt,
+// which would otherwise put stt before tts/image-generation).
 const TASK_ORDER: ResolvedModel["task"][] = [
   "chat",
   "embedding",

@@ -4,7 +4,23 @@
 
 import { afterEach, expect, test } from "bun:test"
 import type { AudioSink } from "../../lib/audio"
-import { createTts } from "../../lib/tts"
+
+// tts.model/tts.voice are mandatory config now (no code-side default), so
+// this file needs its own isolated config with them set — same pattern as
+// tests/lib/embeddings.test.ts / tests/tools/rerank.test.ts.
+process.env.XDG_CONFIG_HOME = `${import.meta.dir}/../../.tmp-test-xdg-config-tts`
+
+const { saveConfig } = await import("../../lib/config")
+await saveConfig({
+  llm: {
+    baseUrl: "http://localhost/v1",
+    apiKey: "llm-key",
+    model: "test-model"
+  },
+  tts: { model: "test-tts-model", voice: "test-voice" }
+})
+
+const { createTts } = await import("../../lib/tts")
 
 const realFetch = globalThis.fetch
 

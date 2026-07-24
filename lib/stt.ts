@@ -13,19 +13,15 @@ import { config } from "./config"
 import { getLanguage } from "./i18n"
 import { log } from "./logger"
 
-// Config overrides win; otherwise the app language picks the model — the
-// English default is an English-only distil model, other languages need a
-// multilingual one.
 async function resolveSttSettings() {
   const { stt } = await config()
+  if (!stt?.model) {
+    throw new Error("No STT model configured — set stt.model in config.json")
+  }
   return {
-    model:
-      stt?.model ??
-      (getLanguage() === "hu"
-        ? "Systran/faster-whisper-small"
-        : "Systran/faster-distil-whisper-small.en"),
-    language: stt?.language ?? getLanguage(),
-    base: stt?.speachesUrl ?? "ws://localhost:8000"
+    model: stt.model,
+    language: stt.language ?? getLanguage(),
+    base: stt.speachesUrl ?? "ws://localhost:8000"
   }
 }
 

@@ -1,12 +1,13 @@
 import { join } from "node:path"
 import { file, write } from "bun"
-import envPaths from "env-paths"
-// Written on first run: an example config with illustrative placeholder
-// values, sourced from the same file that documents config.json on the docs
-// site. Its placeholder credentials pass schema validation, so cli.tsx
-// forces the setup wizard on every first run regardless of validation.
-// TS's built-in resolveJsonModule typing wins over the `text` attribute, so
-// the raw import is typed as the parsed object rather than a string.
+// Written on first run: a minimal config with no llm block (provider
+// choice/credentials come from the setup wizard's preset step, which
+// derives llm/embedding/imageGen from docs/config/models*.toml and
+// overwrites this file before the app proceeds). Missing llm fails
+// KajaConfigSchema validation, so cli.tsx forces the setup wizard on every
+// first run regardless of validation. TS's built-in resolveJsonModule typing
+// wins over the `text` attribute, so the raw import is typed as the parsed
+// object rather than a string.
 import rawTemplate from "../docs/config/config.json" with { type: "text" }
 import {
   type KajaConfig,
@@ -14,6 +15,7 @@ import {
   type KajaSettings
 } from "../schemas/config"
 import { t } from "./i18n"
+import { getPaths } from "./paths"
 
 const TEMPLATE = rawTemplate as unknown as string
 
@@ -22,7 +24,7 @@ const TEMPLATE = rawTemplate as unknown as string
 // a frozen constant would lock in whichever file happened to import this
 // module first, for the rest of the process.
 export function getConfigDir() {
-  return envPaths("kaja", { suffix: "" }).config
+  return getPaths().config
 }
 
 export function getConfigPath() {

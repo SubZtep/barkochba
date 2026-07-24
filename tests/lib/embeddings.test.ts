@@ -8,6 +8,9 @@ await saveConfig({
     baseUrl: "http://localhost/v1",
     apiKey: "llm-key",
     model: "test-model"
+  },
+  embedding: {
+    model: "test-embedding-model"
   }
 })
 
@@ -20,7 +23,7 @@ function cannedResponse(vectors: number[][]) {
   return new Response(
     JSON.stringify({
       object: "list",
-      model: "nomic-ai/nomic-embed-text-v1.5",
+      model: "test-embedding-model",
       data: vectors.map((embedding, index) => ({
         object: "embedding",
         index,
@@ -55,7 +58,7 @@ test("embed posts to the configured baseUrl's /embeddings endpoint", async () =>
   const result = await embed("hello world")
   expect(lastRequest?.url).toBe("http://localhost/v1/embeddings")
   const body = JSON.parse(lastRequest!.init.body as string)
-  expect(body.model).toBe("nomic-ai/nomic-embed-text-v1.5")
+  expect(body.model).toBe("test-embedding-model")
   expect(body.input).toBe("hello world")
   expect((lastRequest!.init.headers as Headers).get("authorization")).toBe(
     "Bearer llm-key"

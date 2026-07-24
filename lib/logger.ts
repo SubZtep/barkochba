@@ -1,14 +1,14 @@
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
-import envPaths from "env-paths"
 import pino from "pino"
+import { getPaths } from "./paths"
 
 // Injected at compile time by CI via `bun build --define PRODUCTION=...`
 declare const PRODUCTION: boolean | undefined
 
 const isProduction = typeof PRODUCTION !== "undefined" && PRODUCTION
 
-const paths = envPaths("kaja", { suffix: "" })
+const paths = getPaths()
 const logPath = join(paths.cache, "kaja.log")
 mkdirSync(paths.cache, { recursive: true })
 

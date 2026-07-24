@@ -8,6 +8,9 @@ await saveConfig({
     baseUrl: "http://localhost/v1",
     apiKey: "llm-key",
     model: "test-model"
+  },
+  rerank: {
+    model: "accounts/fireworks/models/qwen3-reranker-8b"
   }
 })
 

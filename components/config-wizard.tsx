@@ -1,5 +1,6 @@
 /**
- * First-run / invalid-config setup wizard. Step 0 picks the UI language,
+ * First-run / invalid-config setup wizard. Step 0 picks a preset (provider
+ * template or empty) to prefill field values, step 1 picks the UI language,
  * then steps grouped by feature; fields validate against their group's zod
  * schema per keystroke and a step can't advance until its fields pass.
  *
@@ -10,17 +11,26 @@
  *
  * Key routing: Enter is owned by TextInput.onSubmit (next field, or next
  * step on the last), a step-level useInput owns Tab (switch field) and
- * Escape (back/cancel). TextInput ignores both. The language and review
- * steps have no TextInput and own their keys directly.
+ * Escape (back/cancel). TextInput ignores both. The preset, language, and
+ * review steps have no TextInput and own their keys directly.
  */
 
+import { file, TOML, write } from "bun"
 import { Box, render, Text, useInput } from "ink"
 import { useState } from "react"
 import type * as z from "zod"
+import fireworksModelsTemplate from "../docs/config/models.fireworks.toml" with {
+  type: "text"
+}
+import ollamaModelsTemplate from "../docs/config/models.ollama.toml" with {
+  type: "text"
+}
 import { getConfigPath, saveConfig } from "../lib/config"
 import { getLanguage, type Language, setLanguage, t } from "../lib/i18n"
+import { getModelsPath, resolveModels } from "../lib/models"
 import {
   type KajaConfig,
+  KajaEmbeddingSchema,
   KajaImageGenSchema,
   KajaLlmSchema,
   KajaLocationSchema,
@@ -30,12 +40,16 @@ import {
   KajaTtsSchema,
   KajaWebSearchSchema
 } from "../schemas/config"
+import { ModelsFileSchema } from "../schemas/models"
 import { TextInput } from "./elem/text-input"
 
 type FieldName =
   | "llmBaseUrl"
   | "llmApiKey"
   | "llmModel"
+  | "embeddingBaseUrl"
+  | "embeddingApiKey"
+  | "embeddingModel"
   | "sttSpeachesUrl"
   | "sttModel"
   | "sttLanguage"
@@ -54,6 +68,7 @@ type FieldName =
 
 type GroupName =
   | "llm"
+  | "embedding"
   | "stt"
   | "tts"
   | "location"
@@ -61,12 +76,16 @@ type GroupName =
   | "rerank"
   | "imageGen"
 
-// Each group's fields, its zod shape for per-field validation, and whether
-// the whole group can be omitted when every field is left blank.
+// Each group's fields, its zod shape for per-field validation, whether the
+// whole group can be omitted when every field is left blank, and an optional
+// extra description shown above the fields (beyond the generic "optional"
+// hint) for groups whose purpose isn't self-evident from the field labels
+// alone.
 const GROUPS: {
   name: GroupName
   nameKey: string
   optional: boolean
+  descriptionKey?: string
   fields: FieldName[]
 }[] = [
   {
@@ -74,6 +93,13 @@ const GROUPS: {
     nameKey: "wizard.groupLlm",
     optional: false,
     fields: ["llmBaseUrl", "llmApiKey", "llmModel"]
+  },
+  {
+    name: "embedding",
+    nameKey: "wizard.groupEmbedding",
+    optional: true,
+    descriptionKey: "wizard.groupEmbeddingHint",
+    fields: ["embeddingBaseUrl", "embeddingApiKey", "embeddingModel"]
   },
   {
     name: "stt",
@@ -127,6 +153,9 @@ const FIELD_SCHEMAS: Record<FieldName, z.ZodType<string>> = {
   llmBaseUrl: KajaLlmSchema.shape.baseUrl,
   llmApiKey: KajaLlmSchema.shape.apiKey,
   llmModel: KajaLlmSchema.shape.model,
+  embeddingBaseUrl: KajaEmbeddingSchema.shape.baseUrl.unwrap(),
+  embeddingApiKey: KajaEmbeddingSchema.shape.apiKey.unwrap(),
+  embeddingModel: KajaEmbeddingSchema.shape.model.unwrap(),
   sttSpeachesUrl: KajaSttSchema.shape.speachesUrl.unwrap(),
   sttModel: KajaSttSchema.shape.model.unwrap(),
   sttLanguage: KajaSttSchema.shape.language.unwrap(),
@@ -150,6 +179,11 @@ const FIELDS: Record<FieldName, { placeholder: string }> = {
   llmBaseUrl: { placeholder: "https://api.fireworks.ai/inference/v1" },
   llmApiKey: { placeholder: "fw_..." },
   llmModel: { placeholder: "accounts/fireworks/models/minimax-m3" },
+  embeddingBaseUrl: { placeholder: "same as LLM base URL (default)" },
+  embeddingApiKey: { placeholder: "same as LLM API key (default)" },
+  embeddingModel: {
+    placeholder: "accounts/fireworks/models/qwen3-embedding-8b (default)"
+  },
   sttSpeachesUrl: { placeholder: "ws://localhost:8000 (default)" },
   sttModel: { placeholder: "Systran/faster-distil-whisper-small.en (default)" },
   sttLanguage: { placeholder: "app language (default)" },
@@ -178,6 +212,98 @@ const LANGUAGES: { value: Language; label: string }[] = [
   { value: "hu", label: "Magyar" }
 ]
 
+type PresetName = "fireworks" | "ollama" | "empty"
+
+// docs/config/models*.toml is this wizard's only source of provider-specific
+// values — the LLM/embedding/imageGen fields below are derived from it
+// rather than duplicated in a second per-provider file. Only written to disk
+// on save, and only if models.toml doesn't already exist there — same
+// first-run-only policy loadModels itself uses (see lib/models.ts).
+const PRESET_MODELS_TEMPLATES: Partial<Record<PresetName, string>> = {
+  fireworks: fireworksModelsTemplate as unknown as string,
+  ollama: ollamaModelsTemplate as unknown as string
+}
+
+// Parsed once at module load: picking a preset prefills llm (mandatory) and
+// embedding/rerank/imageGen (optional groups) from the first models.toml
+// entry of the matching task — stt/tts have no per-model language/voice
+// fields in models.toml, so they're left for the user to fill in regardless
+// of preset.
+function configFromModelsTemplate(
+  template: string | undefined
+): Partial<KajaConfig> {
+  if (!template) return {}
+  const resolved = resolveModels(ModelsFileSchema.parse(TOML.parse(template)))
+  const chat = resolved.find((m) => m.task === "chat")
+  const embedding = resolved.find((m) => m.task === "embedding")
+  const rerank = resolved.find((m) => m.task === "rerank")
+  const imageGen = resolved.find((m) => m.task === "image-generation")
+  return {
+    ...(chat && {
+      llm: { baseUrl: chat.baseUrl, apiKey: chat.apiKey ?? "", model: chat.id }
+    }),
+    ...(embedding && {
+      embedding: {
+        baseUrl: embedding.baseUrl,
+        apiKey: embedding.apiKey,
+        model: embedding.id
+      }
+    }),
+    ...(rerank && {
+      rerank: {
+        baseUrl: rerank.baseUrl,
+        apiKey: rerank.apiKey,
+        model: rerank.id
+      }
+    }),
+    ...(imageGen && {
+      imageGen: {
+        baseUrl: imageGen.baseUrl,
+        apiKey: imageGen.apiKey ?? "",
+        model: imageGen.id
+      }
+    })
+  }
+}
+
+const PRESET_CONFIGS: Record<PresetName, Partial<KajaConfig>> = {
+  fireworks: configFromModelsTemplate(PRESET_MODELS_TEMPLATES.fireworks),
+  ollama: configFromModelsTemplate(PRESET_MODELS_TEMPLATES.ollama),
+  empty: {}
+}
+
+const PRESETS: { value: PresetName; labelKey: string }[] = [
+  { value: "fireworks", labelKey: "wizard.presetFireworks" },
+  { value: "ollama", labelKey: "wizard.presetOllama" },
+  { value: "empty", labelKey: "wizard.presetEmpty" }
+]
+
+function valuesFromConfig(config: Partial<KajaConfig>): Values {
+  return {
+    llmBaseUrl: config.llm?.baseUrl ?? "",
+    llmApiKey: config.llm?.apiKey ?? "",
+    llmModel: config.llm?.model ?? "",
+    embeddingBaseUrl: config.embedding?.baseUrl ?? "",
+    embeddingApiKey: config.embedding?.apiKey ?? "",
+    embeddingModel: config.embedding?.model ?? "",
+    sttSpeachesUrl: config.stt?.speachesUrl ?? "",
+    sttModel: config.stt?.model ?? "",
+    sttLanguage: config.stt?.language ?? "",
+    ttsSpeachesUrl: config.tts?.speachesUrl ?? "",
+    ttsModel: config.tts?.model ?? "",
+    ttsVoice: config.tts?.voice ?? "",
+    locationServiceUrl: config.location?.serviceUrl ?? "",
+    locationApiKey: config.location?.apiKey ?? "",
+    webSearchApiKey: config.webSearch?.apiKey ?? "",
+    rerankModel: config.rerank?.model ?? "",
+    rerankBaseUrl: config.rerank?.baseUrl ?? "",
+    rerankApiKey: config.rerank?.apiKey ?? "",
+    imageGenBaseUrl: config.imageGen?.baseUrl ?? "",
+    imageGenApiKey: config.imageGen?.apiKey ?? "",
+    imageGenModel: config.imageGen?.model ?? ""
+  }
+}
+
 // A blank field in an optional group is always valid (the group gets
 // omitted entirely if every field in it is blank); everything else must
 // pass its schema to advance.
@@ -196,23 +322,59 @@ function stepValid(fields: FieldName[], values: Record<FieldName, string>) {
 type Values = Record<FieldName, string>
 type Outcome = "saved" | "cancelled"
 
+// A full tab row (one Text per step) breaks on narrow terminals — the
+// labels can't wrap individually, so they overlap once their combined width
+// exceeds the terminal columns. A single short line has no such width
+// dependency.
 function Progress({ step }: { step: number }) {
   const names = [
+    t("wizard.stepPreset"),
     t("wizard.stepLanguage"),
     ...GROUPS.map((g) => t(g.nameKey)),
     t("wizard.review")
   ]
   return (
     <Box marginBottom={1}>
-      {names.map((name, i) => (
-        <Text
-          key={name}
-          color={i < step ? "green" : undefined}
-          bold={i === step}
-          dimColor={i > step}
-        >
-          {i < step ? "✓" : i === step ? "●" : "○"} {name}
-          {i < names.length - 1 ? "  " : ""}
+      <Text bold>
+        {t("wizard.stepOf", { current: step + 1, total: names.length })}
+      </Text>
+      <Text dimColor>{"  "}</Text>
+      <Text>{names[step]}</Text>
+    </Box>
+  )
+}
+
+function PresetStep({
+  onNext,
+  onBack
+}: {
+  onNext: (preset: PresetName) => void
+  onBack: () => void
+}) {
+  const [index, setIndex] = useState(0)
+
+  useInput((_input, key) => {
+    if (key.upArrow) {
+      setIndex((i) => (i + PRESETS.length - 1) % PRESETS.length)
+    } else if (key.downArrow) {
+      setIndex((i) => (i + 1) % PRESETS.length)
+    } else if (key.return) {
+      const choice = PRESETS[index]
+      if (choice) onNext(choice.value)
+    } else if (key.escape) {
+      onBack()
+    }
+  })
+
+  return (
+    <Box flexDirection="column">
+      <Box marginBottom={1}>
+        <Text dimColor>{t("wizard.presetHint")}</Text>
+      </Box>
+      {PRESETS.map((preset, i) => (
+        <Text key={preset.value} bold={i === index} dimColor={i !== index}>
+          {i === index ? "● " : "○ "}
+          {t(preset.labelKey)}
         </Text>
       ))}
     </Box>
@@ -263,6 +425,7 @@ function LanguageStep({
 function StepFields({
   fields,
   optional,
+  descriptionKey,
   values,
   setValues,
   onNext,
@@ -270,6 +433,7 @@ function StepFields({
 }: {
   fields: FieldName[]
   optional: boolean
+  descriptionKey?: string
   values: Values
   setValues: (update: (prev: Values) => Values) => void
   onNext: () => void
@@ -302,6 +466,11 @@ function StepFields({
 
   return (
     <Box flexDirection="column">
+      {descriptionKey && (
+        <Box marginBottom={1}>
+          <Text dimColor>{t(descriptionKey)}</Text>
+        </Box>
+      )}
       {optional && (
         <Box marginBottom={1}>
           <Text dimColor>{t("wizard.groupOptionalHint")}</Text>
@@ -374,30 +543,12 @@ function ConfigWizard({
   initial: Partial<KajaConfig>
   onFinish: (outcome: Outcome) => void
 }) {
-  // 0 is the language step, 1..GROUPS.length are field steps, then the
-  // review step (last).
+  // 0 is the preset step, 1 is the language step, 2..GROUPS.length+1 are
+  // field steps, then the review step (last).
   const [step, setStep] = useState(0)
   const [lang, setLang] = useState<Language>(getLanguage())
-  const [values, setValues] = useState<Values>(() => ({
-    llmBaseUrl: initial.llm?.baseUrl ?? "",
-    llmApiKey: initial.llm?.apiKey ?? "",
-    llmModel: initial.llm?.model ?? "",
-    sttSpeachesUrl: initial.stt?.speachesUrl ?? "",
-    sttModel: initial.stt?.model ?? "",
-    sttLanguage: initial.stt?.language ?? "",
-    ttsSpeachesUrl: initial.tts?.speachesUrl ?? "",
-    ttsModel: initial.tts?.model ?? "",
-    ttsVoice: initial.tts?.voice ?? "",
-    locationServiceUrl: initial.location?.serviceUrl ?? "",
-    locationApiKey: initial.location?.apiKey ?? "",
-    webSearchApiKey: initial.webSearch?.apiKey ?? "",
-    rerankModel: initial.rerank?.model ?? "",
-    rerankBaseUrl: initial.rerank?.baseUrl ?? "",
-    rerankApiKey: initial.rerank?.apiKey ?? "",
-    imageGenBaseUrl: initial.imageGen?.baseUrl ?? "",
-    imageGenApiKey: initial.imageGen?.apiKey ?? "",
-    imageGenModel: initial.imageGen?.model ?? ""
-  }))
+  const [values, setValues] = useState<Values>(() => valuesFromConfig(initial))
+  const [preset, setPreset] = useState<PresetName>("empty")
 
   const save = async () => {
     // Keep an existing valid settings block (thinking/sounds/voice) so an
@@ -405,6 +556,16 @@ function ConfigWizard({
     // choice is always recorded.
     const settings = KajaSettingsSchema.safeParse(initial.settings)
 
+    const embedding =
+      values.embeddingModel || values.embeddingBaseUrl || values.embeddingApiKey
+        ? {
+            ...(values.embeddingModel && { model: values.embeddingModel }),
+            ...(values.embeddingBaseUrl && {
+              baseUrl: values.embeddingBaseUrl
+            }),
+            ...(values.embeddingApiKey && { apiKey: values.embeddingApiKey })
+          }
+        : undefined
     const stt =
       values.sttSpeachesUrl || values.sttModel || values.sttLanguage
         ? {
@@ -458,6 +619,7 @@ function ConfigWizard({
         apiKey: values.llmApiKey,
         model: values.llmModel
       },
+      embedding,
       stt,
       tts,
       location,
@@ -466,25 +628,42 @@ function ConfigWizard({
       imageGen,
       settings: { ...(settings.success ? settings.data : {}), language: lang }
     })
+
+    const modelsTemplate = PRESET_MODELS_TEMPLATES[preset]
+    if (modelsTemplate) {
+      const modelsFile = file(getModelsPath())
+      if (!(await modelsFile.exists())) await write(modelsFile, modelsTemplate)
+    }
+
     onFinish("saved")
   }
 
   const group =
-    step >= 1 && step <= GROUPS.length ? GROUPS[step - 1] : undefined
+    step >= 2 && step <= GROUPS.length + 1 ? GROUPS[step - 2] : undefined
 
   return (
-    <Box flexDirection="column" paddingX={1} paddingY={1}>
+    <Box flexDirection="column" paddingX={1} paddingY={1} maxWidth={72}>
       <Text bold>{t("wizard.title")}</Text>
       <Text dimColor>{getConfigPath()}</Text>
       <Box
         flexDirection="column"
-        borderStyle="round"
+        borderStyle="classic"
+        borderColor="blue"
         borderDimColor
         paddingX={1}
         marginTop={1}
       >
         <Progress step={step} />
         {step === 0 ? (
+          <PresetStep
+            onNext={(chosen) => {
+              setPreset(chosen)
+              setValues(valuesFromConfig(PRESET_CONFIGS[chosen]))
+              setStep(1)
+            }}
+            onBack={() => onFinish("cancelled")}
+          />
+        ) : step === 1 ? (
           <LanguageStep
             value={lang}
             onNext={(next) => {
@@ -492,9 +671,9 @@ function ConfigWizard({
               // zod locale) re-renders in the chosen language.
               setLanguage(next)
               setLang(next)
-              setStep(1)
+              setStep(2)
             }}
-            onBack={() => onFinish("cancelled")}
+            onBack={() => setStep(0)}
           />
         ) : group ? (
           <StepFields
@@ -502,6 +681,7 @@ function ConfigWizard({
             key={step}
             fields={group.fields}
             optional={group.optional}
+            descriptionKey={group.descriptionKey}
             values={values}
             setValues={setValues}
             onNext={() => setStep(step + 1)}

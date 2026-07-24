@@ -1,0 +1,32 @@
+# Kaja models — credentials live in named [providers.*] tables so they are
+# never repeated per model. A model picks one with `provider = "<name>"`;
+# models that don't name one use [providers.default].
+
+[providers.default]
+base_url = "http://localhost:11434/v1"
+api_key = "ollama"  # required but ignored by Ollama
+
+[[models]]
+id = "llama3.2:1b"
+label = "Llama 3.2 1B (fastest, CPU-friendly)"
+task = "chat"
+
+[[models]]
+id = "qwen2.5:0.5b"
+label = "Qwen 2.5 0.5B (minimal, low-end CPU)"
+task = "chat"
+
+[[models]]
+id = "qwen3:1.7b"
+label = "Qwen 3 1.7B (CPU-friendly)"
+task = "chat"
+
+[[models]]
+id = "llama3.2:3b"
+label = "Llama 3.2 3B"
+task = "chat"
+
+[[models]]
+id = "nomic-embed-text"
+label = "Nomic embed text"
+task = "embedding"

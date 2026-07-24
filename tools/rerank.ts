@@ -1,13 +1,10 @@
 import { ToolError, tool } from "../lib/agents"
 import { config } from "../lib/config"
 
-const DEFAULT_MODEL = "accounts/fireworks/models/qwen3-reranker-8b"
-const DEFAULT_BASE_URL = "https://api.fireworks.ai/inference/v1"
-
 /**
  * Reranks a list of documents by relevance to a query, using a dedicated
- * reranker model (default: Fireworks' qwen3-reranker-8b). Falls back to the
- * main llm provider's baseUrl/apiKey when config.rerank doesn't override them.
+ * reranker model. Falls back to the main llm provider's baseUrl/apiKey when
+ * config.rerank doesn't override them.
  *
  * @param args.query - The search query to rank documents against.
  * @param args.documents - The documents to rank, most relevant first in the result.
@@ -63,9 +60,15 @@ async function rerank(args: {
   top_n?: number
 }) {
   const { llm, rerank } = await config()
-  const baseUrl = rerank?.baseUrl ?? llm.baseUrl ?? DEFAULT_BASE_URL
-  const apiKey = rerank?.apiKey ?? llm.apiKey
-  const model = rerank?.model ?? DEFAULT_MODEL
+  if (!rerank?.model) {
+    throw new ToolError(
+      "rerank",
+      "No rerank model configured — run `kaja --wizard` or set rerank.model in config.json"
+    )
+  }
+  const baseUrl = rerank.baseUrl ?? llm.baseUrl
+  const apiKey = rerank.apiKey ?? llm.apiKey
+  const model = rerank.model
 
   const res = await fetch(`${baseUrl.replace(/\/$/, "")}/rerank`, {
     method: "POST",

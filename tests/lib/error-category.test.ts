@@ -1,7 +1,22 @@
 import { expect, test } from "bun:test"
 import { APIConnectionError } from "openai"
-import { ToolError } from "../../lib/agents"
 import { categorizeError } from "../../lib/error-category"
+
+// lib/agents.ts (imported below, only for the ToolError class) pulls in
+// lib/openai.ts, which calls config() at module scope — so this file needs
+// its own isolated, populated config dir regardless of what other test
+// files leave XDG_CONFIG_HOME pointing at when this module first loads.
+process.env.XDG_CONFIG_HOME = `${import.meta.dir}/../../.tmp-test-xdg-config-error-category`
+const { saveConfig } = await import("../../lib/config")
+await saveConfig({
+  llm: {
+    baseUrl: "http://localhost/v1",
+    apiKey: "llm-key",
+    model: "test-model"
+  }
+})
+
+const { ToolError } = await import("../../lib/agents")
 
 test("categorizes an OpenAI API error as network", () => {
   const error = new APIConnectionError({ message: "connection refused" })

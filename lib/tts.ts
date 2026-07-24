@@ -19,11 +19,16 @@ import { log } from "./logger"
 
 async function resolveTtsSettings() {
   const { tts } = await config()
+  if (!tts?.model || !tts.voice) {
+    throw new Error(
+      "No TTS model/voice configured — set tts.model and tts.voice in config.json"
+    )
+  }
   return {
-    model: tts?.model ?? "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16",
-    voice: tts?.voice ?? "af_heart",
+    model: tts.model,
+    voice: tts.voice,
     // speachesUrl is a ws:// URL (matching the speaches realtime API); TTS uses plain HTTP.
-    base: (tts?.speachesUrl ?? "ws://localhost:8000").replace(/^ws/, "http")
+    base: (tts.speachesUrl ?? "ws://localhost:8000").replace(/^ws/, "http")
   }
 }
 

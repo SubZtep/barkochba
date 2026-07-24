@@ -6,7 +6,14 @@ const ProviderSchema = z.object({
   api_key: z.string().min(1).optional()
 })
 
-const TaskSchema = z.enum(["chat", "text-to-speech", "speech-to-text"])
+const TaskSchema = z.enum([
+  "chat",
+  "text-to-speech",
+  "speech-to-text",
+  "embedding",
+  "image-generation",
+  "rerank"
+])
 
 const ModelSchema = z.object({
   id: z.string().min(1),
@@ -38,12 +45,7 @@ export const ModelsFileSchema = z
 
 export type KajaModelsFile = z.infer<typeof ModelsFileSchema>
 export type ModelTask = z.infer<typeof TaskSchema>
-
-// Beyond the models.toml tasks above, the startup panel also reports on
-// config.json's single-model embedding/imageGen blocks; they aren't part of
-// models.toml so they don't belong in TaskSchema, but they share the same
-// display/check shape.
-export type ResolvedModelTask = ModelTask | "embedding" | "image-generation"
+export type ResolvedModelTask = ModelTask
 
 /** A model entry flattened with its provider's credentials. */
 export type ResolvedModel = {

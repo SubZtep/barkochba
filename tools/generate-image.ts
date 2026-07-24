@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto"
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { write } from "bun"
-import envPaths from "env-paths"
 import OpenAI from "openai"
 import { ToolError, tool } from "../lib/agents"
 import { config } from "../lib/config"
+import { getPaths } from "../lib/paths"
 
 /**
  * Generates an image from a text prompt via an OpenAI-compatible Images API
@@ -52,7 +52,7 @@ export const generateImageTool = tool<{ prompt: string }>({
     const mimeType = res.headers.get("content-type") ?? "image/png"
     const ext = mimeType.split("/")[1] ?? "png"
 
-    const dir = envPaths("kaja", { suffix: "" }).temp
+    const dir = getPaths().temp
     await mkdir(dir, { recursive: true })
     const path = join(dir, `${randomUUID()}.${ext}`)
     await write(path, await res.arrayBuffer())

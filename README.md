@@ -7,13 +7,13 @@ Terminal chat with personas, tools, optional mic dictation, and optional TTS.
 > [!NOTE]  
 > Only tested on Linux.
 
-```sh
+```bash
 curl -fsSL https://cli.kaja.io | bash
 ```
 
 ### Uninstall
 
-```sh
+```bash
 # find every kaja on your PATH (optional)
 type -a kaja
 
@@ -21,30 +21,64 @@ type -a kaja
 rm ~/.local/bin/kaja
 ```
 
-## Screenshot
+## Run
+
+```bash
+kaja
+```
+
+## Screenshots
 
 ![kaja](./docs/pics/screenshot_02.png)
 ![kaja](./docs/pics/screenshot_01.png)
 
 ## Config
 
-Fill all the fields here: `~/.config/kaja/config.json` — or let the setup
-wizard do it: it opens automatically when the config is missing or invalid, 
-and anytime via `kaja --wizard` .
+```bash
+kaja --wizard
+```
 
-Config is grouped by feature. `llm` is required — the app can't run without a
-model. Everything else is an optional group: `stt` , `tts` , `location` , and
-`webSearch` (Brave Search API). Leaving a group out of the config (or blank in the wizard)
-simply leaves that one feature unavailable — dictation/TTS stay off, and the
-`my_location` / `web_search` tools aren't offered to the model.
+Runs automatically on first launch or if the config is invalid. Pick a
+provider preset (Fireworks AI or Ollama) to prefill credentials and models,
+or start empty and fill in everything yourself.
+
+Prefer editing files directly? Config lives in `~/.config/kaja/`:
+
+* [`config.json`](docs/config/config.json) — one required group ( `llm` ) and
+  several optional ones ( `embedding` , `rerank` , `imageGen` , `stt` , `tts` ,
+  `location` , `webSearch` ). Leaving a group out just disables that feature.
+* [`models.toml`](docs/config/models.fireworks.toml) — every chat/embedding/
+  rerank/image-generation model your provider offers, so you can switch
+  `llm.model` (or `embedding` / `rerank` / `imageGen` ) without re-entering
+  credentials. A template matching your wizard preset is written on first run
+  ([Fireworks](docs/config/models.fireworks.toml) /
+  [Ollama](docs/config/models.ollama.toml) examples).
+
+<details>
+<summary>How the wizard and models.toml fit together</summary>
+
+```mermaid
+flowchart LR
+    A[kaja --wizard] --> B{Pick preset}
+    B -->|Fireworks / Ollama| C[models.toml]
+    B -->|start empty| D[fill in manually]
+    C --> E["llm / embedding / rerank / imageGen<br/>(config.json)"]
+    D --> E
+    E --> F["stt / tts / location / webSearch<br/>(config.json only)"]
+```
+
+`models.toml` is the catalog; the wizard copies your preset's credentials and
+first matching model into `config.json`'s `llm`/`embedding`/`rerank`/
+`imageGen` groups. Everything else ( `stt` / `tts` / `location` / `webSearch` )
+has no models.toml equivalent — enter it directly in the wizard or by hand.
+
+</details>
 
 ### Where to get credentials?
 
 * **OpenAI API** (`llm`) : any compatible LLM (e.g. MiniMax M3) with REST API works (e.g. Ollama, Fireworks AI).
 * **Web search** (`webSearch`) : get a free key from [Brave's website](https://brave.com/search/api/).
 * **Location** (`location`) : the example URL and API key work for a while.
-
-Optional multi-model list: `models.toml` in the config directory (a commented template is written on first run).
 
 ### Language
 
