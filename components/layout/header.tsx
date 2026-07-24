@@ -25,7 +25,7 @@ export function Header({
       {currentTool ? (
         <Box flexShrink={0} gap={1}>
           <Text color="green" dimColor>
-            <Spinner />
+            <Spinner type="dots2" />
             {` ${describeToolCall(currentTool.name, currentTool.arguments)}`}
           </Text>
         </Box>

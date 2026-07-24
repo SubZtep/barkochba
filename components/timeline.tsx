@@ -49,13 +49,7 @@ function renderItem(item: TimelineEvent, thinking: boolean) {
     case "display_image":
       return (
         <Box flexDirection="column">
-          <Image
-            src={item.url}
-            width={10}
-            height={5}
-            alt={item.alt}
-            protocol="halfBlock"
-          />
+          <Image src={item.url} width={10} height={5} alt={item.alt} />
           <Text dimColor>{item.alt}</Text>
         </Box>
       )
