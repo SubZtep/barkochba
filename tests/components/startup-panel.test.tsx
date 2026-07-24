@@ -1,20 +1,48 @@
-import { expect, mock, test } from "bun:test"
+import { afterAll, expect, test } from "bun:test"
 import { Box } from "ink"
+import { StartupPanel } from "../../components/startup-panel"
 import { renderForTest } from "../test-utils"
 
+// A tiny stand-in OpenAI-compatible server, same shape as
+// tests/lib/model-check.test.ts's — StartupPanel calls the real
+// checkModelAvailability, so no mock.module (it replaces modules
+// process-wide, not just for this file, and would leak into other test
+// files sharing the same bun test process).
 let flakyAttempts = 0
-mock.module("../../lib/model-check", () => ({
-  checkModelAvailability: async (model: { id: string }) => {
-    if (model.id === "up-model") return true
-    if (model.id === "flaky-model") {
-      flakyAttempts += 1
-      return flakyAttempts >= 2
+const server = Bun.serve({
+  port: 0,
+  async fetch(req) {
+    const url = new URL(req.url)
+    if (url.pathname === "/chat/completions") {
+      const body = (await req.json()) as { model: string }
+      if (body.model === "up-model") {
+        return Response.json({
+          id: "x",
+          choices: [{ message: { role: "assistant", content: "hi" } }]
+        })
+      }
+      if (body.model === "flaky-model") {
+        flakyAttempts += 1
+        if (flakyAttempts >= 2) {
+          return Response.json({
+            id: "x",
+            choices: [{ message: { role: "assistant", content: "hi" } }]
+          })
+        }
+      }
+      return new Response("model not found", { status: 404 })
     }
-    return false
+    if (url.pathname === "/models") {
+      return Response.json({ data: [] })
+    }
+    return new Response("not found", { status: 404 })
   }
-}))
+})
+const baseUrl = `http://localhost:${server.port}`
 
-const { StartupPanel } = await import("../../components/startup-panel")
+afterAll(() => {
+  server.stop()
+})
 
 test("shows persona, grouped models with availability, and stats", async () => {
   const t = renderForTest(
@@ -22,9 +50,9 @@ test("shows persona, grouped models with availability, and stats", async () => {
       <StartupPanel
         persona="Kaja"
         models={[
-          { id: "up-model", label: "Up Model", task: "chat", baseUrl: "x" },
-          { id: "down-model", label: "Down Model", task: "chat", baseUrl: "x" },
-          { id: "tts-model", task: "text-to-speech", baseUrl: "x" }
+          { id: "up-model", label: "Up Model", task: "chat", baseUrl },
+          { id: "down-model", label: "Down Model", task: "chat", baseUrl },
+          { id: "tts-model", task: "text-to-speech", baseUrl }
         ]}
         configPath="/config/kaja/config.json"
         sessionCount={3}
@@ -60,7 +88,7 @@ test("retries a failed check and settles on available once it succeeds", async (
             id: "flaky-model",
             label: "Flaky Model",
             task: "chat",
-            baseUrl: "x"
+            baseUrl
           }
         ]}
         configPath="/config/kaja/config.json"
