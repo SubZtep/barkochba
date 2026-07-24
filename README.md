@@ -25,22 +25,8 @@ kaja
 
 ## Screenshots
 
-![kaja](./docs/pics/screenshot_02.png)
-![kaja](./docs/pics/screenshot_01.png)
-
-## Develop
-
-```bash
-bun install
-bun start
-```
-
-## Test / lint
-
-```bash
-bun test
-bun lint # write immediately
-```
+![Kaja Startup Screen](./docs/pics/screenshot_02.png)
+![Kaja Command Run](./docs/pics/screenshot_01.png)
 
 ## Config
 
@@ -103,7 +89,21 @@ set `stt.model` / `stt.language` in the config file to override), and spoken rep
 
 Voice features (the optional `stt` / `tts` config groups) need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `ffplay` for mic and playback.
 
-## Hotkeys
+## Develop
+
+```bash
+bun install
+bun start
+```
+
+### Test / lint
+
+```bash
+bun test
+bun lint # write immediately
+```
+
+<!-- ## Hotkeys
 
 ### Input field
 
@@ -151,4 +151,4 @@ Voice features (the optional `stt` / `tts` config groups) need [speaches](https:
 | *    | mic on, idle |
 | o    | recording |
 | ~    | transcribing |
-| x    | muted while agent speaks |
+| x    | muted while agent speaks | -->

@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { rm } from "node:fs/promises"
+import { existsSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -8,7 +7,6 @@ import {
   loadMemory,
   saveMemory
 } from "../../lib/memory-store"
-import { getPaths } from "../../lib/paths"
 
 // XDG_DATA_HOME/XDG_CONFIG_HOME are read fresh on every call (see
 // getConfigPath/getDefaultMemoryDbPath) rather than cached at module load,
@@ -101,51 +99,4 @@ test("data persists across a fresh process (module re-import)", async () => {
       console.log(JSON.stringify(await loadMemory()))
     `}`.text()
   expect(JSON.parse(result.trim())).toEqual({ "test:persist": note })
-})
-
-test("migrates a pre-existing memory.json into SQLite on first open, keeping it as .bak", async () => {
-  const xdgDataHome = `${tmpdir()}/kaja-test-xdg-data-migration`
-  await rm(xdgDataHome, { recursive: true, force: true })
-  // getPaths() appends its own "kaja"/"kaja-dev" subdirectory under
-  // XDG_DATA_HOME, and includes the "-dev" suffix whenever NODE_ENV is
-  // "development" (as it is in a local dev shell) — so the subprocess below,
-  // which resolves the same way, must agree on this directory.
-  const priorXdgDataHome = process.env.XDG_DATA_HOME
-  process.env.XDG_DATA_HOME = xdgDataHome
-  const migrationDir = getPaths().data
-  process.env.XDG_DATA_HOME = priorXdgDataHome
-  const { mkdirSync } = await import("node:fs")
-  mkdirSync(migrationDir, { recursive: true })
-
-  const legacyStore = {
-    "user:name": {
-      content: "Andras",
-      importance: "high",
-      tags: ["user"],
-      sticky: true,
-      createdAt: "2025-06-01T00:00:00.000Z",
-      lastUsedAt: "2025-12-01T00:00:00.000Z",
-      useCount: 7
-    }
-  }
-  writeFileSync(
-    join(migrationDir, "memory.json"),
-    JSON.stringify(legacyStore, null, 2)
-  )
-
-  const result =
-    await Bun.$`XDG_DATA_HOME=${xdgDataHome} XDG_CONFIG_HOME=${configDir} bun -e ${`
-      import { loadMemory } from "${join(import.meta.dir, "../../lib/memory-store.ts")}"
-      console.log(JSON.stringify(await loadMemory()))
-    `}`.text()
-
-  expect(JSON.parse(result.trim())).toEqual(legacyStore)
-  expect(existsSync(join(migrationDir, "memory.json.bak"))).toBe(true)
-  expect(
-    JSON.parse(readFileSync(join(migrationDir, "memory.json.bak"), "utf8"))
-  ).toEqual(legacyStore)
-  expect(existsSync(join(migrationDir, "memory.json"))).toBe(false)
-  expect(existsSync(join(migrationDir, "memory.sqlite"))).toBe(true)
-
-  await rm(xdgDataHome, { recursive: true, force: true })
 })

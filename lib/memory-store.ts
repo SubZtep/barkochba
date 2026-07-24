@@ -1,13 +1,9 @@
 import { Database } from "bun:sqlite"
-import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs"
+import { mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { file, write } from "bun"
 import type { DatasetEntry } from "../schemas/datasets"
-import {
-  type MemoryNote,
-  type MemoryStore,
-  MemoryStoreSchema
-} from "../schemas/memory"
+import type { MemoryNote, MemoryStore } from "../schemas/memory"
 import { getConfigPath, invalidateConfigCache, readConfigLoose } from "./config"
 import { getPaths } from "./paths"
 
@@ -16,10 +12,6 @@ import { getPaths } from "./paths"
 // files in one process and mutate XDG_DATA_HOME per file.
 export function getDefaultMemoryDbPath() {
   return join(getPaths().data, "memory.sqlite")
-}
-
-function getLegacyJsonPath() {
-  return join(getPaths().data, "memory.json")
 }
 
 /**
@@ -81,9 +73,8 @@ let db: Database | undefined
 let dbPathInUse: string | undefined
 
 /**
- * Opens (creating if needed) the memory database, migrating any pre-existing
- * `memory.json` into it on first run. Cached module-wide (SQLite wants a
- * persistent connection, unlike the JSON file this replaces), but keyed by
+ * Opens (creating if needed) the memory database. Cached module-wide
+ * (SQLite wants a persistent connection), but keyed by
  * the resolved path: if `resolveMemoryDbPath()` returns something different
  * from the cached connection's path, that connection is closed and a fresh
  * one opened. In a real run the resolved path never changes mid-process, so
@@ -156,7 +147,6 @@ export async function getDb(): Promise<Database> {
     db.query("INSERT INTO schema_version (version) VALUES (?)").run(
       SCHEMA_VERSION
     )
-    migrateLegacyJson(db)
   } else if (hasVersion.version < SCHEMA_VERSION) {
     // v1 → v2 added the sessions table; v2 → v3 added game_results and
     // game_rounds; v3 → v4 added game_results.rating; v4 → v5 added
@@ -171,34 +161,6 @@ export async function getDb(): Promise<Database> {
   await persistDbPathIfMissing(dbPath)
 
   return db
-}
-
-/**
- * One-time import of a pre-existing `memory.json` into a freshly created
- * database, run inside the same "no schema_version row yet" check so it
- * never re-runs. The source file is kept as `memory.json.bak` (never
- * deleted) so a bad migration can be recovered from by hand.
- */
-function migrateLegacyJson(database: Database) {
-  const legacyJsonPath = getLegacyJsonPath()
-  if (!existsSync(legacyJsonPath)) return
-
-  let store: MemoryStore
-  try {
-    store = MemoryStoreSchema.parse(
-      JSON.parse(readFileSync(legacyJsonPath, "utf8"))
-    )
-  } catch {
-    return
-  }
-
-  const insert = database.query(INSERT_NOTE_SQL)
-  database.transaction(() => {
-    for (const [key, note] of Object.entries(store))
-      insert.run(noteParams(key, note))
-  })()
-
-  renameSync(legacyJsonPath, `${legacyJsonPath}.bak`)
 }
 
 /**
