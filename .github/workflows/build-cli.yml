@@ -65,7 +65,6 @@ jobs:
             --compile \
             --format=esm \
             --minify \
-            --bytecode \
             --outfile kaja \
             --target="${{ matrix.bun_target }}" \
             --define CLI_VERSION="\"${VERSION#v}\"" \
