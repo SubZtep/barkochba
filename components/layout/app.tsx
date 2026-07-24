@@ -5,13 +5,14 @@ import { useSettings } from "../../hooks/use-settings"
 import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
 import type { Tool } from "../../lib/agents"
-import { saveSettings } from "../../lib/config"
+import { getConfigPath, saveSettings } from "../../lib/config"
 import { t } from "../../lib/i18n"
 import { log } from "../../lib/logger"
 import type { Persona } from "../../lib/personas"
 import type { KajaSettings } from "../../schemas/config"
 import type { ResolvedModel } from "../../schemas/models"
 import type { PersistedSession } from "../../schemas/session"
+import { StartupPanel } from "../startup-panel"
 import { ChatViewport } from "./chat-viewport"
 import { ConfirmCommand } from "./confirm-command"
 import { Header } from "./header"
@@ -24,7 +25,9 @@ export default function App({
   openaiApiModel,
   tools,
   initialSession,
-  promptHistory
+  promptHistory,
+  sessionCount = 0,
+  memoryNoteCount = 0
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
@@ -35,6 +38,10 @@ export default function App({
   initialSession?: PersistedSession
   /** Past prompts across all sessions for ↑/↓ recall, newest first. */
   promptHistory?: string[]
+  /** Saved conversations so far, shown in the startup stats panel. */
+  sessionCount?: number
+  /** Stored memory notes so far, shown in the startup stats panel. */
+  memoryNoteCount?: number
 }) {
   const {
     model,
@@ -146,6 +153,16 @@ export default function App({
         pending={pending}
         bottomChromeKey={
           pendingCommand ? (runningCommand ? "running" : "confirm") : "input"
+        }
+        startupPanel={
+          <StartupPanel
+            persona={persona.label}
+            models={models}
+            configPath={getConfigPath()}
+            sessionCount={sessionCount}
+            memoryNoteCount={memoryNoteCount}
+            toolCount={tools.length}
+          />
         }
       />
       {pendingCommand ? (

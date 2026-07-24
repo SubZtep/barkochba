@@ -147,3 +147,11 @@ tool = "Tool failed"
 agent = "Something went wrong"
 unknown = "Unknown error"
 
+[startup]
+persona = "Persona: "
+noModels = "No models configured"
+taskChat = "Chat"
+taskTts = "Text-to-speech"
+taskStt = "Speech-to-text"
+stats = "{configPath} · Sessions: {sessionCount} · Memory notes: {memoryNoteCount} · Tools: {toolCount}"
+

@@ -1,5 +1,5 @@
 import { Box, Text, useInput, useStdout, useWindowSize } from "ink"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import type {
   PartialMessage as PartialMessageData,
   TimelineEvent
@@ -52,7 +52,8 @@ export function ChatViewport({
   thinking,
   partial,
   pending,
-  bottomChromeKey
+  bottomChromeKey,
+  startupPanel
 }: {
   events: TimelineEvent[]
   thinking: boolean
@@ -62,6 +63,8 @@ export function ChatViewport({
    * differently-sized layout, so the viewport remeasures even though none of
    * the other props changed. */
   bottomChromeKey?: string | number
+  /** Shown in place of the empty timeline before the first message. */
+  startupPanel?: ReactNode
 }) {
   const scrollRef = useRef<VirtualScrollRef>(null)
   const stickRef = useRef(true)
@@ -283,7 +286,11 @@ export function ChatViewport({
         {topPad > 0 ? (
           <Box key="top-pad" height={topPad} flexShrink={0} width="100%" />
         ) : null}
-        {timelineItems}
+        {timelineItems.length === 0 && startupPanel ? (
+          <Box key="startup">{startupPanel}</Box>
+        ) : (
+          timelineItems
+        )}
         <Box key="partial">
           <PartialMessage partial={partial} thinking={thinking} />
         </Box>
