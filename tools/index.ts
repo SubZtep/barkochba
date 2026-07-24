@@ -1,9 +1,7 @@
 import { askUserTool, runCommandTool } from "../lib/agents"
 import { config } from "../lib/config"
-import {
-  connectChromeDevToolsMcp,
-  connectPlaywrightMcp
-} from "../lib/mcp-client"
+import { connectMcpServer } from "../lib/mcp-client"
+import { loadMcpServers } from "../lib/mcp-servers"
 import { loadPluginTools } from "../lib/plugin-tools"
 import { currentTimeTool } from "./current-time"
 import { fetchUrlTool } from "./fetch-url"
@@ -28,22 +26,23 @@ import { webSearchTool } from "./web-search"
  * credentials. Location is resolved once per session and grounded into the
  * system prompt (see lib/agents.ts run()), not exposed as a tool.
  *
- * When the `browser` config group is present, connects to the Playwright MCP
- * server and folds its tools in too. When the `chrome` config group is
- * present, connects to the Chrome DevTools MCP server (attached to the
- * user's already-running Chrome) and folds its tools in as well. Also folds
- * in any user-supplied tools from `~/.config/kaja/tools/*.ts` (see
- * lib/plugin-tools.ts) — a way to add tools locally without shipping them in
- * this repo. Returns `closeTools` alongside — the caller must call it on
- * shutdown to let the spawned MCP subprocesses exit.
+ * Every server listed in `~/.config/kaja/mcp.toml` (see lib/mcp-servers.ts)
+ * is spawned and its tools folded in — adding a server there is enough, no
+ * code changes needed. Also folds in any user-supplied tools from
+ * `~/.config/kaja/tools/*.ts` (see lib/plugin-tools.ts) — a way to add tools
+ * locally without shipping them in this repo. Returns `closeTools` alongside
+ * — the caller must call it on shutdown to let the spawned MCP subprocesses
+ * exit.
  */
 export async function getDefaultTools() {
-  const { webSearch, browser, chrome, imageGen } = await config()
-  const [playwright, chromeDevTools, pluginTools] = await Promise.all([
-    browser ? connectPlaywrightMcp(browser) : undefined,
-    chrome ? connectChromeDevToolsMcp() : undefined,
+  const { webSearch, imageGen } = await config()
+  const [mcpServers, pluginTools] = await Promise.all([
+    loadMcpServers(),
     loadPluginTools()
   ])
+  const mcpConnections = await Promise.all(
+    mcpServers.map((server) => connectMcpServer(server))
+  )
   return {
     tools: [
       readFileTool,
@@ -62,12 +61,11 @@ export async function getDefaultTools() {
       likeOrNotGameTool,
       ...(webSearch ? [webSearchTool] : []),
       ...(imageGen ? [generateImageTool] : []),
-      ...(playwright?.tools ?? []),
-      ...(chromeDevTools?.tools ?? []),
+      ...mcpConnections.flatMap((connection) => connection.tools),
       ...pluginTools
     ],
     closeTools: async () => {
-      await Promise.all([playwright?.close(), chromeDevTools?.close()])
+      await Promise.all(mcpConnections.map((connection) => connection.close()))
     }
   }
 }

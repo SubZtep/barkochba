@@ -66,16 +66,6 @@ export const KajaMemorySchema = z.object({
   dbPath: z.string().min(1).optional()
 })
 
-export const KajaBrowserSchema = z.object({
-  headless: z.boolean().optional()
-})
-
-// Presence of this group enables the Chrome DevTools MCP connection, which
-// attaches to the user's already-running Chrome (via --autoConnect) instead
-// of spawning an isolated browser, so the agent can see the page currently
-// open.
-export const KajaChromeSchema = z.object({})
-
 // baseUrl/apiKey are mandatory (xAI's Images API, not the main llm
 // provider); model is optional — the tool only sends `model` to the API
 // when it's set here, otherwise the provider's own default is used.
@@ -94,8 +84,6 @@ export const KajaConfigSchema = z.object({
   rerank: KajaRerankSchema.optional(),
   embedding: KajaEmbeddingSchema.optional(),
   memory: KajaMemorySchema.optional(),
-  browser: KajaBrowserSchema.optional(),
-  chrome: KajaChromeSchema.optional(),
   imageGen: KajaImageGenSchema.optional(),
   // In-app preferences (slash menu); optional so existing configs stay valid.
   settings: KajaSettingsSchema.optional()
@@ -111,6 +99,4 @@ export type KajaWebSearch = z.infer<typeof KajaWebSearchSchema>
 export type KajaRerank = z.infer<typeof KajaRerankSchema>
 export type KajaEmbedding = z.infer<typeof KajaEmbeddingSchema>
 export type KajaMemory = z.infer<typeof KajaMemorySchema>
-export type KajaBrowser = z.infer<typeof KajaBrowserSchema>
-export type KajaChrome = z.infer<typeof KajaChromeSchema>
 export type KajaImageGen = z.infer<typeof KajaImageGenSchema>

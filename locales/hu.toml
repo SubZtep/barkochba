@@ -59,6 +59,9 @@ invalidAt = "Érvénytelen modell fájl ({path}): {message}"
 [personas]
 invalidAt = "Érvénytelen persona fájl ({path}): {message}"
 
+[mcp]
+invalidAt = "Érvénytelen MCP szerver fájl ({path}): {message}"
+
 [wizard]
 title = "Kaja beállítás"
 stepLanguage = "Nyelv"
@@ -71,12 +74,6 @@ groupLocation = "Helymeghatározó eszköz (opcionális)"
 groupWebSearch = "Webkereső eszköz (opcionális)"
 groupRerank = "Rangsoroló eszköz (opcionális)"
 groupImageGen = "Képgenerálás eszköz (opcionális)"
-groupBrowser = "Böngésző eszköz (opcionális)"
-groupBrowserPrompt = "Engedélyezed a böngésző-automatizálást (Playwright)?"
-groupChrome = "Chrome DevTools eszköz (opcionális)"
-groupChromePrompt = "Engedélyezed a Chrome DevTools MCP-t, csatlakoztatva a megnyitott Chrome böngésződhöz?"
-yes = "Igen"
-no = "Nem"
 groupOptionalHint = "Opcionális — hagyj üresen minden mezőt a funkció kihagyásához."
 llmBaseUrl = "OpenAI-kompatibilis alap URL"
 llmApiKey = "API kulcs"
