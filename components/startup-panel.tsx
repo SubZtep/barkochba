@@ -69,6 +69,7 @@ export function StartupPanel({
           return
         }
         if (tries < MAX_ATTEMPTS) {
+          setStatus((prev) => ({ ...prev, [index]: "pending" }))
           timers.push(
             setTimeout(() => attempt(index, model, tries + 1), RETRY_DELAY_MS)
           )
