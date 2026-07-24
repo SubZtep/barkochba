@@ -1,5 +1,6 @@
 import { Box, useApp, useInput, useWindowSize } from "ink"
 import { useEffect, useState } from "react"
+import { useBlink } from "../../hooks/use-blink"
 import { useDictation } from "../../hooks/use-dictation"
 import { usePromptHistory } from "../../hooks/use-prompt-history"
 import { t } from "../../lib/i18n"
@@ -88,6 +89,7 @@ export function UserInput({
   })
 
   const prefix = statusPrefix(mic, speaking, sttState)
+  const cursorVisible = useBlink(500, !mic && !pending && !menuOpen)
 
   const closeMenu = () => {
     setInput("")
@@ -146,7 +148,8 @@ export function UserInput({
             if (recalled !== null) setInput(recalled)
             return recalled
           }}
-          showCursor={!mic && idle % 2 === 0}
+          showCursor={!mic}
+          cursorVisible={cursorVisible}
           placeholder={idle > 20 ? undefined : t("input.placeholder")}
           prefix={prefix}
           prefixCols={PREFIX_COLS}

@@ -54,7 +54,7 @@ test("shows persona, grouped models with availability, and stats", async () => {
           { id: "down-model", label: "Down Model", task: "chat", baseUrl },
           { id: "tts-model", task: "text-to-speech", baseUrl }
         ]}
-        configPath="/config/kaja/config.json"
+        brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={3}
         memoryNoteCount={5}
@@ -70,7 +70,7 @@ test("shows persona, grouped models with availability, and stats", async () => {
   expect(frame).toContain("Up Model")
   expect(frame).toContain("Down Model")
   expect(frame).toContain("tts-model")
-  expect(frame).toContain("/config/kaja/config.json")
+  expect(frame).toContain("/data/kaja/memory.sqlite")
   expect(frame).toContain("/home/kaja/project")
   expect(frame).toContain("3")
   expect(frame).toContain("5")
@@ -93,7 +93,7 @@ test("retries a failed check and settles on available once it succeeds", async (
             baseUrl
           }
         ]}
-        configPath="/config/kaja/config.json"
+        brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
@@ -119,7 +119,7 @@ test("shows a placeholder when no models are configured", async () => {
       <StartupPanel
         persona="Kaja"
         models={[]}
-        configPath="/config/kaja/config.json"
+        brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
@@ -145,7 +145,7 @@ test("lists connected MCP servers with their tool counts", async () => {
           { id: "playwright", toolCount: 5 },
           { id: "chrome-devtools", toolCount: 12 }
         ]}
-        configPath="/config/kaja/config.json"
+        brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
@@ -172,7 +172,7 @@ test("omits the MCP servers section when none are connected", async () => {
       <StartupPanel
         persona="Kaja"
         models={[]}
-        configPath="/config/kaja/config.json"
+        brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}

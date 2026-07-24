@@ -155,5 +155,5 @@ taskEmbedding = "Embedding"
 taskImageGen = "Image generation"
 mcpServers = "MCP servers"
 mcpServerToolCount = "({count} tools)"
-stats = "{configPath} · Sessions: {sessionCount} · Memory notes: {memoryNoteCount} · Tools: {toolCount}"
+stats = "{brainPath} · Sessions: {sessionCount} · Memory notes: {memoryNoteCount} · Tools: {toolCount}"
 

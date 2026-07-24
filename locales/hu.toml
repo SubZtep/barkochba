@@ -155,5 +155,5 @@ taskEmbedding = "Beágyazás"
 taskImageGen = "Képgenerálás"
 mcpServers = "MCP szerverek"
 mcpServerToolCount = "({count} eszköz)"
-stats = "{configPath} · {sessionCount} munkamenet · {memoryNoteCount} memória jegyzet · {toolCount} eszköz"
+stats = "{brainPath} · {sessionCount} munkamenet · {memoryNoteCount} memória jegyzet · {toolCount} eszköz"
 

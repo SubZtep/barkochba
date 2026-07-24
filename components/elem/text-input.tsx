@@ -32,6 +32,12 @@ export type TextInputProps = {
   placeholder?: string
   focus?: boolean
   showCursor?: boolean
+  /**
+   * Rendering-only: paints the cursor inverse when true, plain when false —
+   * for a blink. Never gates movement/editing (unlike {@link showCursor}).
+   * Defaults to `showCursor` so callers that don't blink see no change.
+   */
+  cursorVisible?: boolean
   mask?: string
   highlightPastedText?: boolean
   columns?: number
@@ -263,6 +269,7 @@ export function TextInput({
   mask,
   highlightPastedText = false,
   showCursor = true,
+  cursorVisible = showCursor,
   onChange,
   onSubmit,
   onHistory,
@@ -374,7 +381,7 @@ export function TextInput({
       lines.length
     )
     const visible = lines.slice(start, start + maxVis)
-    const active = showCursor && focus
+    const active = showCursor && cursorVisible && focus
 
     if (display.length === 0 && placeholder) {
       const head = active
@@ -406,8 +413,10 @@ export function TextInput({
       return (
         <Text>
           {firstLead}
-          {chalk.inverse(placeholder[0] ?? " ") +
-            chalk.dim(placeholder.slice(1))}
+          {cursorVisible
+            ? chalk.inverse(placeholder[0] ?? " ") +
+              chalk.dim(placeholder.slice(1))
+            : chalk.dim(placeholder)}
         </Text>
       )
     }
@@ -415,7 +424,7 @@ export function TextInput({
       return (
         <Text>
           {firstLead}
-          {chalk.inverse(" ")}
+          {cursorVisible ? chalk.inverse(" ") : " "}
         </Text>
       )
     }
@@ -427,7 +436,13 @@ export function TextInput({
     return (
       <Text>
         {firstLead}
-        {paintLineWithCursor(line, true, cursorOffset, pasteWidth, true)}
+        {paintLineWithCursor(
+          line,
+          true,
+          cursorOffset,
+          pasteWidth,
+          cursorVisible
+        )}
       </Text>
     )
   }

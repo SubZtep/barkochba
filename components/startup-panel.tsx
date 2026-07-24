@@ -48,7 +48,7 @@ export function StartupPanel({
   persona,
   models,
   mcpServers = [],
-  configPath,
+  brainPath,
   cwd,
   sessionCount,
   memoryNoteCount,
@@ -57,7 +57,7 @@ export function StartupPanel({
   persona: string
   models: ResolvedModel[]
   mcpServers?: { id: string; toolCount: number }[]
-  configPath: string
+  brainPath: string
   cwd: string
   sessionCount: number
   memoryNoteCount: number
@@ -155,7 +155,7 @@ export function StartupPanel({
       )}
       <Text dimColor>
         {t("startup.stats", {
-          configPath,
+          brainPath,
           sessionCount,
           memoryNoteCount,
           toolCount

@@ -186,11 +186,14 @@ const RUN_COMMAND_INSTRUCTIONS =
   `e.g. playing a sound, converting a file, checking installed tools. Set ` +
   `mutates to false only for purely read-only commands, which run ` +
   `immediately with no human approval — get this right, when unsure say ` +
-  `true. Mutating commands are shown to the human, who must approve them ` +
-  `before they run; if they decline, treat it as not done and tell them ` +
-  `so, don't retry the same command silently. Prefer read-only tools for ` +
-  `anything that only needs to inspect something — reserve this for when ` +
-  `you actually need to change state or invoke an external program.`
+  `true. This includes commands that only write to a temp directory: ` +
+  `writing a file is a mutation regardless of where it lands, so mutates ` +
+  `stays true even if nothing outside temp is touched. Mutating commands ` +
+  `are shown to the human, who must approve them before they run; if they ` +
+  `decline, treat it as not done and tell them so, don't retry the same ` +
+  `command silently. Prefer read-only tools for anything that only needs ` +
+  `to inspect something — reserve this for when you actually need to ` +
+  `change state or invoke an external program.`
 
 /**
  * Tool the model calls to ask the human a question and wait for their reply,

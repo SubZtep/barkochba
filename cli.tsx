@@ -84,7 +84,7 @@ const {
   loadPromptHistory,
   loadSessionRow
 } = await import("./lib/session-store")
-const { loadMemory } = await import("./lib/memory-store")
+const { loadMemory, resolveMemoryDbPath } = await import("./lib/memory-store")
 
 // --continue resumes the most recent session, --session <id> a specific
 // one; either way the restored conversation is handed to App as a prop.
@@ -114,6 +114,7 @@ const personas = await loadPersonas()
 const { tools, mcpServers, closeTools } = await getDefaultTools()
 const sessionCount = (await listSessions()).length
 const memoryNoteCount = Object.keys(await loadMemory()).length
+const brainPath = await resolveMemoryDbPath()
 // Closes any long-lived tool connection (e.g. the Playwright MCP subprocess)
 // so it isn't left orphaned; guarded so SIGINT and the normal exit path
 // below can't both try to close it.
@@ -149,6 +150,7 @@ const { waitUntilExit } = render(
       promptHistory={promptHistory}
       sessionCount={sessionCount}
       memoryNoteCount={memoryNoteCount}
+      brainPath={brainPath}
     />
   </InkPictureProvider>,
   {

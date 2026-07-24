@@ -5,7 +5,7 @@ import { useSettings } from "../../hooks/use-settings"
 import { useSound } from "../../hooks/use-sound"
 import { useVoice } from "../../hooks/use-voice"
 import type { Tool } from "../../lib/agents"
-import { getConfigPath, saveSettings } from "../../lib/config"
+import { saveSettings } from "../../lib/config"
 import { t } from "../../lib/i18n"
 import { log } from "../../lib/logger"
 import type { Persona } from "../../lib/personas"
@@ -28,7 +28,8 @@ export default function App({
   initialSession,
   promptHistory,
   sessionCount = 0,
-  memoryNoteCount = 0
+  memoryNoteCount = 0,
+  brainPath
 }: {
   initialSettings?: KajaSettings
   models?: ResolvedModel[]
@@ -45,6 +46,8 @@ export default function App({
   sessionCount?: number
   /** Stored memory notes so far, shown in the startup stats panel. */
   memoryNoteCount?: number
+  /** Path to the memory database, shown in the startup stats panel. */
+  brainPath: string
 }) {
   const {
     model,
@@ -162,7 +165,7 @@ export default function App({
             persona={persona.label}
             models={models}
             mcpServers={mcpServers}
-            configPath={getConfigPath()}
+            brainPath={brainPath}
             cwd={process.cwd()}
             sessionCount={sessionCount}
             memoryNoteCount={memoryNoteCount}
