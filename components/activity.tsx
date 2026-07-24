@@ -2,8 +2,8 @@ import { Text } from "ink"
 import { useEffect, useState } from "react"
 import type { PartialMessage } from "../hooks/use-agent"
 import { t } from "../lib/i18n"
+import { Spinner } from "./elem/spinner"
 
-const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 const TICK_MS = 120
 
 /** Rough token estimate from streamed text (~4 characters per token). */
@@ -39,13 +39,13 @@ export function Activity({
   const reasoningVisible = thinking && !!partial?.reasoning
   if (!pending || contentVisible || reasoningVisible) return null
 
-  const frame = FRAMES[tick % FRAMES.length]
   const seconds = Math.floor((tick * TICK_MS) / 1000)
   const tokens = estimateTokens(partial)
 
   return (
     <Text color="magenta" dimColor>
-      {`${frame} ${t("activity.thinking", { seconds })}${
+      <Spinner />
+      {` ${t("activity.thinking", { seconds })}${
         tokens ? t("activity.tokens", { tokens }) : ""
       }`}
     </Text>

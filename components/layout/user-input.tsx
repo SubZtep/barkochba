@@ -168,8 +168,8 @@ function Border({
   const isPower = variant === "power"
 
   const boxProps: any = {
-    backgroundColor: "#202040",
-    borderColor: "#00a",
+    backgroundColor: "#224",
+    borderColor: "magenta",
     borderStyle: "classic",
     borderDimColor: true,
     borderLeftDimColor: false,
