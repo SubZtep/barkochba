@@ -3,5 +3,6 @@ node_modules/
 .env
 .tmp-test-xdg-config-*/
 *.local.*
+assets/dataset/*
 docs/config/datasets/*
 !docs/config/datasets/movies.json

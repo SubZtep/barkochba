@@ -1,0 +1,19 @@
+# MCP servers available to Kaja, one [[servers]] entry each. Every server
+# listed here is spawned over stdio and its tools are folded into the agent's
+# toolset automatically — just add an entry, no code changes needed.
+
+[[servers]]
+id = "playwright"
+command = "bunx"
+args = ["@playwright/mcp@latest", "--isolated", "--headless"]
+
+# [[servers]]
+# id = "chrome-devtools"
+# command = "bunx"
+# args = ["chrome-devtools-mcp@latest", "--autoConnect"]
+
+# [[servers]]
+# id = "example-with-env"
+# command = "npx"
+# args = ["-y", "some-mcp-server"]
+# env = { API_KEY = "..." }

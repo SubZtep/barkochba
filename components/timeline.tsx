@@ -38,7 +38,13 @@ export const TimelineItem = memo(function TimelineItem({
     case "display_image":
       return (
         <Box flexDirection="column" marginBottom={1}>
-          <Image src={item.url} width={10} height={5} alt={item.alt} />
+          <Image
+            src={item.url}
+            width={10}
+            height={5}
+            alt={item.alt}
+            protocol="halfBlock"
+          />
           <Text dimColor>{item.alt}</Text>
         </Box>
       )
