@@ -23,6 +23,7 @@ rm ~/.local/bin/kaja
 
 ## Screenshot
 
+![kaja](./docs/pics/screenshot_02.png)
 ![kaja](./docs/pics/screenshot_01.png)
 
 ## Config
