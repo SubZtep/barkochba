@@ -163,6 +163,7 @@ export default function App({
             models={models}
             mcpServers={mcpServers}
             configPath={getConfigPath()}
+            cwd={process.cwd()}
             sessionCount={sessionCount}
             memoryNoteCount={memoryNoteCount}
             toolCount={tools.length}

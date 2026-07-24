@@ -55,6 +55,7 @@ test("shows persona, grouped models with availability, and stats", async () => {
           { id: "tts-model", task: "text-to-speech", baseUrl }
         ]}
         configPath="/config/kaja/config.json"
+        cwd="/home/kaja/project"
         sessionCount={3}
         memoryNoteCount={5}
         toolCount={2}
@@ -70,6 +71,7 @@ test("shows persona, grouped models with availability, and stats", async () => {
   expect(frame).toContain("Down Model")
   expect(frame).toContain("tts-model")
   expect(frame).toContain("/config/kaja/config.json")
+  expect(frame).toContain("/home/kaja/project")
   expect(frame).toContain("3")
   expect(frame).toContain("5")
   expect(frame).toContain("2")
@@ -92,6 +94,7 @@ test("retries a failed check and settles on available once it succeeds", async (
           }
         ]}
         configPath="/config/kaja/config.json"
+        cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
         toolCount={0}
@@ -117,6 +120,7 @@ test("shows a placeholder when no models are configured", async () => {
         persona="Kaja"
         models={[]}
         configPath="/config/kaja/config.json"
+        cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
         toolCount={0}
@@ -142,6 +146,7 @@ test("lists connected MCP servers with their tool counts", async () => {
           { id: "chrome-devtools", toolCount: 12 }
         ]}
         configPath="/config/kaja/config.json"
+        cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
         toolCount={17}
@@ -168,6 +173,7 @@ test("omits the MCP servers section when none are connected", async () => {
         persona="Kaja"
         models={[]}
         configPath="/config/kaja/config.json"
+        cwd="/home/kaja/project"
         sessionCount={0}
         memoryNoteCount={0}
         toolCount={0}
