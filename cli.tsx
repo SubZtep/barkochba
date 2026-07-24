@@ -11,7 +11,7 @@ import {
 } from "./lib/config"
 import { detectLanguage, setLanguage, t } from "./lib/i18n"
 import { log } from "./lib/logger"
-import { loadModels } from "./lib/models"
+import { loadModels, resolveConfigModels } from "./lib/models"
 import { loadPersonas } from "./lib/personas"
 
 // The TUI owns the terminal: unless the user asked for a level explicitly,
@@ -107,8 +107,9 @@ if (cli.flags.continue) {
 }
 const promptHistory = await loadPromptHistory()
 
-const { settings, llm } = await config()
-const models = await loadModels()
+const currentConfig = await config()
+const { settings, llm } = currentConfig
+const models = [...(await loadModels()), ...resolveConfigModels(currentConfig)]
 const personas = await loadPersonas()
 const { tools, mcpServers, closeTools } = await getDefaultTools()
 const sessionCount = (await listSessions()).length

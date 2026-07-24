@@ -14,6 +14,10 @@ function taskLabel(task: ResolvedModel["task"]) {
       return t("startup.taskTts")
     case "speech-to-text":
       return t("startup.taskStt")
+    case "embedding":
+      return t("startup.taskEmbedding")
+    case "image-generation":
+      return t("startup.taskImageGen")
   }
 }
 
