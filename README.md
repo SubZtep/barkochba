@@ -14,10 +14,6 @@ curl -fsSL https://cli.kaja.io | bash
 ### Uninstall
 
 ```bash
-# find every kaja on your PATH (optional)
-type -a kaja
-
-# remove the one(s) you don't want
 rm ~/.local/bin/kaja
 ```
 
@@ -31,6 +27,20 @@ kaja
 
 ![kaja](./docs/pics/screenshot_02.png)
 ![kaja](./docs/pics/screenshot_01.png)
+
+## Develop
+
+```bash
+bun install
+bun start
+```
+
+## Test / lint
+
+```bash
+bun test
+bun lint # write immediately
+```
 
 ## Config
 
@@ -53,6 +63,7 @@ Prefer editing files directly? Config lives in `~/.config/kaja/`:
   credentials. A template matching your wizard preset is written on first run
   ([Fireworks](docs/config/models.fireworks.toml) /
   [Ollama](docs/config/models.ollama.toml) examples).
+* [`personas.toml`](docs/config/personas.toml) — preconfigured system prompts
 
 <details>
 <summary>How the wizard and models.toml fit together</summary>
@@ -141,17 +152,3 @@ Voice features (the optional `stt` / `tts` config groups) need [speaches](https:
 | o    | recording |
 | ~    | transcribing |
 | x    | muted while agent speaks |
-
-## Develop
-
-```bash
-bun install
-bun start
-```
-
-## Test / lint
-
-```bash
-bun test
-bun lint # write immediately
-```
