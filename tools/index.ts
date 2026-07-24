@@ -64,6 +64,11 @@ export async function getDefaultTools() {
       ...mcpConnections.flatMap((connection) => connection.tools),
       ...pluginTools
     ],
+    // Per-server tool counts for the startup panel (see components/startup-panel.tsx).
+    mcpServers: mcpServers.map((server, index) => ({
+      id: server.id,
+      toolCount: mcpConnections[index]!.tools.length
+    })),
     closeTools: async () => {
       await Promise.all(mcpConnections.map((connection) => connection.close()))
     }

@@ -130,3 +130,54 @@ test("shows a placeholder when no models are configured", async () => {
   t.unmount()
   await t.waitUntilExit()
 })
+
+test("lists connected MCP servers with their tool counts", async () => {
+  const t = renderForTest(
+    <Box flexDirection="column" width={80} height={20}>
+      <StartupPanel
+        persona="Kaja"
+        models={[]}
+        mcpServers={[
+          { id: "playwright", toolCount: 5 },
+          { id: "chrome-devtools", toolCount: 12 }
+        ]}
+        configPath="/config/kaja/config.json"
+        sessionCount={0}
+        memoryNoteCount={0}
+        toolCount={17}
+      />
+    </Box>
+  )
+  await t.tick()
+
+  const frame = t.lastFrame()
+  expect(frame).toContain("MCP servers")
+  expect(frame).toContain("playwright")
+  expect(frame).toContain("(5 tools)")
+  expect(frame).toContain("chrome-devtools")
+  expect(frame).toContain("(12 tools)")
+
+  t.unmount()
+  await t.waitUntilExit()
+})
+
+test("omits the MCP servers section when none are connected", async () => {
+  const t = renderForTest(
+    <Box flexDirection="column" width={80} height={10}>
+      <StartupPanel
+        persona="Kaja"
+        models={[]}
+        configPath="/config/kaja/config.json"
+        sessionCount={0}
+        memoryNoteCount={0}
+        toolCount={0}
+      />
+    </Box>
+  )
+  await t.tick()
+
+  expect(t.lastFrame()).not.toContain("MCP servers")
+
+  t.unmount()
+  await t.waitUntilExit()
+})

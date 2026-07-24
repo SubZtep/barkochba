@@ -150,5 +150,7 @@ noModels = "Nincs beállított modell"
 taskChat = "Chat"
 taskTts = "Szövegfelolvasás"
 taskStt = "Beszédfelismerés"
+mcpServers = "MCP szerverek"
+mcpServerToolCount = "({count} eszköz)"
 stats = "{configPath} · {sessionCount} munkamenet · {memoryNoteCount} memória jegyzet · {toolCount} eszköz"
 

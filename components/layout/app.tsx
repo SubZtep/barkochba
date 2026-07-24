@@ -24,6 +24,7 @@ export default function App({
   personas,
   openaiApiModel,
   tools,
+  mcpServers = [],
   initialSession,
   promptHistory,
   sessionCount = 0,
@@ -34,6 +35,8 @@ export default function App({
   personas: Persona[]
   openaiApiModel: string
   tools: Tool<any>[]
+  /** Connected MCP servers with their tool counts, shown in the startup panel. */
+  mcpServers?: { id: string; toolCount: number }[]
   /** A persisted session to continue (--continue / --session <id>). */
   initialSession?: PersistedSession
   /** Past prompts across all sessions for ↑/↓ recall, newest first. */
@@ -158,6 +161,7 @@ export default function App({
           <StartupPanel
             persona={persona.label}
             models={models}
+            mcpServers={mcpServers}
             configPath={getConfigPath()}
             sessionCount={sessionCount}
             memoryNoteCount={memoryNoteCount}
