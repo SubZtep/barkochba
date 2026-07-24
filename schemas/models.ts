@@ -39,11 +39,17 @@ export const ModelsFileSchema = z
 export type KajaModelsFile = z.infer<typeof ModelsFileSchema>
 export type ModelTask = z.infer<typeof TaskSchema>
 
+// Beyond the models.toml tasks above, the startup panel also reports on
+// config.json's single-model embedding/imageGen blocks; they aren't part of
+// models.toml so they don't belong in TaskSchema, but they share the same
+// display/check shape.
+export type ResolvedModelTask = ModelTask | "embedding" | "image-generation"
+
 /** A model entry flattened with its provider's credentials. */
 export type ResolvedModel = {
   id: string
   label?: string
-  task: ModelTask
+  task: ResolvedModelTask
   baseUrl: string
   apiKey?: string
 }

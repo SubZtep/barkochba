@@ -1,7 +1,7 @@
 import OpenAI from "openai"
 import { config } from "./config"
 
-const DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
+export const DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
 
 /**
  * Generates embeddings via the configured (or llm-fallback) provider, same
