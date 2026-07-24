@@ -111,7 +111,10 @@ export function StartupPanel({
         {t("startup.persona")}
         <Text bold>{persona}</Text>
       </Text>
-      <Text dimColor>{t("startup.cwd", { cwd })}</Text>
+      <Text dimColor>
+        {t("startup.cwd")}
+        <Text bold>{cwd}</Text>
+      </Text>
       {models.length === 0 ? (
         <Text dimColor>{t("startup.noModels")}</Text>
       ) : (

@@ -146,7 +146,7 @@ unknown = "Ismeretlen hiba"
 
 [startup]
 persona = "Személyiség: "
-cwd = "Könyvtár: {cwd}"
+cwd = "Könyvtár: "
 noModels = "Nincs beállított modell"
 taskChat = "Chat"
 taskTts = "Szövegfelolvasás"

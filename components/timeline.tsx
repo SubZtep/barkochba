@@ -76,6 +76,6 @@ function renderItem(item: TimelineEvent, thinking: boolean) {
         </Text>
       )
     case "final":
-      return <Markdown>{item.content ?? "?"}</Markdown>
+      return <Markdown>{item.content ?? "N/A"}</Markdown>
   }
 }

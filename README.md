@@ -21,6 +21,10 @@ type -a kaja
 rm ~/.local/bin/kaja
 ```
 
+## Screenshot
+
+![kaja](./docs/pics/screenshot_01.png)
+
 ## Config
 
 Fill all the fields here: `~/.config/kaja/config.json` — or let the setup

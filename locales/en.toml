@@ -146,7 +146,7 @@ unknown = "Unknown error"
 
 [startup]
 persona = "Persona: "
-cwd = "Directory: {cwd}"
+cwd = "Directory: "
 noModels = "No models configured"
 taskChat = "Chat"
 taskTts = "Text-to-speech"
