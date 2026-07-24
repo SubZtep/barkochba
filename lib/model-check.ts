@@ -10,8 +10,9 @@ import type { ResolvedModel } from "../schemas/models"
  * answer `/chat/completions` while being absent from `/models`), so
  * listing produces false negatives.
  *
- * Speech-to-text/text-to-speech: no cheap equivalent probe exists (a real
- * call means sending audio or generating it), so these fall back to the
+ * Everything else (speech-to-text/text-to-speech/embedding/image-generation):
+ * no cheap equivalent probe exists (a real call means sending/generating
+ * audio, text embeddings, or an image), so these fall back to the
  * `GET /models` list as a best-effort signal.
  */
 export async function checkModelAvailability(
