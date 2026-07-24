@@ -29,6 +29,11 @@ const STATUS_COLOR: Record<Availability, string> = {
   down: "red"
 }
 
+// A provider can be slow to come up (e.g. a local speaches server still
+// booting) — retry a failed check a few times before settling on "down".
+const RETRY_DELAY_MS = 4000
+const MAX_ATTEMPTS = 3
+
 /**
  * Shown in the empty chat viewport before the first message: current
  * persona, every configured model grouped by task with a live reachability
@@ -54,14 +59,30 @@ export function StartupPanel({
 
   useEffect(() => {
     let cancelled = false
-    for (const [index, model] of models.entries()) {
+    const timers: NodeJS.Timeout[] = []
+
+    const attempt = (index: number, model: ResolvedModel, tries: number) => {
       checkModelAvailability(model).then((available) => {
         if (cancelled) return
-        setStatus((prev) => ({ ...prev, [index]: available ? "up" : "down" }))
+        if (available) {
+          setStatus((prev) => ({ ...prev, [index]: "up" }))
+          return
+        }
+        if (tries < MAX_ATTEMPTS) {
+          timers.push(
+            setTimeout(() => attempt(index, model, tries + 1), RETRY_DELAY_MS)
+          )
+          return
+        }
+        setStatus((prev) => ({ ...prev, [index]: "down" }))
       })
     }
+
+    for (const [index, model] of models.entries()) attempt(index, model, 1)
+
     return () => {
       cancelled = true
+      for (const timer of timers) clearTimeout(timer)
     }
   }, [models])
 
