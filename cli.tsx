@@ -53,10 +53,12 @@ if (cli.input[0] === "session") {
 
 // Missing or invalid config (or --wizard): run the setup wizard instead of
 // exiting, then fall through to the normal boot with the freshly written
-// file. A fresh blank template never validates, so first-run also lands in
-// the wizard.
-if (!(await isExists())) await create()
-if (cli.flags.wizard || !(await validate(true))) {
+// file. The first-run template ships placeholder credentials that validate
+// as well-formed, so first-run must force the wizard explicitly rather than
+// relying on validation to fail.
+const firstRun = !(await isExists())
+if (firstRun) await create()
+if (firstRun || cli.flags.wizard || !(await validate(true))) {
   const { runConfigWizard } = await import("./components/config-wizard")
   const outcome = await runConfigWizard(loose)
   if (outcome !== "saved") {
