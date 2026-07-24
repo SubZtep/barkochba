@@ -109,6 +109,7 @@ older = "↑ régebbi · PageDown vagy Ctrl+End a követéshez"
 yes = "Igen, futtasd"
 no = "Nem, mégse"
 running = "Fut…"
+truncated = "… még {count} sor"
 
 [activity]
 thinking = "Gondolkozom… {seconds}s"

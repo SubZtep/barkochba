@@ -109,6 +109,7 @@ older = "↑ older · PageDown or Ctrl+End to follow"
 yes = "Yes, run it"
 no = "No, cancel"
 running = "Running…"
+truncated = "… {count} more lines"
 
 [activity]
 thinking = "Thinking… {seconds}s"
