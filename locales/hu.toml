@@ -147,3 +147,11 @@ tool = "Eszköz hiba"
 agent = "Hiba történt"
 unknown = "Ismeretlen hiba"
 
+[startup]
+persona = "Személyiség: "
+noModels = "Nincs beállított modell"
+taskChat = "Chat"
+taskTts = "Szövegfelolvasás"
+taskStt = "Beszédfelismerés"
+stats = "{configPath} · {sessionCount} munkamenet · {memoryNoteCount} memória jegyzet · {toolCount} eszköz"
+

@@ -76,8 +76,13 @@ if (cli.flags.wizard || !(await validate(true))) {
 // before the first-run flow above.
 const { default: App } = await import("./components/layout/app")
 const { getDefaultTools } = await import("./tools")
-const { loadLatestSessionRow, loadPromptHistory, loadSessionRow } =
-  await import("./lib/session-store")
+const {
+  listSessions,
+  loadLatestSessionRow,
+  loadPromptHistory,
+  loadSessionRow
+} = await import("./lib/session-store")
+const { loadMemory } = await import("./lib/memory-store")
 
 // --continue resumes the most recent session, --session <id> a specific
 // one; either way the restored conversation is handed to App as a prop.
@@ -104,6 +109,8 @@ const { settings, llm } = await config()
 const models = await loadModels()
 const personas = await loadPersonas()
 const { tools, closeTools } = await getDefaultTools()
+const sessionCount = (await listSessions()).length
+const memoryNoteCount = Object.keys(await loadMemory()).length
 // Closes any long-lived tool connection (e.g. the Playwright MCP subprocess)
 // so it isn't left orphaned; guarded so SIGINT and the normal exit path
 // below can't both try to close it.
@@ -136,6 +143,8 @@ const { waitUntilExit } = render(
       tools={tools}
       initialSession={initialSession}
       promptHistory={promptHistory}
+      sessionCount={sessionCount}
+      memoryNoteCount={memoryNoteCount}
     />
   </InkPictureProvider>,
   {
