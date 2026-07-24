@@ -27,6 +27,17 @@ export const TimelineItem = memo(function TimelineItem({
   item: TimelineEvent
   thinking: boolean
 }) {
+  const content = renderItem(item, thinking)
+  if (content === null) return null
+  return (
+    <Box flexDirection="column">
+      <Text> </Text>
+      {content}
+    </Box>
+  )
+})
+
+function renderItem(item: TimelineEvent, thinking: boolean) {
   switch (item.type) {
     case "user":
       return <Text color="cyanBright">{`> ${item.text}`}</Text>
@@ -37,7 +48,7 @@ export const TimelineItem = memo(function TimelineItem({
       return <Text dimColor>{`[image: ${item.path}]`}</Text>
     case "display_image":
       return (
-        <Box flexDirection="column" marginBottom={1}>
+        <Box flexDirection="column">
           <Image
             src={item.url}
             width={10}
@@ -50,14 +61,14 @@ export const TimelineItem = memo(function TimelineItem({
       )
     case "message":
       return (
-        <Box gap={2} marginTop={1}>
+        <Box gap={2}>
           <Text color="#ff1493">●</Text>
           <Markdown>{item.content}</Markdown>
         </Box>
       )
     case "ask_user":
       return (
-        <Box gap={2} marginTop={1}>
+        <Box gap={2}>
           <Text color="cyanBright">●</Text>
           <Markdown>{item.question}</Markdown>
         </Box>
@@ -73,4 +84,4 @@ export const TimelineItem = memo(function TimelineItem({
     case "final":
       return <Markdown>{item.content ?? "?"}</Markdown>
   }
-})
+}
