@@ -108,7 +108,7 @@ const promptHistory = await loadPromptHistory()
 const { settings, llm } = await config()
 const models = await loadModels()
 const personas = await loadPersonas()
-const { tools, closeTools } = await getDefaultTools()
+const { tools, mcpServers, closeTools } = await getDefaultTools()
 const sessionCount = (await listSessions()).length
 const memoryNoteCount = Object.keys(await loadMemory()).length
 // Closes any long-lived tool connection (e.g. the Playwright MCP subprocess)
@@ -141,6 +141,7 @@ const { waitUntilExit } = render(
       personas={personas}
       openaiApiModel={llm.model}
       tools={tools}
+      mcpServers={mcpServers}
       initialSession={initialSession}
       promptHistory={promptHistory}
       sessionCount={sessionCount}

@@ -150,5 +150,7 @@ noModels = "No models configured"
 taskChat = "Chat"
 taskTts = "Text-to-speech"
 taskStt = "Speech-to-text"
+mcpServers = "MCP servers"
+mcpServerToolCount = "({count} tools)"
 stats = "{configPath} · Sessions: {sessionCount} · Memory notes: {memoryNoteCount} · Tools: {toolCount}"
 

@@ -43,6 +43,7 @@ const MAX_ATTEMPTS = 3
 export function StartupPanel({
   persona,
   models,
+  mcpServers = [],
   configPath,
   sessionCount,
   memoryNoteCount,
@@ -50,6 +51,7 @@ export function StartupPanel({
 }: {
   persona: string
   models: ResolvedModel[]
+  mcpServers?: { id: string; toolCount: number }[]
   configPath: string
   sessionCount: number
   memoryNoteCount: number
@@ -124,6 +126,20 @@ export function StartupPanel({
                 )
               })}
             </Box>
+          ))}
+        </Box>
+      )}
+      {mcpServers.length > 0 && (
+        <Box flexDirection="column">
+          <Text dimColor>{t("startup.mcpServers")}</Text>
+          {mcpServers.map((server) => (
+            <Text key={server.id}>
+              {"  "}
+              {server.id}{" "}
+              <Text dimColor>
+                {t("startup.mcpServerToolCount", { count: server.toolCount })}
+              </Text>
+            </Text>
           ))}
         </Box>
       )}
