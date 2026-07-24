@@ -45,6 +45,7 @@ export function StartupPanel({
   models,
   mcpServers = [],
   configPath,
+  cwd,
   sessionCount,
   memoryNoteCount,
   toolCount
@@ -53,6 +54,7 @@ export function StartupPanel({
   models: ResolvedModel[]
   mcpServers?: { id: string; toolCount: number }[]
   configPath: string
+  cwd: string
   sessionCount: number
   memoryNoteCount: number
   toolCount: number
@@ -105,6 +107,7 @@ export function StartupPanel({
         {t("startup.persona")}
         <Text bold>{persona}</Text>
       </Text>
+      <Text dimColor>{t("startup.cwd", { cwd })}</Text>
       {models.length === 0 ? (
         <Text dimColor>{t("startup.noModels")}</Text>
       ) : (
