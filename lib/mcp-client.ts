@@ -5,24 +5,25 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { write } from "bun"
 import envPaths from "env-paths"
-import type { KajaBrowser } from "../schemas/config"
+import type { McpServerEntry } from "../schemas/mcp"
 import { type Tool, type ToolResult, tool } from "./agents"
 
 /**
- * Spawns an MCP server over stdio and adapts each of its tools into a Kaja
- * {@link Tool}, so the agent loop can call it exactly like any built-in tool.
+ * Spawns an MCP server over stdio (as configured in mcp.toml, see
+ * lib/mcp-servers.ts) and adapts each of its tools into a Kaja {@link Tool},
+ * so the agent loop can call it exactly like any built-in tool.
  *
  * @returns The adapted tools, and `close()` to shut down the connection and
  * let the spawned subprocess exit — callers must call this on app shutdown
  * to avoid leaving it orphaned.
  */
-async function connectStdioMcp(
-  command: string,
-  args: string[]
+export async function connectMcpServer(
+  server: McpServerEntry
 ): Promise<{ tools: Tool<any>[]; close: () => Promise<void> }> {
   const transport = new StdioClientTransport({
-    command,
-    args,
+    command: server.command,
+    args: server.args,
+    env: { ...process.env, ...server.env } as Record<string, string>,
     // Default "inherit" would let the subprocess write straight to the
     // parent's stderr, corrupting Kaja's Ink terminal rendering.
     stderr: "ignore"
@@ -43,36 +44,6 @@ async function connectStdioMcp(
   )
 
   return { tools, close: () => client.close() }
-}
-
-/**
- * Connects to the Playwright MCP server (spawned via `bunx @playwright/mcp`)
- * — an isolated, automation-only browser — and adapts its tools for the
- * agent loop.
- */
-export async function connectPlaywrightMcp(
-  options: KajaBrowser = {}
-): Promise<{ tools: Tool<any>[]; close: () => Promise<void> }> {
-  const args = ["@playwright/mcp@latest", "--isolated"]
-  if (options.headless ?? true) args.push("--headless")
-  return connectStdioMcp("bunx", args)
-}
-
-/**
- * Connects to the Chrome DevTools MCP server (spawned via
- * `bunx chrome-devtools-mcp`), attached to the user's already-running Chrome
- * via `--autoConnect` — so the agent sees whatever page the user actually
- * has open, rather than an isolated automation browser. Requires Chrome's
- * remote debugging server to be enabled (chrome://inspect/#remote-debugging).
- */
-export async function connectChromeDevToolsMcp(): Promise<{
-  tools: Tool<any>[]
-  close: () => Promise<void>
-}> {
-  return connectStdioMcp("bunx", [
-    "chrome-devtools-mcp@latest",
-    "--autoConnect"
-  ])
 }
 
 async function callTool(

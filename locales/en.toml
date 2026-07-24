@@ -59,6 +59,9 @@ invalidAt = "Invalid models file at {path}: {message}"
 [personas]
 invalidAt = "Invalid personas file at {path}: {message}"
 
+[mcp]
+invalidAt = "Invalid MCP servers file at {path}: {message}"
+
 [wizard]
 title = "Kaja setup"
 stepLanguage = "Language"
@@ -71,12 +74,6 @@ groupLocation = "Location tool (optional)"
 groupWebSearch = "Web search tool (optional)"
 groupRerank = "Rerank tool (optional)"
 groupImageGen = "Image generation tool (optional)"
-groupBrowser = "Browser tool (optional)"
-groupBrowserPrompt = "Enable browser automation (Playwright)?"
-groupChrome = "Chrome DevTools tool (optional)"
-groupChromePrompt = "Enable Chrome DevTools MCP, attached to your open Chrome browser?"
-yes = "Yes"
-no = "No"
 groupOptionalHint = "Optional — leave every field blank to skip this feature."
 llmBaseUrl = "OpenAI-compatible base URL"
 llmApiKey = "API key"
