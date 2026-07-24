@@ -8,12 +8,12 @@
     "model": "nomic-ai/nomic-embed-text-v1.5"
   },
   "stt": {
-    "speachesUrl": "ws://127.0.0.1",
-    "model": "SubZtep/whisper-small-hu-ct2"
+    "speachesUrl": "ws://127.0.0.1:8000",
+    "model": "Systran/faster-whisper-small"
   },
   "tts": {
     "speachesUrl": "ws://127.0.0.1:8000",
-    "model": "speaches-ai/piper-hu_HU-berta-medium"
+    "model": "speaches-ai/Kokoro-82M-v1.0-ONNX-fp16"
   },
   "location": {
     "serviceUrl": "https://ip2geo.demo.land",
@@ -27,15 +27,11 @@
     "apiKey": "xai-YourSecretTwitterKey",
     "model": "grok-imagine-image"
   },
-  "chrome": {},
   "settings": {
     "thinking": false,
     "sounds": true,
     "voice": false,
     "language": "en",
     "persona": "default"
-  },
-  "memory": {
-    "dbPath": "/home/dcr/.local/share/kaja/memory.sqlite"
   }
 }
