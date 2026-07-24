@@ -10,10 +10,17 @@ import type { ResolvedModel } from "../schemas/models"
  * answer `/chat/completions` while being absent from `/models`), so
  * listing produces false negatives.
  *
- * Everything else (speech-to-text/text-to-speech/embedding/image-generation):
- * no cheap equivalent probe exists (a real call means sending/generating
- * audio, text embeddings, or an image), so these fall back to the
- * `GET /models` list as a best-effort signal.
+ * Embedding models: same false-negative issue on Fireworks (confirmed:
+ * embedding models are absent from `/models` too), so probe with a real
+ * 1-word embedding request instead of trusting the list.
+ *
+ * Speech-to-text (speaches): `POST /v1/models/{id}` asks the server to load
+ * the model — a real, cheap probe (no audio needed) that confirms the
+ * model id is actually servable, unlike a `GET /models` list lookup.
+ *
+ * Everything else (text-to-speech/image-generation): no cheap equivalent
+ * probe exists (a real call means generating audio or an image), so these
+ * fall back to the `GET /models` list as a best-effort signal.
  */
 export async function checkModelAvailability(
   model: ResolvedModel
@@ -30,6 +37,21 @@ export async function checkModelAvailability(
         max_tokens: 1
       })
       return true
+    }
+    if (model.task === "embedding") {
+      await client.embeddings.create({
+        model: model.id,
+        input: "hi",
+        encoding_format: "float"
+      })
+      return true
+    }
+    if (model.task === "speech-to-text") {
+      const res = await fetch(
+        `${model.baseUrl}/v1/models/${encodeURIComponent(model.id)}`,
+        { method: "POST" }
+      )
+      return res.ok
     }
     const page = await client.models.list()
     return page.data.some((entry) => entry.id === model.id)

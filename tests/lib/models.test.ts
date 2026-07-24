@@ -9,14 +9,12 @@ const llm = {
 
 test("embedding falls back to llm credentials and the default model when unset", () => {
   const models = resolveConfigModels({ llm })
-  expect(models).toEqual([
-    {
-      id: "nomic-ai/nomic-embed-text-v1.5",
-      task: "embedding",
-      baseUrl: llm.baseUrl,
-      apiKey: llm.apiKey
-    }
-  ])
+  expect(models).toContainEqual({
+    id: "nomic-ai/nomic-embed-text-v1.5",
+    task: "embedding",
+    baseUrl: llm.baseUrl,
+    apiKey: llm.apiKey
+  })
 })
 
 test("embedding uses its own block when configured", () => {
@@ -28,14 +26,36 @@ test("embedding uses its own block when configured", () => {
       model: "custom-embedding"
     }
   })
-  expect(models).toEqual([
-    {
-      id: "custom-embedding",
-      task: "embedding",
-      baseUrl: "https://embed.example.test/v1",
-      apiKey: "embed-key"
+  expect(models).toContainEqual({
+    id: "custom-embedding",
+    task: "embedding",
+    baseUrl: "https://embed.example.test/v1",
+    apiKey: "embed-key"
+  })
+})
+
+test("stt falls back to speaches defaults (ws:// rewritten to http://) when unset", () => {
+  const models = resolveConfigModels({ llm })
+  expect(models).toContainEqual({
+    id: "Systran/faster-distil-whisper-small.en",
+    task: "speech-to-text",
+    baseUrl: "http://localhost:8000"
+  })
+})
+
+test("stt uses its own block when configured", () => {
+  const models = resolveConfigModels({
+    llm,
+    stt: {
+      speachesUrl: "ws://speaches.example.test:8000",
+      model: "custom-stt"
     }
-  ])
+  })
+  expect(models).toContainEqual({
+    id: "custom-stt",
+    task: "speech-to-text",
+    baseUrl: "http://speaches.example.test:8000"
+  })
 })
 
 test("imageGen is included when it names a model", () => {
@@ -63,8 +83,11 @@ test("imageGen without a model is skipped: no id to check against /models", () =
   expect(models.some((m) => m.task === "image-generation")).toBe(false)
 })
 
-test("no imageGen block: only embedding is returned", () => {
+test("no imageGen block: only embedding and stt are returned", () => {
   const models = resolveConfigModels({ llm })
-  expect(models).toHaveLength(1)
-  expect(models[0]?.task).toBe("embedding")
+  expect(models).toHaveLength(2)
+  expect(models.map((m) => m.task).sort()).toEqual([
+    "embedding",
+    "speech-to-text"
+  ])
 })

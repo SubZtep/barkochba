@@ -21,6 +21,17 @@ function taskLabel(task: ResolvedModel["task"]) {
   }
 }
 
+// Display order for the grouped task sections, independent of the order
+// models are merged in (models.toml entries land before config.json's
+// embedding/stt/imageGen, which would otherwise put tts before embedding).
+const TASK_ORDER: ResolvedModel["task"][] = [
+  "chat",
+  "embedding",
+  "text-to-speech",
+  "speech-to-text",
+  "image-generation"
+]
+
 const STATUS_ICON: Record<Availability, string> = {
   pending: "○",
   up: "✓",
@@ -119,24 +130,26 @@ export function StartupPanel({
         <Text dimColor>{t("startup.noModels")}</Text>
       ) : (
         <Box flexDirection="column">
-          {[...grouped.entries()].map(([task, indices]) => (
-            <Box key={task} flexDirection="column">
-              <Text dimColor>{taskLabel(task)}</Text>
-              {indices.map((index) => {
-                const model = models[index]!
-                const state = status[index] ?? "pending"
-                return (
-                  <Text key={index}>
-                    {"  "}
-                    <Text color={STATUS_COLOR[state]}>
-                      {STATUS_ICON[state]}
-                    </Text>{" "}
-                    {model.label ?? model.id}
-                  </Text>
-                )
-              })}
-            </Box>
-          ))}
+          {[...grouped.entries()]
+            .sort(([a], [b]) => TASK_ORDER.indexOf(a) - TASK_ORDER.indexOf(b))
+            .map(([task, indices]) => (
+              <Box key={task} flexDirection="column">
+                <Text dimColor>{taskLabel(task)}</Text>
+                {indices.map((index) => {
+                  const model = models[index]!
+                  const state = status[index] ?? "pending"
+                  return (
+                    <Text key={index}>
+                      {"  "}
+                      <Text color={STATUS_COLOR[state]}>
+                        {STATUS_ICON[state]}
+                      </Text>{" "}
+                      {model.label ?? model.id}
+                    </Text>
+                  )
+                })}
+              </Box>
+            ))}
         </Box>
       )}
       {mcpServers.length > 0 && (

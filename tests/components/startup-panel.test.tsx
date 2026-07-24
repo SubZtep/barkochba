@@ -135,6 +135,38 @@ test("shows a placeholder when no models are configured", async () => {
   await t.waitUntilExit()
 })
 
+test("groups models in a fixed task order regardless of input order", async () => {
+  const t = renderForTest(
+    <Box flexDirection="column" width={80} height={20}>
+      <StartupPanel
+        persona="Kaja"
+        models={[
+          { id: "tts-model", task: "text-to-speech", baseUrl },
+          { id: "embed-model", task: "embedding", baseUrl },
+          { id: "chat-model", task: "chat", baseUrl }
+        ]}
+        brainPath="/data/kaja/memory.sqlite"
+        cwd="/home/kaja/project"
+        sessionCount={0}
+        memoryNoteCount={0}
+        toolCount={0}
+      />
+    </Box>
+  )
+  await t.tick()
+
+  const frame = t.lastFrame() ?? ""
+  const chatIndex = frame.indexOf("chat-model")
+  const embedIndex = frame.indexOf("embed-model")
+  const ttsIndex = frame.indexOf("tts-model")
+  expect(chatIndex).toBeGreaterThanOrEqual(0)
+  expect(embedIndex).toBeGreaterThan(chatIndex)
+  expect(ttsIndex).toBeGreaterThan(embedIndex)
+
+  t.unmount()
+  await t.waitUntilExit()
+})
+
 test("lists connected MCP servers with their tool counts", async () => {
   const t = renderForTest(
     <Box flexDirection="column" width={80} height={20}>

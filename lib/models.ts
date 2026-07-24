@@ -11,7 +11,7 @@ import {
 } from "../schemas/models"
 import { getConfigDir } from "./config"
 import { DEFAULT_MODEL as DEFAULT_EMBEDDING_MODEL } from "./embeddings"
-import { t } from "./i18n"
+import { getLanguage, t } from "./i18n"
 
 export function getModelsPath() {
   return join(getConfigDir(), "models.toml")
@@ -33,13 +33,13 @@ export function resolveModels(data: KajaModelsFile): ResolvedModel[] {
 }
 
 /**
- * config.json's embedding/imageGen blocks aren't part of models.toml (each
- * is a single model, not a catalog), but the startup panel reports on their
- * reachability the same way as chat/tts/stt — so resolve them into the same
- * shape here rather than teaching the panel a second data source.
+ * config.json's embedding/stt/imageGen blocks aren't part of models.toml
+ * (each is a single model, not a catalog), but the startup panel reports on
+ * their reachability the same way as chat/tts — so resolve them into the
+ * same shape here rather than teaching the panel a second data source.
  */
 export function resolveConfigModels(
-  config: Pick<KajaConfig, "llm" | "embedding" | "imageGen">
+  config: Pick<KajaConfig, "llm" | "embedding" | "stt" | "imageGen">
 ): ResolvedModel[] {
   const models: ResolvedModel[] = [
     {
@@ -47,6 +47,22 @@ export function resolveConfigModels(
       task: "embedding",
       baseUrl: config.embedding?.baseUrl ?? config.llm.baseUrl,
       apiKey: config.embedding?.apiKey ?? config.llm.apiKey
+    },
+    {
+      // Mirrors lib/stt.ts's own default: an English-only distil model
+      // unless the app language picks the multilingual one.
+      id:
+        config.stt?.model ??
+        (getLanguage() === "hu"
+          ? "Systran/faster-whisper-small"
+          : "Systran/faster-distil-whisper-small.en"),
+      task: "speech-to-text",
+      // speachesUrl is a ws:// URL (matching the speaches realtime API);
+      // the availability check speaks plain HTTP.
+      baseUrl: (config.stt?.speachesUrl ?? "ws://localhost:8000").replace(
+        /^ws/,
+        "http"
+      )
     }
   ]
   // Without an explicit model, imageGen relies on the provider's own
