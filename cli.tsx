@@ -1,3 +1,11 @@
+// supports-hyperlinks (used by marked-terminal for clickable links) only
+// recognizes a narrow allowlist of terminals via TERM_PROGRAM/VTE_VERSION;
+// it misses terminals like Alacritty unless TERM is literally "alacritty",
+// so links silently render as "text (url)" instead of OSC 8 hyperlinks.
+// Force it on: it must be set before marked-terminal's first import
+// anywhere, since supports-hyperlinks reads process.env once at module load.
+if (!process.env.FORCE_HYPERLINK) process.env.FORCE_HYPERLINK = "1"
+
 import { color } from "bun"
 import { render } from "ink"
 import { InkPictureProvider } from "ink-picture"
