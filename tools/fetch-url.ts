@@ -1,11 +1,14 @@
+import { Readability } from "@mozilla/readability"
+import { parseHTML } from "linkedom"
 import { ToolError, tool } from "../lib/agents"
 
 /**
  * Fetches a URL and returns its content as plain text.
  *
  * @param args.url - The URL to fetch.
- * @returns HTML pages are stripped of tags/scripts/styles down to readable
- * text; other content types are returned as-is.
+ * @returns HTML pages are reduced to their main article content (nav,
+ * ads, and other boilerplate stripped); other content types are returned
+ * as-is.
  */
 export const fetchUrlTool = tool<{ url: string }>({
   name: "fetch_url",
@@ -35,9 +38,15 @@ export const fetchUrlTool = tool<{ url: string }>({
       )
     const body = await res.text()
     const contentType = res.headers.get("content-type") ?? ""
-    return contentType.includes("html") ? stripHtml(body) : body
+    return contentType.includes("html") ? extractArticleText(body) : body
   }
 })
+
+function extractArticleText(html: string): string {
+  const { document } = parseHTML(html)
+  const article = new Readability(document).parse()
+  return article?.textContent?.trim() || stripHtml(html)
+}
 
 function stripHtml(html: string): string {
   return html
