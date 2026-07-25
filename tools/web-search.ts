@@ -15,7 +15,8 @@ export const webSearchTool = tool<{
   search_lang?: string
 }>({
   name: "web_search",
-  description: "Search the web for current information.",
+  description:
+    "Search the web for current information. Cite sources in the reply as markdown links, e.g. [title](url).",
   parameters: {
     type: "object",
     properties: {
@@ -43,81 +44,26 @@ export const webSearchTool = tool<{
       args.search_lang
     )
 
-    // console.log("RESULT", results)
-    // throw new Error(JSON.stringify(results))
-    // process.exit(0)
-
-    const thumbnail = results.find((r) => r.thumbnail)?.thumbnail
-    return {
-      text: JSON.stringify(results),
-      ...(thumbnail && {
-        displayImage: { url: thumbnail, alt: args.query }
-      })
-    }
+    return { text: JSON.stringify(results) }
   }
 })
 
-interface BraveSearchResult {
-  type: "search"
-  query: {
-    original: string
-    show_strict_warning: boolean
-    is_navigational: boolean
-    is_news_breaking: boolean
-    spellcheck_off: boolean
-    country: string
-    bad_results: boolean
-    should_fallback: boolean
-    postal_code: string
-    city: string
-    header_country: string
-    more_results_available: boolean
-    state: string
-  }
-  mixed: {
-    type: "mixed"
-    main: {
-      type: "web"
-      index: number
-      all: boolean
-    }[]
-    top: []
-    side: []
-  }
-  web: {
-    type: "search"
-    results: {
-      title: string
+interface BraveLLMContextResult {
+  grounding: {
+    generic: {
       url: string
-      is_source_local: boolean
-      is_source_both: boolean
-      description: string
-      profile: any[]
-      language: string
-      family_friendly: boolean
-      type: "search_result"
-      subtype: "generic" | "product" | "creative_work"
-      is_live: boolean
-      meta_url: {
-        schema: "https"
-        netloc: string
-        hostname: string
-        favicon: string
-        path: string
-      }
-      organization?: {
-        type: "organization"
-        name: string
-        contact_points: any[]
-      }
-      thumbnail?: {
-        src: string
-        original: string
-      }
-      extra_snippets: string[]
+      title: string
+      snippets: string[]
     }[]
-    family_friendly: boolean
   }
+  sources: Record<
+    string,
+    {
+      title: string
+      hostname: string
+      age: string[] | null
+    }
+  >
 }
 
 async function braveSearch(
@@ -129,16 +75,12 @@ async function braveSearch(
   const country = location?.country.isoCode
   const params = new URLSearchParams({
     q: query,
-    count: "20",
     ...(freshness ? { freshness } : {}),
-    text_decorations: "false",
     ...(country ? { country } : {}),
-    search_lang: search_lang ?? "hu",
-    result_filter: "web",
-    save_search: "off"
+    search_lang: search_lang ?? "hu"
   })
   const res = await fetch(
-    `https://api.search.brave.com/res/v1/web/search?${params.toString()}`,
+    `https://api.search.brave.com/res/v1/llm/context?${params.toString()}`,
     {
       headers: {
         "X-Subscription-Token": (await config()).webSearch?.apiKey ?? ""
@@ -150,12 +92,11 @@ async function braveSearch(
       "web_search",
       `Brave search failed: ${res.status} ${await res.text()}`
     )
-  const data = (await res.json()) as BraveSearchResult
+  const data = (await res.json()) as BraveLLMContextResult
 
-  return (data.web?.results ?? []).map((result) => ({
+  return (data.grounding?.generic ?? []).map((result) => ({
     title: result.title,
     url: result.url,
-    description: result.description,
-    thumbnail: result.thumbnail?.src
+    snippets: result.snippets
   }))
 }

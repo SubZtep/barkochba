@@ -25,6 +25,21 @@ marked.use(
   }) as unknown as MarkedExtension
 )
 
+// marked-terminal's own "text" renderer reads token.text (the raw,
+// unparsed source) instead of recursing into token.tokens, so inline
+// markdown - links, bold, ... - inside a single-line list item or table
+// cell renders as literal source instead of being parsed. Its own
+// link/del/heading renderers don't have this bug; this patches text() to
+// match them.
+marked.use({
+  renderer: {
+    text(token: any) {
+      if (token.tokens) return this.parser!.parseInline(token.tokens)
+      return token.text
+    }
+  }
+} as MarkedExtension)
+
 /**
  * Module-level parse cache: parsing is by far the most expensive per-item
  * work, and the same string is parsed again whenever a history item
