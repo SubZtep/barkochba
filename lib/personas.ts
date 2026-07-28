@@ -4,11 +4,21 @@ import { file, TOML, write } from "bun"
 // Written on first run: one file per persona, the stock assistant plus the
 // app's former built-in personas, sourced from the same files that document
 // docs/config/personas/ on the docs site.
-import BARKOCHBA_TEMPLATE from "../docs/config/personas/barkochba.toml" with { type: "text" }
-import CARE_TEMPLATE from "../docs/config/personas/care.toml" with { type: "text" }
-import DEFAULT_TEMPLATE from "../docs/config/personas/default.toml" with { type: "text" }
+import BARKOCHBA_TEMPLATE from "../docs/config/personas/barkochba.toml" with {
+  type: "text"
+}
+import CARE_TEMPLATE from "../docs/config/personas/care.toml" with {
+  type: "text"
+}
+import DEFAULT_TEMPLATE from "../docs/config/personas/default.toml" with {
+  type: "text"
+}
 import type { ResolvedModel } from "../schemas/models"
-import { type Persona, PersonaSchema, type SamplingParams } from "../schemas/personas"
+import {
+  type Persona,
+  PersonaSchema,
+  type SamplingParams
+} from "../schemas/personas"
 import { getConfigDir } from "./config"
 import { log } from "./logger"
 

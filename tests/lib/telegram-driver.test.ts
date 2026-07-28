@@ -252,6 +252,75 @@ test("resuming continues a pre-seeded session, scoped to that owner only", async
   expect(edited43.at(-1)!.text).toBe("fresh reply")
 })
 
+test("/new bypasses a resumable session and starts a fresh one", async () => {
+  await createSessionRow({
+    persona: "kaja",
+    model: "fake-model",
+    owner: telegramOwner(42),
+    session: {
+      messages: [
+        { role: "system", content: "be helpful" },
+        { role: "user", content: "earlier message" },
+        { role: "assistant", content: "earlier reply" }
+      ]
+    },
+    events: [
+      { type: "user", text: "earlier message" },
+      { type: "final", content: "earlier reply" }
+    ],
+    title: "earlier message"
+  })
+
+  const { sender, sent, edited } = fakeSender()
+  const driver = makeDriver([{ content: "fresh reply" }], sender, [42])
+
+  await driver.handleMessage(42, 100, "/new")
+  expect(sent.at(-1)!.text).toBe(t("telegram.newSession"))
+
+  await driver.handleMessage(42, 100, "hi again")
+  expect(edited.at(-1)!.text).toBe("fresh reply")
+
+  const saved = await loadLatestSessionRowForOwner(telegramOwner(42))
+  expect(saved!.title).toBe("hi again")
+})
+
+test("/new re-resolves getInitialPersona live, picking up a persona switched after the driver was created", async () => {
+  const kaja: Persona = { id: "kaja", label: "Kaja" }
+  const grumpy: Persona = {
+    id: "grumpy",
+    label: "Grumpy",
+    instructions: "Be grumpy."
+  }
+  let currentPersonaId = kaja.id
+
+  const { sender } = fakeSender()
+  const driver = createTelegramDriver({
+    agentConfig: { model: "fake-model", tools: [askUserTool, runCommandTool] },
+    personas: [kaja, grumpy],
+    models: [],
+    allowedUserIds: [42],
+    sender,
+    getInitialPersona: () =>
+      [kaja, grumpy].find((p) => p.id === currentPersonaId),
+    createAgent: () => fakeAgent([{ content: "reply" }, { content: "reply" }])
+  })
+
+  await driver.handleMessage(42, 100, "/new")
+  await driver.handleMessage(42, 100, "hi")
+  let saved = await loadLatestSessionRowForOwner(telegramOwner(42))
+  expect(saved!.persona).toBe("kaja")
+
+  // Switch persona "in the terminal" while this same driver keeps running —
+  // /new must re-call getInitialPersona rather than reuse whatever it
+  // resolved when the driver was first constructed.
+  currentPersonaId = grumpy.id
+
+  await driver.handleMessage(42, 100, "/new")
+  await driver.handleMessage(42, 100, "hi again")
+  saved = await loadLatestSessionRowForOwner(telegramOwner(42))
+  expect(saved!.persona).toBe("grumpy")
+})
+
 test("confirm_command sends an approval keyboard, and approving runs the command", async () => {
   const { sender, sent, edited } = fakeSender()
   const driver = makeDriver(

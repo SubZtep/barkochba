@@ -73,8 +73,13 @@ export type TelegramDriverConfig = {
   agentConfig: ConstructorParameters<typeof Agent>[0]
   personas: Persona[]
   models: ResolvedModel[]
-  /** Fallback persona for a user with no resumable session; defaults to personas[0]. */
-  initialPersona?: Persona
+  /**
+   * Fallback persona for a user with no resumable session (including a
+   * fresh /new); defaults to personas[0]. A getter rather than a fixed
+   * Persona so /new can reflect a persona switched in the terminal *after*
+   * the bot process started, without needing a restart.
+   */
+  getInitialPersona?: () => Persona | undefined | Promise<Persona | undefined>
   allowedUserIds: number[]
   sender: TelegramSender
   /**
@@ -179,7 +184,7 @@ class EditThrottle {
 }
 
 export function createTelegramDriver(config: TelegramDriverConfig) {
-  const { agentConfig, personas, models, initialPersona, sender } = config
+  const { agentConfig, personas, models, getInitialPersona, sender } = config
   const createAgent =
     config.createAgent ??
     ((init: {
@@ -196,12 +201,17 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
   const users = new Map<number, UserState>()
   const creating = new Map<number, Promise<UserState>>()
 
-  async function createUserState(userId: number): Promise<UserState> {
+  async function createUserState(
+    userId: number,
+    resume = true
+  ): Promise<UserState> {
     const owner = telegramOwner(userId)
-    const resumeRow = await loadLatestSessionRowForOwner(owner)
+    const resumeRow = resume
+      ? await loadLatestSessionRowForOwner(owner)
+      : undefined
     const persona =
       (resumeRow && personas.find((p) => p.id === resumeRow.persona)) ??
-      initialPersona ??
+      (await getInitialPersona?.()) ??
       personas[0]!
     const resumeModel =
       resumeRow && models.find((m) => m.id === resumeRow.model)
@@ -459,6 +469,19 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
 
   async function handleMessage(userId: number, chatId: number, text: string) {
     if (!allowedUserIds.has(userId)) return
+
+    if (text.trim() === "/new") {
+      const existing = users.get(userId)
+      if (existing?.busy) {
+        await sender.sendMessage(chatId, t("telegram.stillWorking"))
+        return
+      }
+      const state = await createUserState(userId, false)
+      users.set(userId, state)
+      await sender.sendMessage(chatId, t("telegram.newSession"))
+      return
+    }
+
     const state = await getUserState(userId)
 
     if (state.busy) {

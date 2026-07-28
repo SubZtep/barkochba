@@ -125,7 +125,12 @@ test("answer on an unknown field returns an error", async () => {
 test("answering every field marks the version complete", async () => {
   const owner = "test:complete"
   await datasetInfoTool.execute(
-    { action: "answer", dataset: "never_expires", field: "name", value: "Andras" },
+    {
+      action: "answer",
+      dataset: "never_expires",
+      field: "name",
+      value: "Andras"
+    },
     { owner }
   )
   const status = await datasetInfoTool.execute(
@@ -138,7 +143,12 @@ test("answering every field marks the version complete", async () => {
 test("a complete, non-stale version is resumed as complete rather than restarted", async () => {
   const owner = "test:resume-complete"
   await datasetInfoTool.execute(
-    { action: "answer", dataset: "never_expires", field: "name", value: "Andras" },
+    {
+      action: "answer",
+      dataset: "never_expires",
+      field: "name",
+      value: "Andras"
+    },
     { owner }
   )
   const status = await datasetInfoTool.execute(
@@ -153,7 +163,12 @@ test("a complete, non-stale version is resumed as complete rather than restarted
 test("start_new_version explicitly bumps the version without waiting for staleness", async () => {
   const owner = "test:new-version"
   await datasetInfoTool.execute(
-    { action: "answer", dataset: "never_expires", field: "name", value: "Andras" },
+    {
+      action: "answer",
+      dataset: "never_expires",
+      field: "name",
+      value: "Andras"
+    },
     { owner }
   )
   const result = await datasetInfoTool.execute(

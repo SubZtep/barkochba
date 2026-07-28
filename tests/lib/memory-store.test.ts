@@ -108,7 +108,9 @@ test("data persists across a fresh process (module re-import)", async () => {
 
 // A fresh directory (not a fixed name) so re-running the suite never
 // accumulates rows from a previous run's on-disk sqlite file.
-const datasetDataDir = mkdtempSync(join(tmpdir(), "kaja-test-xdg-data-datasets-"))
+const datasetDataDir = mkdtempSync(
+  join(tmpdir(), "kaja-test-xdg-data-datasets-")
+)
 
 beforeEach(() => {
   process.env.XDG_DATA_HOME = datasetDataDir
@@ -138,7 +140,13 @@ test("markDatasetVersionComplete is idempotent and records a stable completedAt"
 })
 
 test("owner scoping isolates answers between terminal (null) and a Telegram user", async () => {
-  await saveDatasetAnswer("topic-owner-scope", null, 1, "favorite_color", "blue")
+  await saveDatasetAnswer(
+    "topic-owner-scope",
+    null,
+    1,
+    "favorite_color",
+    "blue"
+  )
   await saveDatasetAnswer(
     "topic-owner-scope",
     "telegram:1",

@@ -180,8 +180,7 @@ if (cli.input[0] === "telegram") {
     config: currentConfig,
     tools,
     personas,
-    models,
-    initialPersona: personas.find((p) => p.id === settings?.persona)
+    models
   })
   await shutdown()
   process.exit(code)

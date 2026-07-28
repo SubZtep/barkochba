@@ -19,7 +19,6 @@ export async function runTelegramCli(deps: {
   tools: Tool<any>[]
   personas: Persona[]
   models: ResolvedModel[]
-  initialPersona?: Persona
 }): Promise<number> {
   const { telegram } = deps.config
   if (!telegram) {
@@ -28,12 +27,19 @@ export async function runTelegramCli(deps: {
   }
 
   const { createTelegramBot } = await import("./telegram-bot")
+  const { config: readConfig } = await import("./config")
   const bot = createTelegramBot({
     ...telegram,
     agentConfig: { model: deps.config.llm.model, tools: deps.tools },
     personas: deps.personas,
     models: deps.models,
-    initialPersona: deps.initialPersona
+    // Re-reads config on every call (readConfig() is cache-invalidated by
+    // saveSettings) so /new picks up a persona switched in the terminal
+    // after this bot process started, without needing a restart.
+    getInitialPersona: async () => {
+      const current = await readConfig()
+      return deps.personas.find((p) => p.id === current?.settings?.persona)
+    }
   })
 
   // Owns its own SIGINT/SIGTERM handling for bot.stop() rather than teaching

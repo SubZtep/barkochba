@@ -34,8 +34,9 @@ writeFileSync(
 )
 
 const { invalidateConfigCache } = await import("../../lib/config")
-const { askUserTool, createSession, run, runCommandTool, tool } =
-  await import("../../lib/agents")
+const { askUserTool, createSession, run, runCommandTool, tool } = await import(
+  "../../lib/agents"
+)
 const { saveMemory } = await import("../../lib/memory-store")
 const { rememberNoteTool } = await import("../../tools/memory")
 
@@ -140,12 +141,7 @@ test("run() threads the owner parameter to a tool's execute as ctx.owner", async
   )
 
   const events: AgentEvent[] = []
-  for await (const event of run(
-    agent,
-    "hi",
-    createSession(),
-    "telegram:42"
-  )) {
+  for await (const event of run(agent, "hi", createSession(), "telegram:42")) {
     events.push(event)
   }
 

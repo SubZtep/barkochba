@@ -45,9 +45,7 @@ test("persona without dataset leaves it undefined", () => {
 })
 
 test("temperature out of range is rejected", () => {
-  expect(() =>
-    PersonaSchema.parse({ label: "X", temperature: 2.5 })
-  ).toThrow()
+  expect(() => PersonaSchema.parse({ label: "X", temperature: 2.5 })).toThrow()
 })
 
 test("top_p out of range is rejected", () => {

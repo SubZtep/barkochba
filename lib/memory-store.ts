@@ -312,9 +312,9 @@ export async function latestDatasetVersion(
          SELECT version FROM dataset_versions WHERE topic = $topic AND owner = $owner
        )`
     )
-    .get({ $topic: topic, $owner: ownerKey(owner) }) as
-    | { version: number | null }
-    | null
+    .get({ $topic: topic, $owner: ownerKey(owner) }) as {
+    version: number | null
+  } | null
   return row?.version ?? 0
 }
 

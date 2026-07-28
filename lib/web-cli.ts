@@ -156,21 +156,19 @@ export function startWebServer(port: number) {
           listDatasetVersionsSummary(),
           loadDatasets()
         ])
-        const versions: DatasetVersionSummary[] = versionSummaries.map(
-          (v) => ({
-            topic: v.topic,
-            owner: v.owner,
-            version: v.version,
-            answers: allAnswers.filter(
-              (a) =>
-                a.topic === v.topic &&
-                a.owner === v.owner &&
-                a.version === v.version
-            ),
-            totalFields: datasets.get(v.topic)?.fields.length,
-            completedAt: v.completedAt
-          })
-        )
+        const versions: DatasetVersionSummary[] = versionSummaries.map((v) => ({
+          topic: v.topic,
+          owner: v.owner,
+          version: v.version,
+          answers: allAnswers.filter(
+            (a) =>
+              a.topic === v.topic &&
+              a.owner === v.owner &&
+              a.version === v.version
+          ),
+          totalFields: datasets.get(v.topic)?.fields.length,
+          completedAt: v.completedAt
+        }))
         return html(datasetsPage(versions))
       }
     },

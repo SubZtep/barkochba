@@ -420,7 +420,9 @@ export async function buildSystemPrompt(
   const datasetBlock =
     agent.dataset && toolNames.has(DATASET_INFO_TOOL)
       ? await loadDataset(agent.dataset).then((dataset) =>
-          dataset ? datasetInstructions(agent.dataset!, dataset.label) : undefined
+          dataset
+            ? datasetInstructions(agent.dataset!, dataset.label)
+            : undefined
         )
       : undefined
 

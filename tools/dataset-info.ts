@@ -140,7 +140,8 @@ export const datasetInfoTool = tool<Args>({
       },
       field: {
         type: "string",
-        description: "Required for 'answer'. Exact field name from 'get_status'."
+        description:
+          "Required for 'answer'. Exact field name from 'get_status'."
       },
       value: {
         type: "string",
