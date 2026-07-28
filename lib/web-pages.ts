@@ -232,6 +232,8 @@ function eventSummary(event: Record<string, unknown>): string {
       return escapeHtml(`${event.alt} (${event.url})`)
     case "confirm_command":
       return `<code>${escapeHtml(event.command)}</code> — ${escapeHtml(event.description)}`
+    case "persona_switch":
+      return escapeHtml(`${event.label} (${event.personaId})`)
     default:
       return ""
   }

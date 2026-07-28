@@ -30,7 +30,12 @@ export async function runTelegramCli(deps: {
   const { config: readConfig } = await import("./config")
   const bot = createTelegramBot({
     ...telegram,
-    agentConfig: { model: deps.config.llm.model, tools: deps.tools },
+    agentConfig: {
+      model: deps.config.llm.model,
+      tools: deps.tools,
+      personas: deps.personas,
+      models: deps.models
+    },
     personas: deps.personas,
     models: deps.models,
     // Re-reads config on every call (readConfig() is cache-invalidated by

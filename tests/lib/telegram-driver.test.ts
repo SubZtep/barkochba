@@ -29,7 +29,9 @@ writeFileSync(
 )
 
 const { invalidateConfigCache } = await import("../../lib/config")
-const { askUserTool, runCommandTool, tool } = await import("../../lib/agents")
+const { askUserTool, runCommandTool, switchPersonaTool, tool } = await import(
+  "../../lib/agents"
+)
 const { getDb } = await import("../../lib/memory-store")
 const { createSessionRow, loadLatestSessionRowForOwner } = await import(
   "../../lib/session-store"
@@ -504,4 +506,58 @@ test("a message while busy or a command is pending gets a reminder instead of in
 
   expect(sent.at(-1)!.text).toBe(t("telegram.pendingCommand"))
   expect(edited).toHaveLength(editsAfterFirstTurn)
+})
+
+test("switch_persona mid-turn updates the user's persona and the persisted row", async () => {
+  const kaja: Persona = { id: "kaja", label: "Kaja" }
+  const grumpy: Persona = {
+    id: "grumpy",
+    label: "Grumpy",
+    instructions: "You are grumpy.",
+    when: "the user wants sass"
+  }
+  const { sender, edited } = fakeSender()
+  const driver = createTelegramDriver({
+    agentConfig: { model: "fake-model", tools: [askUserTool, runCommandTool] },
+    personas: [kaja, grumpy],
+    models: [],
+    allowedUserIds: [42],
+    sender,
+    createAgent: (init) =>
+      ({
+        ...fakeAgent(
+          [
+            {
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: {
+                    name: "switch_persona",
+                    arguments: JSON.stringify({ persona: "grumpy" })
+                  }
+                }
+              ]
+            },
+            { content: "Fine, I'm listening." }
+          ],
+          [switchPersonaTool]
+        ),
+        personas: [kaja, grumpy],
+        models: [],
+        personaId: init.personaId
+      }) as unknown as Agent
+  })
+
+  await driver.handleMessage(42, 100, "be sassy")
+
+  expect(edited.at(-1)!.text).toBe("Fine, I'm listening.")
+  const saved = await loadLatestSessionRowForOwner(telegramOwner(42))
+  expect(saved!.persona).toBe("grumpy")
+  const system = (
+    saved!.session as { messages: { role: string; content: string }[] }
+  ).messages[0]
+  expect(system!.role).toBe("system")
+  expect(system!.content).toContain("You are grumpy.")
 })

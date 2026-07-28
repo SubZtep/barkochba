@@ -6,7 +6,7 @@ import type {
   ChatCompletionTool
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
-import type { SamplingParams } from "../schemas/personas"
+import type { Persona, SamplingParams } from "../schemas/personas"
 import { LOCAL_OWNER } from "../schemas/session"
 import { isDangerousCommand } from "./command-risk"
 import { readConfigLoose } from "./config"
@@ -16,6 +16,7 @@ import { lookupMyLocation } from "./geo"
 import { t } from "./i18n"
 import { loadMemory } from "./memory-store"
 import { client } from "./openai"
+import { samplingOf } from "./personas"
 import { runShellCommand } from "./run-command"
 
 /** Identifies who's talking to a {@link Tool}'s `execute` — `null` for a terminal session, `"telegram:<id>"` for a Telegram user (same convention as the sessions table's `owner` column). Supplied by {@link run}, never by the model. */
@@ -108,6 +109,12 @@ export class Agent {
   sampling?: SamplingParams
   /** Topic id of the dataset (schemas/datasets.ts) this agent's persona is bound to collecting, if any — see the `dataset` field on PersonaSchema. */
   dataset?: string
+  /** Full persona roster, so the model can switch mid-conversation via {@link switchPersonaTool}; empty disables the ## Personas block. */
+  personas: Persona[]
+  /** Resolved models, so a persona swap can honor the target's pinned `model` via setModel. */
+  models: ResolvedModel[]
+  /** Id of the currently adopted persona, if any — kept in sync by {@link applyPersona}. */
+  personaId?: string
 
   constructor(config: {
     name?: string
@@ -116,6 +123,9 @@ export class Agent {
     instructions?: string
     sampling?: SamplingParams
     dataset?: string
+    personas?: Persona[]
+    models?: ResolvedModel[]
+    personaId?: string
   }) {
     this.name = config.name ?? "Assistant"
     this.model = config.model
@@ -124,6 +134,9 @@ export class Agent {
     this.instructions = config.instructions
     this.sampling = config.sampling
     this.dataset = config.dataset
+    this.personas = config.personas ?? []
+    this.models = config.models ?? []
+    this.personaId = config.personaId
   }
 
   /** Point the agent at another model, swapping the client to its provider. */
@@ -300,6 +313,66 @@ export const runCommandTool = tool<{
 })
 
 /**
+ * Name of the tool the model calls to adopt another persona mid-conversation.
+ * Like {@link ASK_USER_TOOL}, {@link run} intercepts calls to it by name —
+ * but instead of ending the generator it applies the persona, rewrites the
+ * session's system message in place, and continues the loop, so the very
+ * next completion already speaks as the new persona.
+ */
+export const SWITCH_PERSONA_TOOL = "switch_persona"
+
+/**
+ * Tool the model calls to switch its own persona when the conversation
+ * clearly matches another persona's purpose (per the ## Personas roster in
+ * the system prompt). Never actually executed — {@link run} intercepts calls
+ * to it by name before dispatch.
+ */
+export const switchPersonaTool = tool<{ persona: string; reason?: string }>({
+  name: SWITCH_PERSONA_TOOL,
+  description:
+    "Switch your own persona when the conversation clearly calls for a " +
+    "different one (see ## Personas in your system prompt). The " +
+    "conversation continues uninterrupted; only your role, style, and " +
+    "focus change.",
+  parameters: {
+    type: "object",
+    properties: {
+      persona: {
+        type: "string",
+        description: "Id of the persona to adopt"
+      },
+      reason: {
+        type: "string",
+        description: "One short sentence on why this persona fits now"
+      }
+    },
+    required: ["persona"]
+  },
+  execute: async () => {
+    throw new Error(
+      `${SWITCH_PERSONA_TOOL} should be intercepted by run(), not executed`
+    )
+  }
+})
+
+/**
+ * Applies a persona's fields to an agent — shared by {@link run}'s
+ * {@link SWITCH_PERSONA_TOOL} interception and the manual persona menu.
+ * Swaps the model only when the persona pins one; otherwise the current
+ * model is kept.
+ */
+export function applyPersona(agent: Agent, persona: Persona) {
+  agent.personaId = persona.id
+  agent.instructions = persona.instructions
+  agent.sampling = samplingOf(persona)
+  agent.dataset = persona.dataset
+  if (persona.model) {
+    const model = agent.models.find((m) => m.id === persona.model)
+    if (model) agent.setModel(model)
+  }
+}
+
+/**
  * Name of the tool that gates the persistent-memory feature: when an agent
  * has it, {@link run} injects {@link MEMORY_INSTRUCTIONS} and the sticky
  * notes into the session's system prompt. Unlike {@link ASK_USER_TOOL} and
@@ -352,6 +425,7 @@ export type AgentEvent =
   | { type: "display_image"; url: string; alt: string }
   | { type: "ask_user"; question: string }
   | { type: "confirm_command"; command: string; description: string }
+  | { type: "persona_switch"; personaId: string; label: string }
   | { type: "final"; content: string | null }
   | { type: "usage"; promptTokens: number }
 
@@ -418,6 +492,22 @@ export async function buildSystemPrompt(
     ? t("agent.replyLanguage")
     : undefined
 
+  const personasBlock =
+    toolNames.has(SWITCH_PERSONA_TOOL) && agent.personas.length > 1
+      ? `You can change your own persona mid-conversation by calling ` +
+        `${SWITCH_PERSONA_TOOL} when the topic clearly matches another ` +
+        `persona's purpose. Current persona: "${agent.personaId ?? "unknown"}". ` +
+        `Available personas:\n` +
+        agent.personas
+          .map(
+            (p) =>
+              `- ${p.id} (${p.label})${p.when ? `: use when ${p.when}` : ""}`
+          )
+          .join("\n") +
+        `\nSwitch only when the fit is clear — when unsure, stay put. ` +
+        `Don't announce the mechanics of switching; just continue naturally.`
+      : undefined
+
   const datasetBlock =
     agent.dataset && toolNames.has(DATASET_INFO_TOOL)
       ? await loadDataset(agent.dataset).then((dataset) =>
@@ -448,6 +538,7 @@ export async function buildSystemPrompt(
       hasMemory
         ? `## Tool contract: memory\n${MEMORY_INSTRUCTIONS}`
         : undefined,
+      personasBlock ? `## Personas\n${personasBlock}` : undefined,
       datasetBlock ? `## Dataset collection\n${datasetBlock}` : undefined,
       stickyBlock,
       replyLanguageBlock
@@ -628,6 +719,41 @@ export async function* run(
           command: args.command,
           description: args.description
         }
+        continue
+      }
+
+      if (call.function.name === SWITCH_PERSONA_TOOL) {
+        yield {
+          type: "tool_call",
+          name: call.function.name,
+          arguments: call.function.arguments
+        }
+        const args = JSON.parse(call.function.arguments)
+        const target = agent.personas.find((p) => p.id === args.persona)
+        let content: string
+        if (!target) {
+          content =
+            `Unknown persona "${args.persona}". Available: ` +
+            `${agent.personas.map((p) => p.id).join(", ")}.`
+        } else if (target.id === agent.personaId) {
+          content = `Already using persona "${target.id}".`
+        } else {
+          applyPersona(agent, target)
+          const system = await buildSystemPrompt(agent)
+          if (system) {
+            if (messages[0]?.role === "system") messages[0].content = system
+            else messages.unshift({ role: "system", content: system })
+          }
+          yield {
+            type: "persona_switch",
+            personaId: target.id,
+            label: target.label
+          }
+          content =
+            `Persona switched to "${target.label}" (${target.id}). Your ` +
+            `system instructions have been updated — continue in this persona.`
+        }
+        messages.push({ role: "tool", tool_call_id: call.id, content })
         continue
       }
 

@@ -93,7 +93,13 @@ export function startWebServer(port: number) {
           return html(unconfiguredPersonasPage())
         }
         const [
-          { Agent, askUserTool, buildSystemPrompt, runCommandTool },
+          {
+            Agent,
+            askUserTool,
+            buildSystemPrompt,
+            runCommandTool,
+            switchPersonaTool
+          },
           { forgetNoteTool, listNotesTool, recallMemoryTool, rememberNoteTool },
           { datasetInfoTool }
         ] = await Promise.all([
@@ -104,6 +110,7 @@ export function startWebServer(port: number) {
         const previewTools = [
           askUserTool,
           runCommandTool,
+          switchPersonaTool,
           rememberNoteTool,
           recallMemoryTool,
           forgetNoteTool,
@@ -121,7 +128,9 @@ export function startWebServer(port: number) {
                 model: persona.model ?? "",
                 tools: previewTools,
                 instructions: persona.instructions,
-                dataset: persona.dataset
+                dataset: persona.dataset,
+                personas,
+                personaId: persona.id
               })
             )
           }))

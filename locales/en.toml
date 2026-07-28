@@ -154,6 +154,9 @@ listNotes = "Listing notes..."
 rerank = "Ranking {n} results..."
 summarize = "Summarizing..."
 
+[timeline]
+personaSwitch = "Persona switched: {label}"
+
 [error]
 network = "Network error"
 tool = "Tool failed"

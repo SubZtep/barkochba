@@ -2,6 +2,7 @@
 # app itself based on `dataset` below, so instructions shouldn't restate it.
 
 label = "Onboarding assistant"
+when = "a new user should be walked through the initial getting-to-know-you questions"
 dataset = "onboarding"
 instructions = """
 Get to know the user by collecting the onboarding dataset. Ask about

@@ -37,7 +37,11 @@ export const PersonaSchema = z
     // Topic id (matches a schemas/datasets.ts config filename) this persona
     // is responsible for collecting via the dataset_info tool. Optional —
     // most personas don't collect a dataset.
-    dataset: z.string().min(1).optional()
+    dataset: z.string().min(1).optional(),
+    // One short clause describing when this persona fits (e.g. "the user
+    // talks about mood, energy, or sleep"). Listed in the ## Personas
+    // system-prompt roster so the model knows when to switch_persona to it.
+    when: z.string().min(1).optional()
   })
   .extend(SamplingParamsSchema.shape)
 

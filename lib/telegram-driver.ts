@@ -92,6 +92,7 @@ export type TelegramDriverConfig = {
     instructions?: string
     sampling?: ReturnType<typeof samplingOf>
     dataset?: string
+    personaId?: string
   }) => Agent
 }
 
@@ -191,6 +192,7 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
       instructions?: string
       sampling?: ReturnType<typeof samplingOf>
       dataset?: string
+      personaId?: string
     }) => new Agent({ ...agentConfig, ...init }))
   const allowedUserIds = new Set(config.allowedUserIds)
   // Never evicted: each allowed user's Agent + full events[] stays live in
@@ -219,7 +221,8 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
     const agent = createAgent({
       instructions: persona.instructions ?? agentConfig.instructions,
       sampling: samplingOf(persona),
-      dataset: persona.dataset
+      dataset: persona.dataset,
+      personaId: persona.id
     })
     const startingModel =
       resumeModel ??
@@ -424,6 +427,14 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
         if (event.type === "usage") continue
 
         state.events.push(event)
+
+        if (event.type === "persona_switch") {
+          // run() already mutated the agent via applyPersona — mirror it
+          // into UserState so persistSession writes the new persona id.
+          const next = personas.find((p) => p.id === event.personaId)
+          if (next) state.persona = next
+          continue
+        }
 
         if (event.type === "tool_image") {
           await sendPhotoSafely(chatId, { path: event.path })

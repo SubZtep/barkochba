@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Agent, AgentEvent } from "../../lib/agents"
+import type { Persona } from "../../schemas/personas"
 
 // XDG_DATA_HOME/XDG_CONFIG_HOME are read fresh on every call by
 // lib/config.ts and lib/memory-store.ts (not cached at module load), so
@@ -34,9 +35,15 @@ writeFileSync(
 )
 
 const { invalidateConfigCache } = await import("../../lib/config")
-const { askUserTool, createSession, run, runCommandTool, tool } = await import(
-  "../../lib/agents"
-)
+const {
+  askUserTool,
+  buildSystemPrompt,
+  createSession,
+  run,
+  runCommandTool,
+  switchPersonaTool,
+  tool
+} = await import("../../lib/agents")
 const { saveMemory } = await import("../../lib/memory-store")
 const { rememberNoteTool } = await import("../../tools/memory")
 
@@ -391,4 +398,141 @@ test("dataset instructions block appears only when agent.dataset is set and the 
   const content2 = (session2.messages[0] as { content: string } | undefined)
     ?.content
   expect(content2 ?? "").not.toContain("Onboarding")
+})
+
+const personaA: Persona = {
+  id: "a",
+  label: "Persona A",
+  instructions: "You are persona A.",
+  when: "topic A comes up"
+}
+const personaB: Persona = {
+  id: "b",
+  label: "Persona B",
+  instructions: "You are persona B.",
+  temperature: 0.5,
+  when: "topic B comes up"
+}
+
+/** A fakeAgent carrying a persona roster, as the switch_persona path needs. */
+function fakePersonaAgent(script: FakeMessage[]): Agent {
+  return {
+    ...fakeAgent(script, [switchPersonaTool]),
+    instructions: personaA.instructions,
+    personas: [personaA, personaB],
+    models: [],
+    personaId: personaA.id
+  } as unknown as Agent
+}
+
+test("switch_persona rewrites the system message in place and continues the turn", async () => {
+  const agent = fakePersonaAgent([
+    {
+      content: null,
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: {
+            name: "switch_persona",
+            arguments: JSON.stringify({ persona: "b", reason: "topic B" })
+          }
+        }
+      ]
+    },
+    { content: "Continuing as B." }
+  ])
+
+  const session = createSession()
+  const events: AgentEvent[] = []
+  for await (const event of run(agent, "let's talk about topic B", session)) {
+    events.push(event)
+  }
+
+  const finalized = events.filter((e) => e.type !== "delta")
+  expect(finalized).toEqual([
+    {
+      type: "tool_call",
+      name: "switch_persona",
+      arguments: JSON.stringify({ persona: "b", reason: "topic B" })
+    },
+    { type: "persona_switch", personaId: "b", label: "Persona B" },
+    { type: "final", content: "Continuing as B." }
+  ])
+
+  expect(agent.personaId).toBe("b")
+  expect(agent.sampling).toEqual({ temperature: 0.5 })
+
+  const system = session.messages[0]
+  expect(system?.role).toBe("system")
+  const content = (system as { content: string }).content
+  expect(content).toContain("You are persona B.")
+  expect(content).not.toContain("You are persona A.")
+
+  const toolResponse = session.messages.find((m) => m.role === "tool")
+  expect((toolResponse as { content: string }).content).toContain(
+    'Persona switched to "Persona B"'
+  )
+})
+
+test("switch_persona with an unknown id returns an error result and leaves the prompt untouched", async () => {
+  const agent = fakePersonaAgent([
+    {
+      content: null,
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: {
+            name: "switch_persona",
+            arguments: JSON.stringify({ persona: "nope" })
+          }
+        }
+      ]
+    },
+    { content: "Staying as A." }
+  ])
+
+  const session = createSession()
+  const events: AgentEvent[] = []
+  for await (const event of run(agent, "hello", session)) {
+    events.push(event)
+  }
+
+  expect(events.some((e) => e.type === "persona_switch")).toBe(false)
+  expect(agent.personaId).toBe("a")
+
+  const content = (session.messages[0] as { content: string }).content
+  expect(content).toContain("You are persona A.")
+
+  const toolResponse = session.messages.find((m) => m.role === "tool")
+  expect((toolResponse as { content: string }).content).toContain(
+    'Unknown persona "nope"'
+  )
+})
+
+test("## Personas roster appears only with the switch_persona tool and more than one persona", async () => {
+  const withRoster = fakePersonaAgent([])
+  const prompt = await buildSystemPrompt(withRoster)
+  expect(prompt).toContain("## Personas")
+  expect(prompt).toContain('Current persona: "a"')
+  expect(prompt).toContain("- b (Persona B): use when topic B comes up")
+
+  const withoutTool = {
+    ...fakeAgent([]),
+    personas: [personaA, personaB],
+    personaId: personaA.id
+  } as Agent
+  expect((await buildSystemPrompt(withoutTool)) ?? "").not.toContain(
+    "## Personas"
+  )
+
+  const singlePersona = {
+    ...fakeAgent([], [switchPersonaTool]),
+    personas: [personaA],
+    personaId: personaA.id
+  } as Agent
+  expect((await buildSystemPrompt(singlePersona)) ?? "").not.toContain(
+    "## Personas"
+  )
 })

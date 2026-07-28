@@ -1,7 +1,7 @@
 {
   "name": "barkochba",
   "description": "Kaja CLI",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "type": "module",
   "private": true,
   "bin": {
@@ -33,7 +33,7 @@
     "marked": "^15",
     "marked-terminal": "^7.3.0",
     "meow": "^14.1.0",
-    "openai": "^7.0.0",
+    "openai": "^7.1.0",
     "pino": "^10.3.1",
     "react": "^19.2.8",
     "string-width": "^8.2.2",

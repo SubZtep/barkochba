@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import {
   Agent,
+  applyPersona,
   createSession,
   type FinalizedAgentEvent,
   run,
@@ -72,7 +73,10 @@ export function useAgent(
       ...agentConfig,
       instructions: startingPersona?.instructions ?? agentConfig.instructions,
       sampling: samplingOf(startingPersona),
-      dataset: startingPersona?.dataset
+      dataset: startingPersona?.dataset,
+      personas,
+      models,
+      personaId: startingPersona?.id
     })
     const startingModel =
       resume?.model ??
@@ -127,9 +131,12 @@ export function useAgent(
   // display — not part of the visible timeline.
   const [promptTokens, setPromptTokens] = useState<number | null>(null)
 
-  // Adopting a persona swaps the agent's instructions and starts a fresh
-  // session/timeline — run() bakes instructions into the first system
-  // message, so they can't change mid-conversation.
+  // Adopting a persona from the menu swaps the agent's instructions and
+  // starts a fresh session/timeline — deliberately destructive, since the
+  // menu is also the CLI's only "new conversation" affordance. The agent
+  // can additionally switch its own persona mid-conversation via the
+  // switch_persona tool, which run() handles non-destructively by rewriting
+  // the session's system message in place (see the persona_switch event).
   const [persona, setPersona] = useState<Persona>(
     resume?.persona ?? initialPersona ?? personas[0]!
   )
@@ -137,18 +144,10 @@ export function useAgent(
   const switchPersona = useCallback(
     (next: Persona) => {
       if (pending) return
-      agent.instructions = next.instructions
-      agent.sampling = samplingOf(next)
-      agent.dataset = next.dataset
       // Only sets the starting point for the new session — the user can
       // still switch models manually afterward via switchModel.
-      const nextModel = next.model
-        ? models.find((m) => m.id === next.model)
-        : undefined
-      if (nextModel) {
-        agent.setModel(nextModel)
-        setModel(nextModel.id)
-      }
+      applyPersona(agent, next)
+      setModel(agent.model)
       sessionRef.current = createSession()
       sessionRowIdRef.current = undefined
       eventsRef.current = []
@@ -157,7 +156,7 @@ export function useAgent(
       personaRef.current = next
       setPersona(next)
     },
-    [agent, pending, models]
+    [agent, pending]
   )
 
   // Saves the conversation after each turn, fire-and-forget like
@@ -224,6 +223,17 @@ export function useAgent(
           } else if (event.type === "usage") {
             setPromptTokens(event.promptTokens)
           } else {
+            if (event.type === "persona_switch") {
+              // run() already mutated the agent via applyPersona — mirror
+              // it into React state so the header/menu and the session
+              // row's persona column follow.
+              const next = personas.find((p) => p.id === event.personaId)
+              if (next) {
+                personaRef.current = next
+                setPersona(next)
+              }
+              setModel(agent.model)
+            }
             setPartial(null)
             pushEvent(event)
           }
@@ -238,7 +248,7 @@ export function useAgent(
         persistSession()
       }
     },
-    [agent, pushEvent, persistSession]
+    [agent, pushEvent, persistSession, personas]
   )
 
   // Resolves a pending confirm_command event: runs the command on approval

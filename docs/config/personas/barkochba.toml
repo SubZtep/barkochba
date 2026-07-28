@@ -2,6 +2,7 @@
 # injected by the app itself, so instructions shouldn't restate it.
 
 label = "Barkochba guesser"
+when = "the user wants to play a guessing game / twenty questions"
 instructions = """
 You are the GUESSER in a game of Twenty Questions (barkochba).
 The user has thought of one specific thing — an object, animal, person, place, or concept.

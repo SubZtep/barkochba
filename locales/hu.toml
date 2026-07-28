@@ -154,6 +154,9 @@ listNotes = "Jegyzetek listázása..."
 rerank = "{n} találat rangsorolása..."
 summarize = "Összegzés..."
 
+[timeline]
+personaSwitch = "Persona váltás: {label}"
+
 [error]
 network = "Hálózati hiba"
 tool = "Eszköz hiba"

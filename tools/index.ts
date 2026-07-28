@@ -1,4 +1,4 @@
-import { askUserTool, runCommandTool } from "../lib/agents"
+import { askUserTool, runCommandTool, switchPersonaTool } from "../lib/agents"
 import { config } from "../lib/config"
 import { connectMcpServer } from "../lib/mcp-client"
 import { loadMcpServers } from "../lib/mcp-servers"
@@ -54,6 +54,7 @@ export async function getDefaultTools() {
       currentTimeTool,
       askUserTool,
       runCommandTool,
+      switchPersonaTool,
       rememberNoteTool,
       recallMemoryTool,
       forgetNoteTool,

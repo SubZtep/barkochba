@@ -65,3 +65,12 @@ test("frequency_penalty and presence_penalty are bounded to [-2, 2]", () => {
     PersonaSchema.parse({ label: "X", presence_penalty: -3 })
   ).toThrow()
 })
+
+test("persona when clause round-trips and stays optional", () => {
+  const parsed = PersonaSchema.parse({
+    label: "Self-care companion",
+    when: "the user talks about their day or feelings"
+  })
+  expect(parsed.when).toBe("the user talks about their day or feelings")
+  expect(PersonaSchema.parse({ label: "Plain" }).when).toBeUndefined()
+})
