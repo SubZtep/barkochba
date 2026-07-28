@@ -15,6 +15,11 @@ export const cli = meow(t("args.help"), {
     config: {
       type: "boolean"
     },
+    // Consumed by the argv pre-scan in cli.tsx before this module loads;
+    // declared here so meow's --help lists it and parsing accepts it.
+    configDir: {
+      type: "string"
+    },
     wizard: {
       type: "boolean"
     },

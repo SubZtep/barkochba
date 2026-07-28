@@ -6,6 +6,7 @@
 // anywhere, since supports-hyperlinks reads process.env once at module load.
 if (!process.env.FORCE_HYPERLINK) process.env.FORCE_HYPERLINK = "1"
 
+import { resolve } from "node:path"
 import { color } from "bun"
 import { render } from "ink"
 import { InkPictureProvider } from "ink-picture"
@@ -15,6 +16,7 @@ import {
   getConfigPath,
   isExists,
   readConfigLoose,
+  setConfigDirOverride,
   validate
 } from "./lib/config"
 import { detectLanguage, setLanguage, t } from "./lib/i18n"
@@ -28,6 +30,24 @@ import { loadPersonas } from "./lib/personas"
 if (!process.env.LOG_LEVEL) log.level = "warn"
 
 log.trace("Startup")
+
+// --config-dir is pre-scanned from argv instead of read from meow: it must
+// take effect before the language-detecting config read just below, and the
+// args import has to come after that read (meow builds --help at module
+// load). The flag is still declared in lib/args.ts so --help documents it.
+{
+  const argv = process.argv.slice(2)
+  const i = argv.findIndex(
+    (a) => a === "--config-dir" || a.startsWith("--config-dir=")
+  )
+  const value =
+    i === -1
+      ? undefined
+      : argv[i].startsWith("--config-dir=")
+        ? argv[i].slice("--config-dir=".length)
+        : argv[i + 1]
+  if (value) setConfigDirOverride(resolve(value))
+}
 
 // i18n first: meow builds --help at module load, so the language must be set
 // before the args import. Config wins; without one (or on first run) the

@@ -14,6 +14,7 @@ Usage
 Options
   --help          Print this help
   --config        Print the config file location and copy it to the clipboard
+  --config-dir    Read config.json from this directory instead of the default
   --wizard        Review and edit the configuration in the setup wizard
   --version       Print the installed app version
   --continue, -c  Resume the most recent session

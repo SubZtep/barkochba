@@ -19,12 +19,22 @@ import { getPaths } from "./paths"
 
 const TEMPLATE = rawTemplate as unknown as string
 
+// Set once at startup from the --config-dir flag, pre-scanned from argv in
+// cli.tsx before the first config read; only config.json moves — data paths
+// (sessions, memory, logs) stay on their env-paths defaults.
+let configDirOverride: string | undefined
+
+export function setConfigDirOverride(dir: string | undefined) {
+  configDirOverride = dir
+  cached = undefined
+}
+
 // Computed fresh on every call rather than as a module-level constant: tests
 // run many spec files in one process and mutate XDG_CONFIG_HOME per file, so
 // a frozen constant would lock in whichever file happened to import this
 // module first, for the rest of the process.
 export function getConfigDir() {
-  return getPaths().config
+  return configDirOverride ?? getPaths().config
 }
 
 export function getConfigPath() {

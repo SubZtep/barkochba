@@ -14,6 +14,7 @@ Használat
 Kapcsolók
   --help          Kiírja ezt a súgót
   --config        Kiírja a konfigurációs fájl helyét és a vágólapra másolja
+  --config-dir    A config.json-t ebből a könyvtárból olvassa az alapértelmezett helyett
   --wizard        A konfiguráció áttekintése és szerkesztése a varázslóban
   --version       Kiírja a telepített verziót
   --continue, -c  A legutóbbi munkamenet folytatása
