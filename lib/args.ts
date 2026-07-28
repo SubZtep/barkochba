@@ -30,6 +30,11 @@ export const cli = meow(t("args.help"), {
     session: {
       type: "string",
       shortFlag: "s"
+    },
+    // Only used by the `kaja web` subcommand.
+    port: {
+      type: "number",
+      default: 4880
     }
   }
 })

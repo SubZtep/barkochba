@@ -79,6 +79,13 @@ if (cli.input[0] === "session") {
   process.exit(code)
 }
 
+// Web subcommand: same deal — the config/memory browser is most useful
+// exactly when the setup is broken, so it must run without a valid config.
+if (cli.input[0] === "web") {
+  const { runWebCli } = await import("./lib/web-cli")
+  process.exit(await runWebCli({ port: cli.flags.port }))
+}
+
 // Missing or invalid config (or --wizard): run the setup wizard instead of
 // exiting, then fall through to the normal boot with the freshly written
 // file. The first-run template ships placeholder credentials that validate

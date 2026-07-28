@@ -362,6 +362,22 @@ export async function saveGameRound(
     })
 }
 
+/**
+ * Every in-progress round's topic with its remaining-candidate count —
+ * a list-view projection (the `remaining` blob itself is not returned),
+ * for the `kaja web` browser.
+ */
+export async function listGameRounds(): Promise<
+  { topic: string; remainingCount: number; updatedAt: string }[]
+> {
+  const database = await getDb()
+  return database
+    .query(
+      "SELECT topic, json_array_length(remaining) AS remainingCount, updatedAt FROM game_rounds ORDER BY updatedAt DESC"
+    )
+    .all() as { topic: string; remainingCount: number; updatedAt: string }[]
+}
+
 export async function loadGameRound(
   topic: string
 ): Promise<DatasetEntry[] | undefined> {

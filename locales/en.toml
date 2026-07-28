@@ -10,6 +10,7 @@ Usage
   $ kaja memory <list|forget <key-or-glob>|export>
   $ kaja session <list|diagram <id>>
   $ kaja telegram
+  $ kaja web
 
 Options
   --help          Print this help
@@ -19,6 +20,7 @@ Options
   --version       Print the installed app version
   --continue, -c  Resume the most recent session
   --session, -s   Resume a session by id (see: kaja session list)
+  --port          Port for kaja web (default: 4880)
 
 Examples
   $ kaja --config
@@ -183,4 +185,7 @@ approved = "Approved"
 declined = "Declined"
 emptyResponse = "(empty response)"
 genericError = "Something went wrong processing that — check the logs."
+
+[web]
+listening = "Kaja web UI: {url} (Ctrl+C to stop)"
 

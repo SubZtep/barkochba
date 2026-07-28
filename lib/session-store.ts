@@ -134,6 +134,14 @@ export async function loadLatestSessionRowForOwner(
   return row ? rowToSession(row) : undefined
 }
 
+export async function deleteSessionRow(id: number): Promise<boolean> {
+  const database = await getDb()
+  const result = database
+    .query("DELETE FROM sessions WHERE id = $id")
+    .run({ $id: id })
+  return result.changes > 0
+}
+
 // Newest first; the payload blobs are not selected. Deliberately left
 // unscoped by owner: kaja session list / --session <id> are terminal-only
 // operator tools, and browsing (or resuming) a Telegram user's session this

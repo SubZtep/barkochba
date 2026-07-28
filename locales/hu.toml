@@ -10,6 +10,7 @@ Használat
   $ kaja memory <list|forget <kulcs-vagy-glob>|export>
   $ kaja session <list|diagram <id>>
   $ kaja telegram
+  $ kaja web
 
 Kapcsolók
   --help          Kiírja ezt a súgót
@@ -19,6 +20,7 @@ Kapcsolók
   --version       Kiírja a telepített verziót
   --continue, -c  A legutóbbi munkamenet folytatása
   --session, -s   Munkamenet folytatása azonosító alapján (lásd: kaja session list)
+  --port          A kaja web portja (alapértelmezés: 4880)
 
 Példák
   $ kaja --config
@@ -183,4 +185,7 @@ approved = "Jóváhagyva"
 declined = "Elutasítva"
 emptyResponse = "(üres válasz)"
 genericError = "Hiba történt a feldolgozás közben — nézd meg a naplót."
+
+[web]
+listening = "Kaja web UI: {url} (Ctrl+C a leállításhoz)"
 
