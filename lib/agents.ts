@@ -13,7 +13,7 @@ import { readConfigLoose } from "./config"
 import { loadDataset } from "./datasets"
 import type { GeoLocation } from "./geo"
 import { lookupMyLocation } from "./geo"
-import { getLanguage } from "./i18n"
+import { t } from "./i18n"
 import { loadMemory } from "./memory-store"
 import { client } from "./openai"
 import { runShellCommand } from "./run-command"
@@ -165,11 +165,6 @@ const ASK_USER_INSTRUCTIONS =
   `either call ${ASK_USER_TOOL} because you genuinely need an answer, or ` +
   `just state the result and stop.`
 
-/** Appended when the app runs in Hungarian (settings.language). */
-const HUNGARIAN_REPLY_INSTRUCTIONS =
-  "The user speaks Hungarian. Always reply in Hungarian, including " +
-  "questions asked through the ask_user tool."
-
 /** Grounds the model in the host OS and home directory so path-related tools (list_files, read_file) get correct conventions instead of guessing (e.g. assuming /root). */
 const PLATFORM_INSTRUCTIONS = `You are running on ${process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "macOS" : "Linux"}. Use ${process.platform === "win32" ? "backslash" : "forward-slash"} paths accordingly. The user's home directory is ${homedir()}.`
 
@@ -218,8 +213,9 @@ const RUN_COMMAND_INSTRUCTIONS =
   `Use ${RUN_COMMAND_TOOL} to run a shell command on the user's computer — ` +
   `e.g. playing a sound, converting a file, checking installed tools. Set ` +
   `mutates to false only for purely read-only commands, which run ` +
-  `immediately with no human approval — get this right, when unsure say ` +
-  `true. This includes commands that only write to a temp directory: ` +
+  `immediately with no human approval. When unsure whether a command ` +
+  `mutates state, set mutates to true. This includes commands that only ` +
+  `write to a temp directory: ` +
   `writing a file is a mutation regardless of where it lands, so mutates ` +
   `stays true even if nothing outside temp is touched. Mutating commands ` +
   `are shown to the human, who must approve them before they run; if they ` +
@@ -323,7 +319,7 @@ const MEMORY_INSTRUCTIONS =
   "them — don't ask permission first. Search past facts with " +
   "recall_memory whenever earlier context could help with the current " +
   "question. Audit what's stored with list_notes, and delete stale or " +
-  "wrong notes with forget_note — keep the store curated. Notes marked " +
+  "wrong notes with forget_note. Notes marked " +
   "sticky are shown to you automatically at the start of every future " +
   "session; use sticky for things that should always be known (who the " +
   "user is, their preferences), and non-sticky for things only worth " +
@@ -412,9 +408,13 @@ export async function buildSystemPrompt(
           .join("\n")}`
       : undefined
 
-  const { location } = await readConfigLoose()
+  const { location, settings } = await readConfigLoose()
   const locationBlock = location
     ? locationInstructions(await lookupMyLocation())
+    : undefined
+
+  const replyLanguageBlock = settings?.language
+    ? t("agent.replyLanguage")
     : undefined
 
   const datasetBlock =
@@ -426,17 +426,28 @@ export async function buildSystemPrompt(
         )
       : undefined
 
+  const environmentBlock = [PLATFORM_INSTRUCTIONS, locationBlock]
+    .filter(Boolean)
+    .join("\n")
+
+  // Order: persona/role first (primary voice, unlabeled) → environment
+  // grounding → tool contracts (mechanical rules that apply regardless of
+  // persona) → dynamic state (dataset progress, sticky memory) → locale
+  // override last (narrowest, most specific).
   return (
     [
       agent.instructions,
-      PLATFORM_INSTRUCTIONS,
-      locationBlock,
-      toolNames.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
-      toolNames.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
-      hasMemory ? MEMORY_INSTRUCTIONS : undefined,
-      datasetBlock,
+      `## Environment\n${environmentBlock}`,
+      toolNames.has(ASK_USER_TOOL)
+        ? `## Tool contract: ${ASK_USER_TOOL}\n${ASK_USER_INSTRUCTIONS}`
+        : undefined,
+      toolNames.has(RUN_COMMAND_TOOL)
+        ? `## Tool contract: ${RUN_COMMAND_TOOL}\n${RUN_COMMAND_INSTRUCTIONS}`
+        : undefined,
+      hasMemory ? `## Tool contract: memory\n${MEMORY_INSTRUCTIONS}` : undefined,
+      datasetBlock ? `## Dataset collection\n${datasetBlock}` : undefined,
       stickyBlock,
-      getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
+      replyLanguageBlock
     ]
       .filter(Boolean)
       .join("\n\n") || undefined

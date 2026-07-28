@@ -192,3 +192,6 @@ genericError = "Something went wrong processing that — check the logs."
 [web]
 listening = "Kaja web UI: {url} (Ctrl+C to stop)"
 
+[agent]
+replyLanguage = "The user speaks English. Always reply in English, including questions asked through the ask_user tool."
+

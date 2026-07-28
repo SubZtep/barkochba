@@ -192,3 +192,6 @@ genericError = "Hiba történt a feldolgozás közben — nézd meg a naplót."
 [web]
 listening = "Kaja web UI: {url} (Ctrl+C a leállításhoz)"
 
+[agent]
+replyLanguage = "A felhasználó magyarul beszél. Mindig magyarul válaszolj, beleértve az ask_user eszközön keresztül feltett kérdéseket is."
+
