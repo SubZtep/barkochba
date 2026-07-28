@@ -1,4 +1,4 @@
-.config/
+.config
 .playwright-mcp/
 node_modules/
 .env
