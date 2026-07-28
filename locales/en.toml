@@ -9,6 +9,7 @@ Usage
   $ kaja
   $ kaja memory <list|forget <key-or-glob>|export>
   $ kaja session <list|diagram <id>>
+  $ kaja telegram
 
 Options
   --help          Print this help
@@ -168,4 +169,17 @@ taskImageGen = "Image generation"
 mcpServers = "MCP servers"
 mcpServerToolCount = "({count} tools)"
 stats = "{brainPath} · Sessions: {sessionCount} · Memory notes: {memoryNoteCount} · Tools: {toolCount}"
+
+[telegram]
+notConfigured = "Add a `telegram` block to your config (see `kaja --config` for the file path) with `botToken` and `allowedUserIds` to use this command."
+invalidToken = "Invalid Telegram bot token — check config.telegram.botToken."
+starting = "Starting Telegram bot…"
+ready = "Telegram bot ready, long-polling for messages."
+stillWorking = "Still working on your last message…"
+pendingCommand = "There's a pending command waiting for your approval above — tap Approve or Decline first."
+commandExpired = "This command is no longer pending."
+approved = "Approved"
+declined = "Declined"
+emptyResponse = "(empty response)"
+genericError = "Something went wrong processing that — check the logs."
 

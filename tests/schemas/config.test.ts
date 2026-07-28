@@ -94,3 +94,52 @@ test("webSearch group requires apiKey", () => {
   expect(parsed.webSearch).toEqual({ apiKey: "key" })
   expect(() => KajaConfigSchema.parse({ ...base, webSearch: {} })).toThrow()
 })
+
+test("config without telegram still validates", () => {
+  const parsed = KajaConfigSchema.parse(base)
+  expect(parsed.telegram).toBeUndefined()
+})
+
+test("telegram group with valid botToken and allowedUserIds validates", () => {
+  const parsed = KajaConfigSchema.parse({
+    ...base,
+    telegram: { botToken: "123:abc", allowedUserIds: [42, 7] }
+  })
+  expect(parsed.telegram).toEqual({
+    botToken: "123:abc",
+    allowedUserIds: [42, 7]
+  })
+})
+
+test("telegram group requires botToken", () => {
+  expect(() =>
+    KajaConfigSchema.parse({
+      ...base,
+      telegram: { allowedUserIds: [42] }
+    })
+  ).toThrow()
+})
+
+test("telegram group rejects an empty allowedUserIds array", () => {
+  expect(() =>
+    KajaConfigSchema.parse({
+      ...base,
+      telegram: { botToken: "123:abc", allowedUserIds: [] }
+    })
+  ).toThrow()
+})
+
+test("telegram group rejects non-integer allowedUserIds entries", () => {
+  expect(() =>
+    KajaConfigSchema.parse({
+      ...base,
+      telegram: { botToken: "123:abc", allowedUserIds: [1.5] }
+    })
+  ).toThrow()
+  expect(() =>
+    KajaConfigSchema.parse({
+      ...base,
+      telegram: { botToken: "123:abc", allowedUserIds: ["42"] }
+    })
+  ).toThrow()
+})

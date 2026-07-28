@@ -10,6 +10,7 @@ function fixture(events: { type: string; [k: string]: unknown }[]) {
     persona: "kaja",
     model: "test-model",
     title: "test",
+    owner: null,
     session: { messages: [] },
     events
   } as PersistedSession

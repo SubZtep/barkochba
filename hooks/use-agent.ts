@@ -8,12 +8,11 @@ import {
 } from "../lib/agents"
 import { categorizeError, type ErrorCategory } from "../lib/error-category"
 import { log } from "../lib/logger"
-import type { Persona } from "../lib/personas"
+import { type Persona, samplingOf } from "../lib/personas"
 import { runShellCommand } from "../lib/run-command"
 import { createSessionRow, updateSessionRow } from "../lib/session-store"
 import type { ResolvedModel } from "../schemas/models"
-import type { SamplingParams } from "../schemas/personas"
-import type { PersistedSession } from "../schemas/session"
+import { LOCAL_OWNER, type PersistedSession } from "../schemas/session"
 
 /**
  * What the chat timeline is made of: the human's own messages, the agent's
@@ -38,30 +37,6 @@ export type PartialMessage = { reasoning: string; content: string }
  * content) from falling behind on long responses.
  */
 const DELTA_INTERVAL_MS = 80
-
-/** Pulls a persona's optional sampling overrides into an Agent-shaped object. */
-function samplingOf(persona?: Persona): SamplingParams | undefined {
-  if (!persona) return undefined
-  const {
-    temperature,
-    top_p,
-    max_tokens,
-    frequency_penalty,
-    presence_penalty,
-    seed
-  } = persona
-  const sampling = {
-    temperature,
-    top_p,
-    max_tokens,
-    frequency_penalty,
-    presence_penalty,
-    seed
-  }
-  return Object.values(sampling).some((v) => v !== undefined)
-    ? sampling
-    : undefined
-}
 
 /**
  * Drives an {@link Agent} from React state: constructs the agent and its
@@ -194,6 +169,7 @@ export function useAgent(
     const data = {
       persona: personaRef.current.id,
       model: agent.model,
+      owner: LOCAL_OWNER,
       session,
       events
     }

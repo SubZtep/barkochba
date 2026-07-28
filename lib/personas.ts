@@ -8,12 +8,37 @@ import type { ResolvedModel } from "../schemas/models"
 import {
   type KajaPersonasFile,
   type Persona,
-  PersonasFileSchema
+  PersonasFileSchema,
+  type SamplingParams
 } from "../schemas/personas"
 import { getConfigDir } from "./config"
 import { t } from "./i18n"
 
 export type { Persona }
+
+/** Pulls a persona's optional sampling overrides into an Agent-shaped object. */
+export function samplingOf(persona?: Persona): SamplingParams | undefined {
+  if (!persona) return undefined
+  const {
+    temperature,
+    top_p,
+    max_tokens,
+    frequency_penalty,
+    presence_penalty,
+    seed
+  } = persona
+  const sampling = {
+    temperature,
+    top_p,
+    max_tokens,
+    frequency_penalty,
+    presence_penalty,
+    seed
+  }
+  return Object.values(sampling).some((v) => v !== undefined)
+    ? sampling
+    : undefined
+}
 
 export function getPersonasPath() {
   return join(getConfigDir(), "personas.toml")

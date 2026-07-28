@@ -49,7 +49,7 @@ async function persistDbPathIfMissing(dbPath: string) {
   } catch {}
 }
 
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 
 const INSERT_NOTE_SQL = `
   INSERT INTO notes (key, content, importance, tags, sticky, createdAt, lastUsedAt, useCount)
@@ -117,6 +117,7 @@ export async function getDb(): Promise<Database> {
       persona   TEXT NOT NULL,
       model     TEXT NOT NULL,
       title     TEXT NOT NULL,
+      owner     TEXT,           -- NULL = terminal session; 'telegram:<id>' otherwise
       session   TEXT NOT NULL,  -- JSON: lib/agents.ts Session
       events    TEXT NOT NULL   -- JSON: hooks/use-agent.ts TimelineEvent[]
     )
@@ -150,9 +151,20 @@ export async function getDb(): Promise<Database> {
   } else if (hasVersion.version < SCHEMA_VERSION) {
     // v1 → v2 added the sessions table; v2 → v3 added game_results and
     // game_rounds; v3 → v4 added game_results.rating; v4 → v5 added
-    // game_results.embedding — all purely additive, already created by the
-    // idempotent DDL above. Record the version so a future non-additive
-    // migration has a real ladder to hang off.
+    // game_results.embedding — all purely additive, and (since those columns
+    // were only ever added to the CREATE TABLE IF NOT EXISTS DDL above) only
+    // actually took effect on a brand-new database file, not on an existing
+    // one being upgraded across versions. v5 → v6 is the first migration
+    // that must actually alter an existing table: sessions gains `owner`
+    // (NULL = terminal session) so Telegram users each resume their own last
+    // session instead of whichever is globally latest. SQLite has no ADD
+    // COLUMN IF NOT EXISTS, so guard with try/catch in case this file was
+    // already altered but schema_version is stale for some reason.
+    if (hasVersion.version < 6) {
+      try {
+        db.exec("ALTER TABLE sessions ADD COLUMN owner TEXT")
+      } catch {}
+    }
     db.query("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION)
   }
 

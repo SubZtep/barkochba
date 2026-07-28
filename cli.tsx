@@ -141,6 +141,24 @@ process.on("SIGTERM", async () => {
   process.exit(0)
 })
 
+// Telegram subcommand: after the config guard (it needs a fully-validated
+// config, tools, personas, and models to run a real agent — unlike memory/
+// session, which must work even without one) but before Ink ever renders,
+// since this path never touches the terminal UI at all. Runs until killed
+// (Ctrl+C/SIGTERM), reusing the shutdown()/closeTools() cleanup already
+// wired above.
+if (cli.input[0] === "telegram") {
+  const { runTelegramCli } = await import("./lib/telegram-cli")
+  const code = await runTelegramCli({
+    config: currentConfig,
+    tools,
+    personas,
+    models
+  })
+  await shutdown()
+  process.exit(code)
+}
+
 // Alternate screen: full-viewport app (header / chat / input). Restores the
 // primary buffer on exit; no terminal scrollback while running.
 // Kitty keyboard (auto): so Shift+Enter is distinct from Enter — plain TTYs
