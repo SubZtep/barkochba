@@ -11,10 +11,12 @@ import { MonsterMate } from "../monster"
 export function Header({
   persona,
   model,
+  promptTokens,
   currentTool
 }: {
   persona: string
   model: string
+  promptTokens: number | null
   currentTool?: { name: string; arguments: string }
 }) {
   return (
@@ -38,6 +40,9 @@ export function Header({
         <Box flexShrink={0}>
           <Text color="grey" dimColor wrap="truncate-end">
             {model}
+            {promptTokens != null
+              ? ` · ${promptTokens.toLocaleString()} tokens`
+              : ""}
           </Text>
         </Box>
       )}

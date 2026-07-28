@@ -60,7 +60,8 @@ export default function App({
     currentTool,
     send,
     resolveCommand,
-    runningCommand
+    runningCommand,
+    promptTokens
   } = useAgent({
     model: openaiApiModel,
     tools,
@@ -156,6 +157,7 @@ export default function App({
       <Header
         persona={persona.label}
         model={modelLabel}
+        promptTokens={promptTokens}
         currentTool={currentTool}
       />
       <ChatViewport

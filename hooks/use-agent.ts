@@ -22,7 +22,7 @@ import { LOCAL_OWNER, type PersistedSession } from "../schemas/session"
 export type TimelineEvent =
   | { type: "user"; text: string }
   | { type: "error"; text: string; category: ErrorCategory }
-  | FinalizedAgentEvent
+  | Exclude<FinalizedAgentEvent, { type: "usage" }>
 
 /**
  * The message currently streaming in, accumulated from delta events. Cleared
@@ -123,6 +123,9 @@ export function useAgent(
   // back — separate from `pending` (which only covers the run() loop itself)
   // so the confirm UI can hide/disable while the shell command is in flight.
   const [runningCommand, setRunningCommand] = useState(false)
+  // Latest completed turn's prompt token count, for the header's usage
+  // display — not part of the visible timeline.
+  const [promptTokens, setPromptTokens] = useState<number | null>(null)
 
   // Adopting a persona swaps the agent's instructions and starts a fresh
   // session/timeline — run() bakes instructions into the first system
@@ -218,6 +221,8 @@ export function useAgent(
               lastFlush = now
               flush()
             }
+          } else if (event.type === "usage") {
+            setPromptTokens(event.promptTokens)
           } else {
             setPartial(null)
             pushEvent(event)
@@ -268,6 +273,7 @@ export function useAgent(
     currentTool,
     send,
     resolveCommand,
-    runningCommand
+    runningCommand,
+    promptTokens
   }
 }

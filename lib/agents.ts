@@ -353,6 +353,7 @@ export type AgentEvent =
   | { type: "ask_user"; question: string }
   | { type: "confirm_command"; command: string; description: string }
   | { type: "final"; content: string | null }
+  | { type: "usage"; promptTokens: number }
 
 /**
  * {@link AgentEvent} minus the ephemeral {@link AgentDelta} fragments — the
@@ -518,6 +519,7 @@ export async function* run(
       model: agent.model,
       messages,
       tools: definitions,
+      stream_options: { include_usage: true },
       ...agent.sampling
     })
 
@@ -553,6 +555,10 @@ export async function* run(
       ...(thinking ? { reasoning_content: thinking } : {})
     }
     messages.push(message)
+
+    if (completion.usage) {
+      yield { type: "usage", promptTokens: completion.usage.prompt_tokens }
+    }
 
     if (thinking)
       yield {

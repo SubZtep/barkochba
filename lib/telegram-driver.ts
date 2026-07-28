@@ -421,6 +421,8 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
           continue
         }
 
+        if (event.type === "usage") continue
+
         state.events.push(event)
 
         if (event.type === "tool_image") {
