@@ -150,6 +150,13 @@ export function createTelegramBot(config: CreateTelegramBotConfig) {
       bot.api.sendMessage(chatId, t("telegram.genericError")).catch(() => {})
   })
 
+  /** Broadcasts a lifecycle notice to every allowed user's DM (chat.id === user id there); one blocked/invalid user can't stop the others from being notified. */
+  async function notifyAll(text: string) {
+    await Promise.allSettled(
+      config.allowedUserIds.map((userId) => bot.api.sendMessage(userId, text))
+    )
+  }
+
   return {
     async start() {
       try {
@@ -157,9 +164,15 @@ export function createTelegramBot(config: CreateTelegramBotConfig) {
       } catch (error) {
         throw new Error(t("telegram.invalidToken"), { cause: error })
       }
-      await bot.start({ onStart: () => console.log(t("telegram.ready")) })
+      await bot.start({
+        onStart: () => {
+          console.log(t("telegram.ready"))
+          void notifyAll(t("telegram.botOnline"))
+        }
+      })
     },
     async stop() {
+      await notifyAll(t("telegram.botOffline"))
       await bot.stop()
     }
   }
