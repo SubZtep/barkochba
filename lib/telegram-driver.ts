@@ -180,6 +180,11 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
       sampling?: ReturnType<typeof samplingOf>
     }) => new Agent({ ...agentConfig, ...init }))
   const allowedUserIds = new Set(config.allowedUserIds)
+  // Never evicted: each allowed user's Agent + full events[] stays live in
+  // memory for the process lifetime. Accepted tradeoff for allowedUserIds'
+  // small, operator-curated allowlist (KajaTelegramSchema requires it
+  // non-empty, i.e. bounded by whoever the operator invites) — not a cache
+  // that needs an LRU/TTL at this scale.
   const users = new Map<number, UserState>()
   const creating = new Map<number, Promise<UserState>>()
 

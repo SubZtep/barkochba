@@ -39,6 +39,25 @@ function asRateLimitError(error: unknown): TelegramRateLimitError | undefined {
 }
 
 /**
+ * Runs `send` once, and on a single 429 sleeps for its retry_after and tries
+ * exactly once more — shared by every one-shot sendMessage call site (there's
+ * no throttle to defer to for those, unlike editMessageText's stream of
+ * edits, which instead lets TelegramRateLimitError propagate to the
+ * driver's own EditThrottle backoff). A second failure (or a 429 with no
+ * retry_after) always propagates.
+ */
+async function withRateLimitRetry<T>(send: () => Promise<T>): Promise<T> {
+  try {
+    return await send()
+  } catch (error) {
+    const rateLimit = asRateLimitError(error)
+    if (!rateLimit?.retryAfterSec) throw error
+    await Bun.sleep(rateLimit.retryAfterSec * 1000)
+    return send()
+  }
+}
+
+/**
  * The only grammy-aware file: constructs the Bot, implements
  * lib/telegram-driver.ts's TelegramSender against bot.api, wires update
  * handlers to the driver, and owns startup validation (getMe preflight) and
@@ -55,28 +74,13 @@ export function createTelegramBot(config: CreateTelegramBotConfig) {
     allowedUserIds: config.allowedUserIds,
     sender: {
       async sendMessage(chatId, text, opts) {
-        try {
-          const message = await bot.api.sendMessage(chatId, text, {
+        const message = await withRateLimitRetry(() =>
+          bot.api.sendMessage(chatId, text, {
             parse_mode: "HTML",
             reply_markup: buildKeyboard(opts?.replyMarkup)
           })
-          return { messageId: message.message_id }
-        } catch (error) {
-          const rateLimit = asRateLimitError(error)
-          // sendMessage isn't throttle-guarded like editMessageText, so a
-          // 429 here gets one local retry instead of propagating — only a
-          // second failure (or an error with no retry_after) surfaces to
-          // the driver's per-turn catch.
-          if (rateLimit?.retryAfterSec) {
-            await Bun.sleep(rateLimit.retryAfterSec * 1000)
-            const message = await bot.api.sendMessage(chatId, text, {
-              parse_mode: "HTML",
-              reply_markup: buildKeyboard(opts?.replyMarkup)
-            })
-            return { messageId: message.message_id }
-          }
-          throw error
-        }
+        )
+        return { messageId: message.message_id }
       },
       async editMessageText(chatId, messageId, text, opts) {
         try {
@@ -115,6 +119,19 @@ export function createTelegramBot(config: CreateTelegramBotConfig) {
   })
 
   bot.catch((err) => {
+    // A 401 here (unlike at the getMe() preflight in start()) means the
+    // token was revoked mid-session — every future API call will fail the
+    // same way, including the notify-the-user sendMessage below, so that
+    // failure would otherwise go completely silent. Log it distinctly so an
+    // operator watching logs can tell "bot is dead" apart from one bad
+    // update.
+    if (err.error instanceof GrammyError && err.error.error_code === 401) {
+      log.error(
+        { error: err.error },
+        "Telegram bot token rejected — bot is now unreachable"
+      )
+      return
+    }
     log.error(
       { error: err.error },
       "Unhandled error in Telegram update handler"
