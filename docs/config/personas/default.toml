@@ -1,0 +1,4 @@
+# The ask_user contract (questions must go through the ask_user tool) is
+# injected by the app itself, so instructions shouldn't restate it.
+
+label = "Helpful assistant"

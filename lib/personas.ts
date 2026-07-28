@@ -1,20 +1,24 @@
-import { join } from "node:path"
+import { existsSync } from "node:fs"
+import { basename, join } from "node:path"
 import { file, TOML, write } from "bun"
-// Written on first run: the stock assistant plus the app's former built-in
-// personas, active, sourced from the same file that documents
-// personas.toml on the docs site.
-import TEMPLATE from "../docs/config/personas.toml" with { type: "text" }
+// Written on first run: one file per persona, the stock assistant plus the
+// app's former built-in personas, sourced from the same files that document
+// docs/config/personas/ on the docs site.
+import BARKOCHBA_TEMPLATE from "../docs/config/personas/barkochba.toml" with { type: "text" }
+import CARE_TEMPLATE from "../docs/config/personas/care.toml" with { type: "text" }
+import DEFAULT_TEMPLATE from "../docs/config/personas/default.toml" with { type: "text" }
 import type { ResolvedModel } from "../schemas/models"
-import {
-  type KajaPersonasFile,
-  type Persona,
-  PersonasFileSchema,
-  type SamplingParams
-} from "../schemas/personas"
+import { type Persona, PersonaSchema, type SamplingParams } from "../schemas/personas"
 import { getConfigDir } from "./config"
-import { t } from "./i18n"
+import { log } from "./logger"
 
 export type { Persona }
+
+const TEMPLATES: Record<string, string> = {
+  default: DEFAULT_TEMPLATE,
+  barkochba: BARKOCHBA_TEMPLATE,
+  care: CARE_TEMPLATE
+}
 
 /** Pulls a persona's optional sampling overrides into an Agent-shaped object. */
 export function samplingOf(persona?: Persona): SamplingParams | undefined {
@@ -40,40 +44,45 @@ export function samplingOf(persona?: Persona): SamplingParams | undefined {
     : undefined
 }
 
-export function getPersonasPath() {
-  return join(getConfigDir(), "personas.toml")
+export function getPersonasDir() {
+  return join(getConfigDir(), "personas")
 }
 
 /**
- * Load the personas file. Missing file: writes the example template and
- * returns its active personas. Invalid file, or a persona naming a model id
- * not present in `models`: prints the error and exits, same policy as
- * {@link config}.
+ * Load the personas directory: one `<id>.toml` file per persona, id being
+ * the filename minus extension — same convention as loadDatasets() in
+ * lib/datasets.ts. Missing directory: writes the default template files and
+ * loads those. A file that fails to parse, fails schema validation, or
+ * names a model id not present in `models` is skipped with a warning rather
+ * than stopping the app, so one bad persona can't take down the others.
  */
 export async function loadPersonas(
   models: ResolvedModel[]
 ): Promise<Persona[]> {
-  const personasPath = getPersonasPath()
-  const f = file(personasPath)
-  // Parse TEMPLATE directly rather than reading it back: a freshly written
-  // BunFile can report stale (empty) content on an immediate re-read.
-  const exists = await f.exists()
-  if (!exists) await write(f, TEMPLATE)
-  const text = exists ? await f.text() : TEMPLATE
-  try {
-    const data = PersonasFileSchema.parse(TOML.parse(text)) as KajaPersonasFile
-    const modelIds = new Set(models.map((m) => m.id))
-    for (const persona of data.personas) {
-      if (persona.model && !modelIds.has(persona.model))
-        throw new Error(
-          `Persona "${persona.id}" names unknown model "${persona.model}"`
-        )
+  const dir = getPersonasDir()
+  if (!existsSync(dir)) {
+    for (const [id, text] of Object.entries(TEMPLATES)) {
+      await write(join(dir, `${id}.toml`), text)
     }
-    return data.personas
-  } catch (error: any) {
-    console.log(
-      t("personas.invalidAt", { path: personasPath, message: error.message })
-    )
-    process.exit(1)
   }
+  const glob = new Bun.Glob("*.toml")
+  const entries: string[] = []
+  for await (const match of glob.scan({ cwd: dir, dot: false })) {
+    entries.push(match)
+  }
+  const modelIds = new Set(models.map((m) => m.id))
+  const personas: Persona[] = []
+  for (const entry of entries.sort()) {
+    const path = join(dir, entry)
+    const id = basename(entry, ".toml")
+    try {
+      const data = PersonaSchema.parse(TOML.parse(await file(path).text()))
+      if (data.model && !modelIds.has(data.model))
+        throw new Error(`names unknown model "${data.model}"`)
+      personas.push({ ...data, id })
+    } catch (error) {
+      log.warn({ error, path }, "Failed to load persona")
+    }
+  }
+  return personas
 }

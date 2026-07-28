@@ -1,0 +1,2 @@
+label = "Uses a model that doesn't exist"
+model = "does-not-exist"

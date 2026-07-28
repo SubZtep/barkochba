@@ -25,19 +25,17 @@ export const SamplingParamsSchema = z.object({
 // it's validated against the resolved models list by loadPersonas() (see
 // lib/personas.ts) — schemas here have no access to models.toml at parse
 // time.
-const PersonaSchema = z
+//
+// A persona's id isn't part of this schema: it's the filename (minus
+// extension) of its file under personas/, attached by loadPersonas() after
+// parsing — same convention as schemas/datasets.ts's topic ids.
+export const PersonaSchema = z
   .object({
-    id: z.string().min(1),
     label: z.string().min(1),
     instructions: z.string().min(1).optional(),
     model: z.string().min(1).optional()
   })
   .extend(SamplingParamsSchema.shape)
 
-export const PersonasFileSchema = z.object({
-  personas: z.array(PersonaSchema).default([])
-})
-
-export type KajaPersonasFile = z.infer<typeof PersonasFileSchema>
-export type Persona = z.infer<typeof PersonaSchema>
+export type Persona = z.infer<typeof PersonaSchema> & { id: string }
 export type SamplingParams = z.infer<typeof SamplingParamsSchema>

@@ -50,7 +50,9 @@ Prefer editing files directly? Config lives in `~/.config/kaja/`:
   credentials. A template matching your wizard preset is written on first run
   ([Fireworks](docs/config/models.fireworks.toml) /
   [Ollama](docs/config/models.ollama.toml) examples).
-* [`personas.toml`](docs/config/personas.toml) — Preconfigured agent behaviours.
+* [`personas/`](docs/config/personas) — Preconfigured agent behaviours, one
+  `.toml` file per persona (filename minus extension is the persona id, e.g.
+  `barkochba.toml` -> `barkochba`).
 
 <details>
 <summary>How the wizard and models.toml fit together</summary>

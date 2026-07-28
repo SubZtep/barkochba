@@ -75,7 +75,7 @@ test("GET pages respond 200", async () => {
 
 test("personas page shows each persona's assembled system prompt", async () => {
   const body = await (await fetch(`${base}/personas`)).text()
-  // Default template personas (docs/config/personas.toml), each should
+  // Default template personas (docs/config/personas/), each should
   // carry the ask_user contract since every preview agent gets that tool.
   expect(body).toContain("Barkochba guesser")
   expect(body).toContain("call the ask_user tool")
