@@ -444,7 +444,9 @@ export async function buildSystemPrompt(
       toolNames.has(RUN_COMMAND_TOOL)
         ? `## Tool contract: ${RUN_COMMAND_TOOL}\n${RUN_COMMAND_INSTRUCTIONS}`
         : undefined,
-      hasMemory ? `## Tool contract: memory\n${MEMORY_INSTRUCTIONS}` : undefined,
+      hasMemory
+        ? `## Tool contract: memory\n${MEMORY_INSTRUCTIONS}`
+        : undefined,
       datasetBlock ? `## Dataset collection\n${datasetBlock}` : undefined,
       stickyBlock,
       replyLanguageBlock
