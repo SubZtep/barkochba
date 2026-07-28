@@ -11,6 +11,7 @@ const {
   createSessionRow,
   listSessions,
   loadLatestSessionRow,
+  loadLatestSessionRowForOwner,
   loadPromptHistory,
   loadSessionRow,
   updateSessionRow
@@ -28,6 +29,7 @@ function row(overrides: Record<string, unknown> = {}) {
     persona: "kaja",
     model: "test-model",
     title: "hi",
+    owner: null,
     session: SESSION,
     events: [{ type: "user", text: "hi" }],
     ...overrides
@@ -55,6 +57,7 @@ test("create then load round-trips, including pending tool-call ids", async () =
   expect(loaded!.persona).toBe("kaja")
   expect(loaded!.model).toBe("test-model")
   expect(loaded!.title).toBe("hi")
+  expect(loaded!.owner).toBeNull()
   expect(loaded!.session.messages).toEqual(SESSION.messages)
   expect(loaded!.session.pendingAskUserId).toBe("call_1")
   expect(loaded!.events).toEqual([
@@ -99,6 +102,30 @@ test("listSessions is newest first and carries no payload blobs", async () => {
   expect(list[0]).not.toHaveProperty("session")
   expect(list[0]).not.toHaveProperty("events")
   expect(list[1]!.title).toBe("a")
+})
+
+test("loadLatestSessionRowForOwner scopes to one owner", async () => {
+  const first = await createSessionRow(
+    row({ title: "user1 session", owner: "telegram:1" })
+  )
+  await Bun.sleep(2)
+  await createSessionRow(row({ title: "user2 session", owner: "telegram:2" }))
+
+  const forUser1 = await loadLatestSessionRowForOwner("telegram:1")
+  expect(forUser1!.id).toBe(first)
+  expect(forUser1!.owner).toBe("telegram:1")
+})
+
+test("loadLatestSessionRow ignores non-null-owner rows, even newer ones", async () => {
+  const localSession = await createSessionRow(
+    row({ title: "local session", owner: null })
+  )
+  await Bun.sleep(2)
+  await createSessionRow(
+    row({ title: "telegram session", owner: "telegram:1" })
+  )
+
+  expect((await loadLatestSessionRow())!.id).toBe(localSession)
 })
 
 test("loadPromptHistory: newest first across sessions, user events only, consecutive dupes collapsed", async () => {

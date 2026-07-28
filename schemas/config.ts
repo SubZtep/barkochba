@@ -75,6 +75,14 @@ export const KajaImageGenSchema = z.object({
   model: z.string().min(1).optional()
 })
 
+// botToken has no fallback (mandatory); allowedUserIds must be non-empty —
+// an empty allowlist would make the bot silently unusable, and this group
+// gates shell-command execution to whoever can message the bot.
+export const KajaTelegramSchema = z.object({
+  botToken: z.string().min(1),
+  allowedUserIds: z.array(z.number().int()).min(1)
+})
+
 export const KajaConfigSchema = z.object({
   llm: KajaLlmSchema,
   stt: KajaSttSchema.optional(),
@@ -85,6 +93,7 @@ export const KajaConfigSchema = z.object({
   embedding: KajaEmbeddingSchema.optional(),
   memory: KajaMemorySchema.optional(),
   imageGen: KajaImageGenSchema.optional(),
+  telegram: KajaTelegramSchema.optional(),
   // In-app preferences (slash menu); optional so existing configs stay valid.
   settings: KajaSettingsSchema.optional()
 })
@@ -100,3 +109,4 @@ export type KajaRerank = z.infer<typeof KajaRerankSchema>
 export type KajaEmbedding = z.infer<typeof KajaEmbeddingSchema>
 export type KajaMemory = z.infer<typeof KajaMemorySchema>
 export type KajaImageGen = z.infer<typeof KajaImageGenSchema>
+export type KajaTelegram = z.infer<typeof KajaTelegramSchema>

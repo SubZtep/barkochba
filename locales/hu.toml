@@ -9,6 +9,7 @@ Használat
   $ kaja
   $ kaja memory <list|forget <kulcs-vagy-glob>|export>
   $ kaja session <list|diagram <id>>
+  $ kaja telegram
 
 Kapcsolók
   --help          Kiírja ezt a súgót
@@ -168,4 +169,17 @@ taskImageGen = "Képgenerálás"
 mcpServers = "MCP szerverek"
 mcpServerToolCount = "({count} eszköz)"
 stats = "{brainPath} · {sessionCount} munkamenet · {memoryNoteCount} memória jegyzet · {toolCount} eszköz"
+
+[telegram]
+notConfigured = "Adj hozzá egy `telegram` blokkot a konfigurációhoz (a fájl helyéért lásd: `kaja --config`) `botToken` és `allowedUserIds` mezőkkel, hogy használhasd ezt a parancsot."
+invalidToken = "Érvénytelen Telegram bot token — ellenőrizd a config.telegram.botToken értékét."
+starting = "Telegram bot indítása…"
+ready = "Telegram bot kész, üzenetekre vár."
+stillWorking = "Még dolgozom az előző üzeneteden…"
+pendingCommand = "Egy parancs a jóváhagyásodra vár fent — nyomd meg a Jóváhagyást vagy az Elutasítást előbb."
+commandExpired = "Ez a parancs már nem vár jóváhagyásra."
+approved = "Jóváhagyva"
+declined = "Elutasítva"
+emptyResponse = "(üres válasz)"
+genericError = "Hiba történt a feldolgozás közben — nézd meg a naplót."
 

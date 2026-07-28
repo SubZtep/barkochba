@@ -18,6 +18,12 @@ export const PersistedSessionSchema = z.object({
   model: z.string(),
   /** First user prompt's first line, at most 60 chars. */
   title: z.string(),
+  // Who this conversation belongs to. `null` (also the default for
+  // pre-migration rows with no owner column value) means the terminal app
+  // (local, single-user). Telegram sessions use `telegram:<user id>` (see
+  // telegramOwner below), one owner string per allowed user, so each
+  // person's conversation never resumes another's.
+  owner: z.string().nullable().default(null),
   session: z.looseObject({
     messages: z.array(z.unknown()),
     pendingAskUserId: z.string().optional(),
@@ -34,3 +40,11 @@ export const SessionMetaSchema = PersistedSessionSchema.omit({
 
 export type PersistedSession = z.infer<typeof PersistedSessionSchema>
 export type SessionMeta = z.infer<typeof SessionMetaSchema>
+
+/** Owner value for terminal (local, single-user) sessions. */
+export const LOCAL_OWNER = null
+
+/** Owner string for a Telegram user's sessions — the `telegram:` prefix format lives only here. */
+export function telegramOwner(userId: number): string {
+  return `telegram:${userId}`
+}

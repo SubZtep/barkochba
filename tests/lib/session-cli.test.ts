@@ -26,6 +26,7 @@ test("list prints one line per session, newest first", async () => {
     persona: "kaja",
     model: "test-model",
     title: "What's the weather like",
+    owner: null,
     session: { messages: [] },
     events: [{ type: "user", text: "What's the weather like" }]
   })
@@ -34,6 +35,7 @@ test("list prints one line per session, newest first", async () => {
     persona: "barkochba",
     model: "other-model",
     title: "Guess my animal",
+    owner: null,
     session: { messages: [] },
     events: [{ type: "user", text: "Guess my animal" }]
   })
@@ -55,6 +57,7 @@ test("diagram prints a mermaid sequence diagram for the session", async () => {
     persona: "kaja",
     model: "test-model",
     title: "hi",
+    owner: null,
     session: { messages: [] },
     events: [
       { type: "user", text: "hi" },

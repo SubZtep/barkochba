@@ -16,6 +16,8 @@ import { getDb } from "./memory-store"
 type SessionRowData = {
   persona: string
   model: string
+  /** Who this conversation belongs to — see schemas/session.ts's LOCAL_OWNER/telegramOwner. */
+  owner: string | null
   /** lib/agents.ts Session — opaque here, serialized as JSON. */
   session: unknown
   /** hooks/use-agent.ts TimelineEvent[] — opaque here, serialized as JSON. */
@@ -29,8 +31,8 @@ export async function createSessionRow(
   const now = new Date().toISOString()
   const result = database
     .query(`
-      INSERT INTO sessions (createdAt, updatedAt, persona, model, title, session, events)
-      VALUES ($createdAt, $updatedAt, $persona, $model, $title, $session, $events)
+      INSERT INTO sessions (createdAt, updatedAt, persona, model, title, owner, session, events)
+      VALUES ($createdAt, $updatedAt, $persona, $model, $title, $owner, $session, $events)
     `)
     .run({
       $createdAt: now,
@@ -38,6 +40,7 @@ export async function createSessionRow(
       $persona: data.persona,
       $model: data.model,
       $title: data.title,
+      $owner: data.owner,
       $session: JSON.stringify(data.session),
       $events: JSON.stringify(data.events)
     })
@@ -69,7 +72,7 @@ type SessionRow = Omit<PersistedSession, "session" | "events"> & {
 }
 
 const SESSION_COLUMNS =
-  "id, createdAt, updatedAt, persona, model, title, session, events"
+  "id, createdAt, updatedAt, persona, model, title, owner, session, events"
 
 /** A corrupt row (bad JSON or shape) resumes as nothing, not as a crash. */
 function rowToSession(row: SessionRow): PersistedSession | undefined {
@@ -95,25 +98,51 @@ export async function loadSessionRow(
   return row ? rowToSession(row) : undefined
 }
 
-/** Ordered by updatedAt so resuming an old session makes it "latest" again. */
+/**
+ * Ordered by updatedAt so resuming an old session makes it "latest" again.
+ * Scoped to owner IS NULL (terminal sessions) so the terminal's -c/--continue
+ * can never resume a Telegram user's conversation — see
+ * loadLatestSessionRowForOwner for the Telegram-side equivalent.
+ */
 export async function loadLatestSessionRow(): Promise<
   PersistedSession | undefined
 > {
   const database = await getDb()
   const row = database
     .query(
-      `SELECT ${SESSION_COLUMNS} FROM sessions ORDER BY updatedAt DESC, id DESC LIMIT 1`
+      `SELECT ${SESSION_COLUMNS} FROM sessions WHERE owner IS NULL ORDER BY updatedAt DESC, id DESC LIMIT 1`
     )
     .get() as SessionRow | null
   return row ? rowToSession(row) : undefined
 }
 
-/** Newest first; the payload blobs are not selected. */
+/**
+ * Like loadLatestSessionRow, but scoped to one owner (e.g. a Telegram user)
+ * so each allowed user resumes their own last session instead of whichever
+ * session is globally latest (which could belong to the terminal app or a
+ * different Telegram user).
+ */
+export async function loadLatestSessionRowForOwner(
+  owner: string
+): Promise<PersistedSession | undefined> {
+  const database = await getDb()
+  const row = database
+    .query(
+      `SELECT ${SESSION_COLUMNS} FROM sessions WHERE owner = $owner ORDER BY updatedAt DESC, id DESC LIMIT 1`
+    )
+    .get({ $owner: owner }) as SessionRow | null
+  return row ? rowToSession(row) : undefined
+}
+
+// Newest first; the payload blobs are not selected. Deliberately left
+// unscoped by owner: kaja session list / --session <id> are terminal-only
+// operator tools, and browsing (or resuming) a Telegram user's session this
+// way is an accepted debugging escape hatch, not a bug.
 export async function listSessions(): Promise<SessionMeta[]> {
   const database = await getDb()
   return database
     .query(
-      "SELECT id, createdAt, updatedAt, persona, model, title FROM sessions ORDER BY updatedAt DESC, id DESC"
+      "SELECT id, createdAt, updatedAt, persona, model, title, owner FROM sessions ORDER BY updatedAt DESC, id DESC"
     )
     .all() as SessionMeta[]
 }
