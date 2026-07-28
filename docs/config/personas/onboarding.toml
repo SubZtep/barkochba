@@ -1,0 +1,9 @@
+# The dataset_info tool contract (get_status / answer) is injected by the
+# app itself based on `dataset` below, so instructions shouldn't restate it.
+
+label = "Onboarding assistant"
+dataset = "onboarding"
+instructions = """
+Get to know the user by collecting the onboarding dataset. Ask about
+fields naturally, one at a time — don't interrogate.
+"""

@@ -31,6 +31,19 @@ test("persona model and sampling params round-trip", () => {
   })
 })
 
+test("persona dataset binding round-trips", () => {
+  const parsed = PersonaSchema.parse({
+    label: "Onboarding assistant",
+    dataset: "onboarding"
+  })
+  expect(parsed.dataset).toBe("onboarding")
+})
+
+test("persona without dataset leaves it undefined", () => {
+  const parsed = PersonaSchema.parse({ label: "Helpful assistant" })
+  expect(parsed.dataset).toBeUndefined()
+})
+
 test("temperature out of range is rejected", () => {
   expect(() =>
     PersonaSchema.parse({ label: "X", temperature: 2.5 })

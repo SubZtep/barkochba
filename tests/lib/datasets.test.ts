@@ -17,9 +17,9 @@ afterEach(() => {
 test("loads valid dataset files, keyed by topic (filename minus extension)", async () => {
   process.env.XDG_CONFIG_HOME = fixtureConfigDir
   const datasets = await loadDatasets()
-  expect(datasets.has("movies")).toBe(true)
-  expect(datasets.get("movies")!.label).toBe("Movies to watch")
-  expect(datasets.get("movies")!.entries).toHaveLength(9)
+  expect(datasets.has("onboarding")).toBe(true)
+  expect(datasets.get("onboarding")!.label).toBe("Onboarding")
+  expect(datasets.get("onboarding")!.fields).toHaveLength(2)
 })
 
 test("skips a dataset file that fails schema validation, without throwing", async () => {
@@ -27,15 +27,15 @@ test("skips a dataset file that fails schema validation, without throwing", asyn
   const datasets = await loadDatasets()
   expect(datasets.has("broken")).toBe(false)
   // Valid files still load despite the broken one being present.
-  expect(datasets.has("movies")).toBe(true)
+  expect(datasets.has("onboarding")).toBe(true)
 })
 
-test("applies excludeNames and excludeKeywords to filter entries", async () => {
+test("loads a field's accepted values", async () => {
   process.env.XDG_CONFIG_HOME = fixtureConfigDir
-  const dataset = await loadDataset("filtered")
+  const dataset = await loadDataset("onboarding")
   expect(dataset).toBeDefined()
-  const names = dataset!.entries.map((e) => e.name)
-  expect(names).toEqual(["Allowed"])
+  const field = dataset!.fields.find((f) => f.name === "notification_pref")
+  expect(field?.accepted).toEqual(["email", "push", "none"])
 })
 
 test("returns an empty map when the datasets directory doesn't exist", async () => {

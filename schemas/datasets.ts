@@ -1,20 +1,26 @@
 import * as z from "zod"
 
-export const DatasetEntrySchema = z.object({
+export const DatasetFieldSchema = z.object({
   name: z.string().min(1),
-  description: z.string().min(1)
+  prompt: z.string().min(1),
+  accepted: z.array(z.string().min(1)).optional()
 })
 
 // One file per topic under ~/.config/kaja/datasets/ (filename minus
-// extension = topic id). excludeNames/excludeKeywords are optional,
-// per-dataset content filters for topics that need to keep certain entries
-// out of the pool entirely — most topics won't need them.
+// extension = topic id). revalidateAfterDays is optional: when set, a fully
+// answered version becomes eligible for a fresh version once that many days
+// have passed since it was completed; when unset, a completed version never
+// expires.
 export const DatasetSchema = z.object({
   label: z.string().min(1),
-  entries: z.array(DatasetEntrySchema).min(1),
-  excludeNames: z.array(z.string()).optional(),
-  excludeKeywords: z.array(z.string()).optional()
+  fields: z.array(DatasetFieldSchema).min(1),
+  revalidateAfterDays: z.number().int().positive().optional()
 })
 
-export type DatasetEntry = z.infer<typeof DatasetEntrySchema>
+export type DatasetField = z.infer<typeof DatasetFieldSchema>
 export type Dataset = z.infer<typeof DatasetSchema>
+
+/** Normalizes an answer for case/whitespace-insensitive comparison against `accepted` values. */
+export function normalizeAnswer(value: string): string {
+  return value.trim().toLowerCase()
+}

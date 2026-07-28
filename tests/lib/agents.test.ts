@@ -34,9 +34,8 @@ writeFileSync(
 )
 
 const { invalidateConfigCache } = await import("../../lib/config")
-const { askUserTool, createSession, run, runCommandTool } = await import(
-  "../../lib/agents"
-)
+const { askUserTool, createSession, run, runCommandTool, tool } =
+  await import("../../lib/agents")
 const { saveMemory } = await import("../../lib/memory-store")
 const { rememberNoteTool } = await import("../../tools/memory")
 
@@ -110,6 +109,47 @@ async function collect(agent: Agent) {
 
 afterEach(async () => {
   await saveMemory({})
+})
+
+test("run() threads the owner parameter to a tool's execute as ctx.owner", async () => {
+  let capturedOwner: string | null | undefined
+  const captureOwnerTool = tool<Record<string, never>>({
+    name: "capture_owner",
+    description: "test tool",
+    parameters: { type: "object", properties: {} },
+    execute: async (_args, ctx) => {
+      capturedOwner = ctx?.owner
+      return "ok"
+    }
+  })
+  const agent = fakeAgent(
+    [
+      {
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "capture_owner", arguments: "{}" }
+          }
+        ]
+      },
+      { content: "done" }
+    ],
+    [captureOwnerTool]
+  )
+
+  const events: AgentEvent[] = []
+  for await (const event of run(
+    agent,
+    "hi",
+    createSession(),
+    "telegram:42"
+  )) {
+    events.push(event)
+  }
+
+  expect(capturedOwner).toBe("telegram:42")
 })
 
 test("content alongside an ask_user call is yielded as a message event", async () => {
@@ -318,4 +358,41 @@ test("no sticky-note block when there are no sticky notes", async () => {
   const system = session.messages[0]
   const content = (system as { content: string }).content
   expect(content).not.toContain("Known context about this user/project")
+})
+
+test("dataset instructions block appears only when agent.dataset is set and the tool is present", async () => {
+  const { datasetInfoTool } = await import("../../tools/dataset-info")
+  const datasetsDir = join(configKajaDir, "datasets")
+  mkdirSync(datasetsDir, { recursive: true })
+  writeFileSync(
+    join(datasetsDir, "onboarding.json"),
+    JSON.stringify({
+      label: "Onboarding",
+      fields: [{ name: "favorite_color", prompt: "Favorite color?" }]
+    })
+  )
+
+  const withDataset = {
+    ...fakeAgent([{ content: "Hi." }], [datasetInfoTool]),
+    dataset: "onboarding"
+  } as Agent
+  const session1 = createSession()
+  for await (const _ of run(withDataset, "hello", session1)) {
+    // drain
+  }
+  const content1 = (session1.messages[0] as { content: string }).content
+  expect(content1).toContain("Onboarding")
+  expect(content1).toContain("onboarding")
+
+  const withoutDatasetTool = {
+    ...fakeAgent([{ content: "Hi." }]),
+    dataset: "onboarding"
+  } as Agent
+  const session2 = createSession()
+  for await (const _ of run(withoutDatasetTool, "hello", session2)) {
+    // drain
+  }
+  const content2 = (session2.messages[0] as { content: string } | undefined)
+    ?.content
+  expect(content2 ?? "").not.toContain("Onboarding")
 })

@@ -3,11 +3,12 @@ import {
   getConfigPath,
   readConfigLoose
 } from "./config"
+import { loadDatasets } from "./datasets"
 import { t } from "./i18n"
 import {
   forgetNotes,
-  listAllGameResults,
-  listGameRounds,
+  listAllDatasetAnswers,
+  listDatasetVersionsSummary,
   loadMemory,
   resolveMemoryDbPath,
   saveMemory
@@ -17,7 +18,8 @@ import { loadPersonas } from "./personas"
 import { deleteSessionRow, listSessions, loadSessionRow } from "./session-store"
 import {
   configPage,
-  gamePage,
+  type DatasetVersionSummary,
+  datasetsPage,
   notesPage,
   notFoundPage,
   personasPage,
@@ -57,13 +59,13 @@ export function startWebServer(port: number) {
     hostname: "127.0.0.1",
     routes: {
       "/": async () => {
-        const [config, store, sessions, results, rounds, dbPath] =
+        const [config, store, sessions, answers, versions, dbPath] =
           await Promise.all([
             readConfigLoose(),
             loadMemory(),
             listSessions(),
-            listAllGameResults(),
-            listGameRounds(),
+            listAllDatasetAnswers(),
+            listDatasetVersionsSummary(),
             resolveMemoryDbPath()
           ])
         return html(
@@ -74,8 +76,8 @@ export function startWebServer(port: number) {
             counts: {
               notes: Object.keys(store).length,
               sessions: sessions.length,
-              game_results: results.length,
-              game_rounds: rounds.length
+              dataset_answers: answers.length,
+              dataset_versions: versions.length
             }
           })
         )
@@ -92,15 +94,21 @@ export function startWebServer(port: number) {
         }
         const [
           { Agent, askUserTool, buildSystemPrompt, runCommandTool },
-          { forgetNoteTool, listNotesTool, recallMemoryTool, rememberNoteTool }
-        ] = await Promise.all([import("./agents"), import("../tools/memory")])
+          { forgetNoteTool, listNotesTool, recallMemoryTool, rememberNoteTool },
+          { datasetInfoTool }
+        ] = await Promise.all([
+          import("./agents"),
+          import("../tools/memory"),
+          import("../tools/dataset-info")
+        ])
         const previewTools = [
           askUserTool,
           runCommandTool,
           rememberNoteTool,
           recallMemoryTool,
           forgetNoteTool,
-          listNotesTool
+          listNotesTool,
+          datasetInfoTool
         ]
         const config = await readConfigLoose()
         const models = [...(await loadModels()), ...resolveConfigModels(config)]
@@ -112,7 +120,8 @@ export function startWebServer(port: number) {
               new Agent({
                 model: persona.model ?? "",
                 tools: previewTools,
-                instructions: persona.instructions
+                instructions: persona.instructions,
+                dataset: persona.dataset
               })
             )
           }))
@@ -141,13 +150,29 @@ export function startWebServer(port: number) {
           return seeOther("/sessions")
         }
       },
-      "/game": async () =>
-        html(
-          gamePage({
-            results: await listAllGameResults(),
-            rounds: await listGameRounds()
+      "/datasets": async () => {
+        const [allAnswers, versionSummaries, datasets] = await Promise.all([
+          listAllDatasetAnswers(),
+          listDatasetVersionsSummary(),
+          loadDatasets()
+        ])
+        const versions: DatasetVersionSummary[] = versionSummaries.map(
+          (v) => ({
+            topic: v.topic,
+            owner: v.owner,
+            version: v.version,
+            answers: allAnswers.filter(
+              (a) =>
+                a.topic === v.topic &&
+                a.owner === v.owner &&
+                a.version === v.version
+            ),
+            totalFields: datasets.get(v.topic)?.fields.length,
+            completedAt: v.completedAt
           })
         )
+        return html(datasetsPage(versions))
+      }
     },
     fetch: () => html(notFoundPage(), 404)
   })

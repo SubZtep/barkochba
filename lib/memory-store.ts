@@ -2,7 +2,6 @@ import { Database } from "bun:sqlite"
 import { mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { file, write } from "bun"
-import type { DatasetEntry } from "../schemas/datasets"
 import type { MemoryNote, MemoryStore } from "../schemas/memory"
 import { getConfigPath, invalidateConfigCache, readConfigLoose } from "./config"
 import { getPaths } from "./paths"
@@ -49,7 +48,7 @@ async function persistDbPathIfMissing(dbPath: string) {
   } catch {}
 }
 
-const SCHEMA_VERSION = 6
+const SCHEMA_VERSION = 7
 
 const INSERT_NOTE_SQL = `
   INSERT INTO notes (key, content, importance, tags, sticky, createdAt, lastUsedAt, useCount)
@@ -123,21 +122,28 @@ export async function getDb(): Promise<Database> {
     )
   `)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS game_results (
-      topic       TEXT NOT NULL,
-      name        TEXT NOT NULL,
-      description TEXT NOT NULL,
-      rating      TEXT NOT NULL CHECK (rating IN ('love','like','neutral','dislike','hate')),
-      confirmedAt TEXT NOT NULL,
-      embedding   TEXT NOT NULL,  -- JSON: number[]
-      PRIMARY KEY (topic, name)
+    CREATE TABLE IF NOT EXISTS dataset_answers (
+      topic      TEXT NOT NULL,
+      -- '' = terminal session; 'telegram:<id>' otherwise. NOT NULL (unlike
+      -- sessions.owner) because SQLite's PRIMARY KEY uniqueness treats every
+      -- NULL as distinct from every other NULL, which would silently break
+      -- the upsert below for every terminal-session row; ownerKey()/ownerOf()
+      -- translate to/from the public string-or-null convention at the edges.
+      owner      TEXT NOT NULL,
+      version    INTEGER NOT NULL,
+      field      TEXT NOT NULL,
+      value      TEXT NOT NULL,
+      answeredAt TEXT NOT NULL,
+      PRIMARY KEY (topic, owner, version, field)
     )
   `)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS game_rounds (
-      topic     TEXT PRIMARY KEY,
-      remaining TEXT NOT NULL,  -- JSON: DatasetEntry[]
-      updatedAt TEXT NOT NULL
+    CREATE TABLE IF NOT EXISTS dataset_versions (
+      topic       TEXT NOT NULL,
+      owner       TEXT NOT NULL,
+      version     INTEGER NOT NULL,
+      completedAt TEXT NOT NULL,
+      PRIMARY KEY (topic, owner, version)
     )
   `)
 
@@ -163,6 +169,18 @@ export async function getDb(): Promise<Database> {
     if (hasVersion.version < 6) {
       try {
         db.exec("ALTER TABLE sessions ADD COLUMN owner TEXT")
+      } catch {}
+    }
+    // v6 → v7 replaces the like-or-not game (game_results, game_rounds) with
+    // the dataset info collector (dataset_answers, dataset_versions) — the
+    // old tables are dropped outright since this is a full feature
+    // replacement, not an additive migration.
+    if (hasVersion.version < 7) {
+      try {
+        db.exec("DROP TABLE IF EXISTS game_results")
+      } catch {}
+      try {
+        db.exec("DROP TABLE IF EXISTS game_rounds")
       } catch {}
     }
     db.query("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION)
@@ -258,139 +276,192 @@ export async function saveMemory(store: MemoryStore) {
   })()
 }
 
-export type GameRating = "love" | "like" | "neutral" | "dislike" | "hate"
-
-export type GameResult = {
-  topic: string
-  name: string
-  description: string
-  rating: GameRating
-  confirmedAt: string
+export type DatasetAnswer = {
+  field: string
+  value: string
+  answeredAt: string
 }
 
-// Carries the embedding too — used only by the similarity search path
-// (tools/like-or-not.ts 'similar' action), so ordinary GameResult callers
-// (recall, listGameResults) don't have to handle the vector.
-export type GameResultWithEmbedding = GameResult & { embedding: number[] }
+// dataset_answers/dataset_versions store owner as a NOT NULL TEXT column
+// ('' for terminal sessions) rather than the public `string | null`
+// convention used elsewhere (e.g. sessions.owner) — see the CREATE TABLE
+// comment above for why. These translate at the boundary so every exported
+// function here still speaks `string | null` like the rest of the app.
+function ownerKey(owner: string | null): string {
+  return owner ?? ""
+}
+function ownerOf(key: string): string | null {
+  return key === "" ? null : key
+}
 
 /**
- * Records (or re-confirms) that a candidate was picked for a topic —
- * upserts by (topic, name), updating rating and confirmedAt on conflict so
- * re-confirming with a new rating changes it in place. The embedding is
- * immutable once set (omitted from the upsert's UPDATE clause) — the
- * candidate's name+description meaning doesn't change when its rating does.
+ * Latest version number recorded for (topic, owner), across both answers and
+ * completions (a version may exist with only partial answers and no
+ * completion row yet). Returns 0 if no version has ever been started.
  */
-export async function confirmGameResult(
+export async function latestDatasetVersion(
   topic: string,
-  name: string,
-  description: string,
-  rating: GameRating,
-  embedding: number[]
+  owner: string | null
+): Promise<number> {
+  const database = await getDb()
+  const row = database
+    .query(
+      `SELECT MAX(version) AS version FROM (
+         SELECT version FROM dataset_answers WHERE topic = $topic AND owner = $owner
+         UNION ALL
+         SELECT version FROM dataset_versions WHERE topic = $topic AND owner = $owner
+       )`
+    )
+    .get({ $topic: topic, $owner: ownerKey(owner) }) as
+    | { version: number | null }
+    | null
+  return row?.version ?? 0
+}
+
+export async function loadDatasetAnswers(
+  topic: string,
+  owner: string | null,
+  version: number
+): Promise<DatasetAnswer[]> {
+  const database = await getDb()
+  return database
+    .query(
+      `SELECT field, value, answeredAt FROM dataset_answers
+       WHERE topic = $topic AND owner = $owner AND version = $version
+       ORDER BY answeredAt ASC`
+    )
+    .all({
+      $topic: topic,
+      $owner: ownerKey(owner),
+      $version: version
+    }) as DatasetAnswer[]
+}
+
+/**
+ * Upserts one field's answer for (topic, owner, version) — re-answering the
+ * same field within a version corrects it in place rather than duplicating.
+ */
+export async function saveDatasetAnswer(
+  topic: string,
+  owner: string | null,
+  version: number,
+  field: string,
+  value: string
 ): Promise<void> {
   const database = await getDb()
   database
     .query(
-      `INSERT INTO game_results (topic, name, description, rating, confirmedAt, embedding)
-       VALUES ($topic, $name, $description, $rating, $confirmedAt, $embedding)
-       ON CONFLICT(topic, name) DO UPDATE SET rating = excluded.rating, confirmedAt = excluded.confirmedAt`
+      `INSERT INTO dataset_answers (topic, owner, version, field, value, answeredAt)
+       VALUES ($topic, $owner, $version, $field, $value, $answeredAt)
+       ON CONFLICT(topic, owner, version, field) DO UPDATE SET value = excluded.value, answeredAt = excluded.answeredAt`
     )
     .run({
       $topic: topic,
-      $name: name,
-      $description: description,
-      $rating: rating,
-      $confirmedAt: new Date().toISOString(),
-      $embedding: JSON.stringify(embedding)
+      $owner: ownerKey(owner),
+      $version: version,
+      $field: field,
+      $value: value,
+      $answeredAt: new Date().toISOString()
     })
 }
 
-export async function unconfirmGameResult(
+/**
+ * Records completion time for (topic, owner, version) — call once, when the
+ * version's last required field is first answered. A no-op if already
+ * recorded (INSERT OR IGNORE), so it's safe to call unconditionally whenever
+ * the caller detects "now complete" without checking first.
+ */
+export async function markDatasetVersionComplete(
   topic: string,
-  name: string
-): Promise<boolean> {
+  owner: string | null,
+  version: number
+): Promise<void> {
   const database = await getDb()
-  const result = database
-    .query("DELETE FROM game_results WHERE topic = $topic AND name = $name")
-    .run({ $topic: topic, $name: name })
-  return result.changes > 0
+  database
+    .query(
+      `INSERT OR IGNORE INTO dataset_versions (topic, owner, version, completedAt)
+       VALUES ($topic, $owner, $version, $completedAt)`
+    )
+    .run({
+      $topic: topic,
+      $owner: ownerKey(owner),
+      $version: version,
+      $completedAt: new Date().toISOString()
+    })
 }
 
-export async function listGameResults(topic: string): Promise<GameResult[]> {
+export async function loadDatasetVersionCompletedAt(
+  topic: string,
+  owner: string | null,
+  version: number
+): Promise<string | undefined> {
   const database = await getDb()
-  return database
+  const row = database
     .query(
-      "SELECT topic, name, description, rating, confirmedAt FROM game_results WHERE topic = $topic ORDER BY confirmedAt DESC"
+      "SELECT completedAt FROM dataset_versions WHERE topic = $topic AND owner = $owner AND version = $version"
     )
-    .all({ $topic: topic }) as GameResult[]
+    .get({
+      $topic: topic,
+      $owner: ownerKey(owner),
+      $version: version
+    }) as { completedAt: string } | null
+  return row?.completedAt
 }
 
 /**
- * All confirmed results across every topic, with their embeddings — used by
- * the 'similar' action to find semantically related picks regardless of
- * which topic they belong to.
+ * Every (topic, owner, version) that has at least one answer, with its
+ * answered-field count and completion time (if any) — a list-view
+ * projection for the `kaja web` browser. `totalFields` isn't known here
+ * (it depends on the current dataset config, loaded separately by callers).
  */
-export async function listAllGameResults(): Promise<GameResultWithEmbedding[]> {
+export async function listDatasetVersionsSummary(): Promise<
+  {
+    topic: string
+    owner: string | null
+    version: number
+    answeredCount: number
+    completedAt: string | undefined
+  }[]
+> {
   const database = await getDb()
   const rows = database
     .query(
-      "SELECT topic, name, description, rating, confirmedAt, embedding FROM game_results"
+      `SELECT a.topic AS topic, a.owner AS owner, a.version AS version,
+              COUNT(*) AS answeredCount, v.completedAt AS completedAt
+       FROM dataset_answers a
+       LEFT JOIN dataset_versions v
+         ON v.topic = a.topic AND v.owner = a.owner AND v.version = a.version
+       GROUP BY a.topic, a.owner, a.version
+       ORDER BY a.topic ASC, a.owner ASC, a.version ASC`
     )
-    .all() as (GameResult & { embedding: string })[]
-  return rows.map((row) => ({ ...row, embedding: JSON.parse(row.embedding) }))
+    .all() as {
+    topic: string
+    owner: string
+    version: number
+    answeredCount: number
+    completedAt: string | null
+  }[]
+  return rows.map((row) => ({
+    ...row,
+    owner: ownerOf(row.owner),
+    completedAt: row.completedAt ?? undefined
+  }))
 }
 
-/**
- * Persists a topic's in-progress round (the narrowed candidate pool) so it
- * survives a process restart — every 'filter' call saves here, not just
- * 'confirm'. Upserts by topic (one round per topic at a time).
- */
-export async function saveGameRound(
-  topic: string,
-  remaining: DatasetEntry[]
-): Promise<void> {
-  const database = await getDb()
-  database
-    .query(
-      `INSERT INTO game_rounds (topic, remaining, updatedAt)
-       VALUES ($topic, $remaining, $updatedAt)
-       ON CONFLICT(topic) DO UPDATE SET remaining = excluded.remaining, updatedAt = excluded.updatedAt`
-    )
-    .run({
-      $topic: topic,
-      $remaining: JSON.stringify(remaining),
-      $updatedAt: new Date().toISOString()
-    })
-}
-
-/**
- * Every in-progress round's topic with its remaining-candidate count —
- * a list-view projection (the `remaining` blob itself is not returned),
- * for the `kaja web` browser.
- */
-export async function listGameRounds(): Promise<
-  { topic: string; remainingCount: number; updatedAt: string }[]
+/** All answers across every (topic, owner, version) — for the `kaja web` browser. */
+export async function listAllDatasetAnswers(): Promise<
+  (DatasetAnswer & { topic: string; owner: string | null; version: number })[]
 > {
   const database = await getDb()
-  return database
+  const rows = database
     .query(
-      "SELECT topic, json_array_length(remaining) AS remainingCount, updatedAt FROM game_rounds ORDER BY updatedAt DESC"
+      `SELECT topic, owner, version, field, value, answeredAt FROM dataset_answers
+       ORDER BY topic ASC, owner ASC, version ASC, answeredAt ASC`
     )
-    .all() as { topic: string; remainingCount: number; updatedAt: string }[]
-}
-
-export async function loadGameRound(
-  topic: string
-): Promise<DatasetEntry[] | undefined> {
-  const database = await getDb()
-  const row = database
-    .query("SELECT remaining FROM game_rounds WHERE topic = $topic")
-    .get({ $topic: topic }) as { remaining: string } | null
-  return row ? (JSON.parse(row.remaining) as DatasetEntry[]) : undefined
-}
-
-export async function clearGameRound(topic: string): Promise<void> {
-  const database = await getDb()
-  database.query("DELETE FROM game_rounds WHERE topic = $topic").run({
-    $topic: topic
-  })
+    .all() as (DatasetAnswer & {
+    topic: string
+    owner: string
+    version: number
+  })[]
+  return rows.map((row) => ({ ...row, owner: ownerOf(row.owner) }))
 }

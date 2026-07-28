@@ -1,10 +1,15 @@
-import { afterEach, expect, test } from "bun:test"
-import { existsSync } from "node:fs"
+import { afterEach, beforeEach, expect, test } from "bun:test"
+import { existsSync, mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   getDefaultMemoryDbPath,
+  latestDatasetVersion,
+  loadDatasetAnswers,
+  loadDatasetVersionCompletedAt,
   loadMemory,
+  markDatasetVersionComplete,
+  saveDatasetAnswer,
   saveMemory
 } from "../../lib/memory-store"
 
@@ -99,4 +104,54 @@ test("data persists across a fresh process (module re-import)", async () => {
       console.log(JSON.stringify(await loadMemory()))
     `}`.text()
   expect(JSON.parse(result.trim())).toEqual({ "test:persist": note })
+})
+
+// A fresh directory (not a fixed name) so re-running the suite never
+// accumulates rows from a previous run's on-disk sqlite file.
+const datasetDataDir = mkdtempSync(join(tmpdir(), "kaja-test-xdg-data-datasets-"))
+
+beforeEach(() => {
+  process.env.XDG_DATA_HOME = datasetDataDir
+  process.env.XDG_CONFIG_HOME = configDir
+})
+
+test("latestDatasetVersion is 0 when no version has ever been started", async () => {
+  expect(await latestDatasetVersion("topic-fresh", null)).toBe(0)
+})
+
+test("saveDatasetAnswer upserts by (topic, owner, version, field)", async () => {
+  await saveDatasetAnswer("topic-upsert", null, 1, "favorite_color", "blue")
+  await saveDatasetAnswer("topic-upsert", null, 1, "favorite_color", "red")
+  const answers = await loadDatasetAnswers("topic-upsert", null, 1)
+  expect(answers).toHaveLength(1)
+  expect(answers[0]!.value).toBe("red")
+})
+
+test("markDatasetVersionComplete is idempotent and records a stable completedAt", async () => {
+  await saveDatasetAnswer("topic-complete", null, 1, "favorite_color", "blue")
+  await markDatasetVersionComplete("topic-complete", null, 1)
+  const first = await loadDatasetVersionCompletedAt("topic-complete", null, 1)
+  expect(first).toBeDefined()
+  await markDatasetVersionComplete("topic-complete", null, 1)
+  const second = await loadDatasetVersionCompletedAt("topic-complete", null, 1)
+  expect(second).toBe(first!)
+})
+
+test("owner scoping isolates answers between terminal (null) and a Telegram user", async () => {
+  await saveDatasetAnswer("topic-owner-scope", null, 1, "favorite_color", "blue")
+  await saveDatasetAnswer(
+    "topic-owner-scope",
+    "telegram:1",
+    1,
+    "favorite_color",
+    "green"
+  )
+  const localAnswers = await loadDatasetAnswers("topic-owner-scope", null, 1)
+  const telegramAnswers = await loadDatasetAnswers(
+    "topic-owner-scope",
+    "telegram:1",
+    1
+  )
+  expect(localAnswers.map((a) => a.value)).toEqual(["blue"])
+  expect(telegramAnswers.map((a) => a.value)).toEqual(["green"])
 })

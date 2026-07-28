@@ -65,7 +65,7 @@ test("GET pages respond 200", async () => {
     "/notes",
     "/sessions",
     `/sessions/${sessionId}`,
-    "/game"
+    "/datasets"
   ]) {
     const res = await fetch(`${base}${path}`)
     expect(res.status).toBe(200)

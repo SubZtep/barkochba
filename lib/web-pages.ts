@@ -1,7 +1,7 @@
 import type { MemoryStore } from "../schemas/memory"
 import type { Persona } from "../schemas/personas"
 import type { PersistedSession, SessionMeta } from "../schemas/session"
-import type { GameResult } from "./memory-store"
+import type { DatasetAnswer } from "./memory-store"
 
 /**
  * Pure HTML renderers for the `kaja web` subcommand — data in, HTML string
@@ -45,7 +45,7 @@ const TABS = [
   ["/personas", "Personas"],
   ["/notes", "Notes"],
   ["/sessions", "Sessions"],
-  ["/game", "Game"]
+  ["/datasets", "Datasets"]
 ] as const
 
 type Tab = (typeof TABS)[number][0]
@@ -259,43 +259,48 @@ export function sessionPage(session: PersistedSession): string {
   )
 }
 
-export function gamePage(data: {
-  results: GameResult[]
-  rounds: { topic: string; remainingCount: number; updatedAt: string }[]
-}): string {
-  const results = data.results
-    .map(
-      (result) => `<tr>
-<td>${escapeHtml(result.topic)}</td>
-<td>${escapeHtml(result.name)}</td>
-<td>${escapeHtml(result.rating)}</td>
-<td>${escapeHtml(result.description)}</td>
-<td>${escapeHtml(result.confirmedAt.slice(0, 10))}</td>
+export type DatasetVersionSummary = {
+  topic: string
+  owner: string | null
+  version: number
+  answers: DatasetAnswer[]
+  totalFields: number | undefined
+  completedAt: string | undefined
+}
+
+export function datasetsPage(versions: DatasetVersionSummary[]): string {
+  const sections = versions
+    .map((v) => {
+      const rows = v.answers
+        .map(
+          (a) => `<tr>
+<td><code>${escapeHtml(a.field)}</code></td>
+<td>${escapeHtml(a.value)}</td>
+<td>${escapeHtml(a.answeredAt.slice(0, 16).replace("T", " "))}</td>
 </tr>`
-    )
+        )
+        .join("")
+      const progress =
+        v.totalFields !== undefined
+          ? `${v.answers.length}/${v.totalFields} fields`
+          : `${v.answers.length} fields`
+      const status = v.completedAt
+        ? `complete ${v.completedAt.slice(0, 10)}`
+        : "in progress"
+      return `<details open>
+<summary>${escapeHtml(v.topic)} · ${escapeHtml(v.owner ?? "terminal")} · v${v.version} — ${escapeHtml(progress)}, ${escapeHtml(status)}</summary>
+<table><thead><tr><th>Field</th><th>Value</th><th>Answered</th></tr></thead><tbody>${rows}</tbody></table>
+</details>`
+    })
     .join("")
-  const rounds = data.rounds
-    .map(
-      (round) => `<tr>
-<td>${escapeHtml(round.topic)}</td>
-<td>${round.remainingCount}</td>
-<td>${escapeHtml(round.updatedAt.slice(0, 16).replace("T", " "))}</td>
-</tr>`
-    )
-    .join("")
-  const resultsBody =
-    data.results.length === 0
-      ? `<p class="empty">No confirmed results.</p>`
-      : `<table><thead><tr><th>Topic</th><th>Name</th><th>Rating</th><th>Description</th><th>Confirmed</th></tr></thead><tbody>${results}</tbody></table>`
-  const roundsBody =
-    data.rounds.length === 0
-      ? `<p class="empty">No rounds in progress.</p>`
-      : `<table><thead><tr><th>Topic</th><th>Remaining</th><th>Updated</th></tr></thead><tbody>${rounds}</tbody></table>`
+  const body =
+    versions.length === 0
+      ? `<p class="empty">No dataset answers yet.</p>`
+      : sections
   return layout(
-    "Game",
-    "/game",
-    `<h1>Game results (${data.results.length})</h1>${resultsBody}
-<h1>Rounds in progress (${data.rounds.length})</h1>${roundsBody}`
+    "Datasets",
+    "/datasets",
+    `<h1>Dataset answers (${versions.length})</h1>${body}`
   )
 }
 

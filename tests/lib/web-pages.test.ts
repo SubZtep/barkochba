@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test"
 import {
+  datasetsPage,
   escapeHtml,
   maskSecrets,
   notesPage,
@@ -83,8 +84,8 @@ test("sessionPage renders the payload for every timeline event type", () => {
       { type: "message", content: "Indítom a játékot." },
       {
         type: "tool_call",
-        name: "like_or_not_game",
-        arguments: '{"action":"list_topics"}'
+        name: "dataset_info",
+        arguments: '{"action":"list_datasets"}'
       },
       { type: "tool_image", path: "/tmp/x.png" },
       { type: "display_image", url: "https://example.com/x.png", alt: "a cat" },
@@ -99,12 +100,42 @@ test("sessionPage renders the payload for every timeline event type", () => {
   })
   expect(html).toContain("/start")
   expect(html).toContain("Indítom a játékot.")
-  expect(html).toContain("like_or_not_game")
-  expect(html).toContain("{&quot;action&quot;:&quot;list_topics&quot;}")
+  expect(html).toContain("dataset_info")
+  expect(html).toContain("{&quot;action&quot;:&quot;list_datasets&quot;}")
   expect(html).toContain("/tmp/x.png")
   expect(html).toContain("a cat (https://example.com/x.png)")
   expect(html).toContain("Which topic?")
   expect(html).toContain("rm -rf /tmp/x")
   expect(html).toContain("cleanup")
   expect(html).toContain("done")
+})
+
+test("datasetsPage renders version sections with progress and answers", () => {
+  const html = datasetsPage([
+    {
+      topic: "onboarding",
+      owner: null,
+      version: 1,
+      answers: [
+        {
+          field: "favorite_color",
+          value: "blue",
+          answeredAt: "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      totalFields: 2,
+      completedAt: undefined
+    }
+  ])
+  expect(html).toContain("onboarding")
+  expect(html).toContain("terminal")
+  expect(html).toContain("v1")
+  expect(html).toContain("1/2 fields")
+  expect(html).toContain("in progress")
+  expect(html).toContain("favorite_color")
+  expect(html).toContain("blue")
+})
+
+test("datasetsPage shows an empty state", () => {
+  expect(datasetsPage([])).toContain("No dataset answers yet.")
 })

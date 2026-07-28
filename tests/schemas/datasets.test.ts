@@ -1,45 +1,54 @@
 import { expect, test } from "bun:test"
-import { DatasetSchema } from "../../schemas/datasets"
+import { DatasetSchema, normalizeAnswer } from "../../schemas/datasets"
 
 test("valid dataset parses with optional fields defaulted to undefined", () => {
   const dataset = DatasetSchema.parse({
-    label: "Movies to watch",
-    entries: [{ name: "Alien", description: "A crew encounters a threat." }]
+    label: "Onboarding",
+    fields: [{ name: "favorite_color", prompt: "What's your favorite color?" }]
   })
-  expect(dataset.label).toBe("Movies to watch")
-  expect(dataset.entries).toHaveLength(1)
-  expect(dataset.excludeNames).toBeUndefined()
-  expect(dataset.excludeKeywords).toBeUndefined()
+  expect(dataset.label).toBe("Onboarding")
+  expect(dataset.fields).toHaveLength(1)
+  expect(dataset.fields[0]!.accepted).toBeUndefined()
+  expect(dataset.revalidateAfterDays).toBeUndefined()
 })
 
-test("valid dataset with excludeNames/excludeKeywords parses", () => {
+test("valid dataset with accepted values and revalidateAfterDays parses", () => {
   const dataset = DatasetSchema.parse({
-    label: "Movies to watch",
-    excludeNames: ["Movie 43"],
-    excludeKeywords: ["banned"],
-    entries: [{ name: "Alien", description: "A crew encounters a threat." }]
+    label: "Onboarding",
+    revalidateAfterDays: 365,
+    fields: [
+      {
+        name: "notification_pref",
+        prompt: "How do you want to be notified?",
+        accepted: ["email", "push", "none"]
+      }
+    ]
   })
-  expect(dataset.excludeNames).toEqual(["Movie 43"])
-  expect(dataset.excludeKeywords).toEqual(["banned"])
+  expect(dataset.fields[0]!.accepted).toEqual(["email", "push", "none"])
+  expect(dataset.revalidateAfterDays).toBe(365)
 })
 
-test("rejects a dataset with no entries", () => {
-  expect(() => DatasetSchema.parse({ label: "Empty", entries: [] })).toThrow()
+test("rejects a dataset with no fields", () => {
+  expect(() => DatasetSchema.parse({ label: "Empty", fields: [] })).toThrow()
 })
 
 test("rejects a dataset missing label", () => {
   expect(() =>
     DatasetSchema.parse({
-      entries: [{ name: "x", description: "y" }]
+      fields: [{ name: "x", prompt: "y" }]
     })
   ).toThrow()
 })
 
-test("rejects an entry missing description", () => {
+test("rejects a field missing prompt", () => {
   expect(() =>
     DatasetSchema.parse({
       label: "Bad",
-      entries: [{ name: "x" }]
+      fields: [{ name: "x" }]
     })
   ).toThrow()
+})
+
+test("normalizeAnswer trims and lowercases", () => {
+  expect(normalizeAnswer("  Email ")).toBe("email")
 })

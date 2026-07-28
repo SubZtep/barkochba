@@ -7,14 +7,22 @@ import type {
 } from "openai/resources/chat/completions"
 import type { ResolvedModel } from "../schemas/models"
 import type { SamplingParams } from "../schemas/personas"
+import { LOCAL_OWNER } from "../schemas/session"
 import { isDangerousCommand } from "./command-risk"
 import { readConfigLoose } from "./config"
+import { loadDataset } from "./datasets"
 import type { GeoLocation } from "./geo"
 import { lookupMyLocation } from "./geo"
 import { getLanguage } from "./i18n"
 import { loadMemory } from "./memory-store"
 import { client } from "./openai"
 import { runShellCommand } from "./run-command"
+
+/** Identifies who's talking to a {@link Tool}'s `execute` — `null` for a terminal session, `"telegram:<id>"` for a Telegram user (same convention as the sessions table's `owner` column). Supplied by {@link run}, never by the model. */
+export type ToolContext = { owner: string | null }
+
+/** Default {@link ToolContext} for tools invoked without one (e.g. directly in tests) — same as a terminal session. */
+export const LOCAL_OWNER_CTX: ToolContext = { owner: LOCAL_OWNER }
 
 /**
  * A tool result that includes images alongside text — e.g. a browser
@@ -55,7 +63,7 @@ export class ToolError extends Error {
  */
 export type Tool<Args> = {
   definition: ChatCompletionTool
-  execute: (args: Args) => Promise<string | ToolResult>
+  execute: (args: Args, ctx?: ToolContext) => Promise<string | ToolResult>
 }
 
 /**
@@ -73,7 +81,7 @@ export function tool<Args>(config: {
   description: string
   // @ts-expect-error
   parameters: ChatCompletionTool["function"]["parameters"]
-  execute: (args: Args) => Promise<string | ToolResult>
+  execute: (args: Args, ctx?: ToolContext) => Promise<string | ToolResult>
 }): Tool<Args> {
   return {
     definition: {
@@ -98,6 +106,8 @@ export class Agent {
   tools: Tool<any>[]
   instructions?: string
   sampling?: SamplingParams
+  /** Topic id of the dataset (schemas/datasets.ts) this agent's persona is bound to collecting, if any — see the `dataset` field on PersonaSchema. */
+  dataset?: string
 
   constructor(config: {
     name?: string
@@ -105,6 +115,7 @@ export class Agent {
     tools: Tool<any>[]
     instructions?: string
     sampling?: SamplingParams
+    dataset?: string
   }) {
     this.name = config.name ?? "Assistant"
     this.model = config.model
@@ -112,6 +123,7 @@ export class Agent {
     this.tools = config.tools
     this.instructions = config.instructions
     this.sampling = config.sampling
+    this.dataset = config.dataset
   }
 
   /** Point the agent at another model, swapping the client to its provider. */
@@ -180,6 +192,23 @@ function locationInstructions(loc: GeoLocation) {
  * continue the conversation with the result.
  */
 export const RUN_COMMAND_TOOL = "run_command"
+
+/** Name of the tool that reads/writes dataset_info collection state (tools/dataset-info.ts). */
+export const DATASET_INFO_TOOL = "dataset_info"
+
+/** Builds the system-prompt nudge telling the model which dataset its persona is bound to and how to collect it via {@link DATASET_INFO_TOOL}. */
+function datasetInstructions(topic: string, label: string) {
+  return (
+    `You are responsible for collecting the "${label}" (topic "${topic}") ` +
+    `dataset via the ${DATASET_INFO_TOOL} tool. Start by calling ` +
+    `get_status with dataset="${topic}" to see which fields are already ` +
+    `answered and which remain. Ask about unanswered fields one at a time, ` +
+    `phrasing each field's prompt naturally and conversationally rather ` +
+    `than reading it verbatim — deliver each question via ${ASK_USER_TOOL}. ` +
+    `Call answer as soon as the human replies to persist it, then move on ` +
+    `to the next unanswered field.`
+  )
+}
 
 /**
  * System-prompt guidance injected by {@link run} when an agent has the
@@ -388,6 +417,13 @@ export async function buildSystemPrompt(
     ? locationInstructions(await lookupMyLocation())
     : undefined
 
+  const datasetBlock =
+    agent.dataset && toolNames.has(DATASET_INFO_TOOL)
+      ? await loadDataset(agent.dataset).then((dataset) =>
+          dataset ? datasetInstructions(agent.dataset!, dataset.label) : undefined
+        )
+      : undefined
+
   return (
     [
       agent.instructions,
@@ -396,6 +432,7 @@ export async function buildSystemPrompt(
       toolNames.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
       toolNames.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
       hasMemory ? MEMORY_INSTRUCTIONS : undefined,
+      datasetBlock,
       stickyBlock,
       getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
     ]
@@ -420,11 +457,16 @@ export async function buildSystemPrompt(
  * answer to a pending `ask_user` question from the previous call.
  * @param session - Conversation state to continue; mutated in place so
  * callers can pass the same session back in on the next turn.
+ * @param owner - Who's driving this session — `null` for a terminal session,
+ * `"telegram:<id>"` for a Telegram user. Passed to every tool's `execute` as
+ * {@link ToolContext}; defaults to {@link LOCAL_OWNER} for callers that don't
+ * distinguish users.
  */
 export async function* run(
   agent: Agent,
   prompt: string,
-  session: Session
+  session: Session,
+  owner: string | null = LOCAL_OWNER
 ): AsyncGenerator<AgentEvent, void, void> {
   const toolsByName = new Map(
     // @ts-ignore
@@ -576,7 +618,7 @@ export async function* run(
       const t = toolsByName.get(call.function.name)
       if (!t) throw new Error(`Unknown tool: ${call.function.name}`)
       const args = JSON.parse(call.function.arguments)
-      const result = await t.execute(args)
+      const result = await t.execute(args, { owner })
 
       if (typeof result === "string") {
         messages.push({ role: "tool", tool_call_id: call.id, content: result })

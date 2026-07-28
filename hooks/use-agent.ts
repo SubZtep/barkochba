@@ -71,7 +71,8 @@ export function useAgent(
     const created = new Agent({
       ...agentConfig,
       instructions: startingPersona?.instructions ?? agentConfig.instructions,
-      sampling: samplingOf(startingPersona)
+      sampling: samplingOf(startingPersona),
+      dataset: startingPersona?.dataset
     })
     const startingModel =
       resume?.model ??
@@ -135,6 +136,7 @@ export function useAgent(
       if (pending) return
       agent.instructions = next.instructions
       agent.sampling = samplingOf(next)
+      agent.dataset = next.dataset
       // Only sets the starting point for the new session — the user can
       // still switch models manually afterward via switchModel.
       const nextModel = next.model

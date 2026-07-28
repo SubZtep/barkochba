@@ -33,7 +33,11 @@ export const PersonaSchema = z
   .object({
     label: z.string().min(1),
     instructions: z.string().min(1).optional(),
-    model: z.string().min(1).optional()
+    model: z.string().min(1).optional(),
+    // Topic id (matches a schemas/datasets.ts config filename) this persona
+    // is responsible for collecting via the dataset_info tool. Optional —
+    // most personas don't collect a dataset.
+    dataset: z.string().min(1).optional()
   })
   .extend(SamplingParamsSchema.shape)
 

@@ -86,6 +86,7 @@ export type TelegramDriverConfig = {
   createAgent?: (init: {
     instructions?: string
     sampling?: ReturnType<typeof samplingOf>
+    dataset?: string
   }) => Agent
 }
 
@@ -184,6 +185,7 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
     ((init: {
       instructions?: string
       sampling?: ReturnType<typeof samplingOf>
+      dataset?: string
     }) => new Agent({ ...agentConfig, ...init }))
   const allowedUserIds = new Set(config.allowedUserIds)
   // Never evicted: each allowed user's Agent + full events[] stays live in
@@ -206,7 +208,8 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
 
     const agent = createAgent({
       instructions: persona.instructions ?? agentConfig.instructions,
-      sampling: samplingOf(persona)
+      sampling: samplingOf(persona),
+      dataset: persona.dataset
     })
     const startingModel =
       resumeModel ??
@@ -392,7 +395,12 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
     const throttle = new EditThrottle(editIfChanged)
 
     try {
-      for await (const event of run(state.agent, prompt, state.session)) {
+      for await (const event of run(
+        state.agent,
+        prompt,
+        state.session,
+        telegramOwner(userId)
+      )) {
         if (event.type === "delta") {
           // Reasoning deltas are omitted from the live bubble — mirrors the
           // terminal's optional/collapsed reasoning display.

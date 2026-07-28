@@ -4,9 +4,9 @@ import { connectMcpServer } from "../lib/mcp-client"
 import { loadMcpServers } from "../lib/mcp-servers"
 import { loadPluginTools } from "../lib/plugin-tools"
 import { currentTimeTool } from "./current-time"
+import { datasetInfoTool } from "./dataset-info"
 import { fetchUrlTool } from "./fetch-url"
 import { generateImageTool } from "./generate-image"
-import { likeOrNotGameTool } from "./like-or-not"
 import { listFilesTool } from "./list-files"
 import {
   forgetNoteTool,
@@ -58,7 +58,7 @@ export async function getDefaultTools() {
       recallMemoryTool,
       forgetNoteTool,
       listNotesTool,
-      likeOrNotGameTool,
+      datasetInfoTool,
       ...(webSearch ? [webSearchTool] : []),
       ...(imageGen ? [generateImageTool] : []),
       ...mcpConnections.flatMap((connection) => connection.tools),

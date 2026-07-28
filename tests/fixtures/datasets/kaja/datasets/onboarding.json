@@ -1,0 +1,12 @@
+{
+  "label": "Onboarding",
+  "revalidateAfterDays": 365,
+  "fields": [
+    { "name": "favorite_color", "prompt": "What's your favorite color?" },
+    {
+      "name": "notification_pref",
+      "prompt": "How do you want to be notified?",
+      "accepted": ["email", "push", "none"]
+    }
+  ]
+}
