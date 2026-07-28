@@ -1,4 +1,8 @@
-import { getConfigPath, readConfigLoose } from "./config"
+import {
+  isExists as configExists,
+  getConfigPath,
+  readConfigLoose
+} from "./config"
 import { t } from "./i18n"
 import {
   forgetNotes,
@@ -8,14 +12,18 @@ import {
   resolveMemoryDbPath,
   saveMemory
 } from "./memory-store"
+import { loadModels, resolveConfigModels } from "./models"
+import { loadPersonas } from "./personas"
 import { deleteSessionRow, listSessions, loadSessionRow } from "./session-store"
 import {
   configPage,
   gamePage,
   notesPage,
   notFoundPage,
+  personasPage,
   sessionPage,
-  sessionsPage
+  sessionsPage,
+  unconfiguredPersonasPage
 } from "./web-pages"
 
 /**
@@ -71,6 +79,45 @@ export function startWebServer(port: number) {
             }
           })
         )
+      },
+      "/personas": async () => {
+        // lib/agents.ts pulls in lib/openai.ts, which reads the LLM config
+        // at module load and exits the process if it's missing/invalid —
+        // fine for the normal boot path (cli.tsx only imports it after its
+        // own config guard), fatal here since this whole server exists to
+        // stay usable on a broken config. Import it dynamically, and only
+        // once we know the file is there.
+        if (!(await configExists())) {
+          return html(unconfiguredPersonasPage())
+        }
+        const [
+          { Agent, askUserTool, buildSystemPrompt, runCommandTool },
+          { forgetNoteTool, listNotesTool, recallMemoryTool, rememberNoteTool }
+        ] = await Promise.all([import("./agents"), import("../tools/memory")])
+        const previewTools = [
+          askUserTool,
+          runCommandTool,
+          rememberNoteTool,
+          recallMemoryTool,
+          forgetNoteTool,
+          listNotesTool
+        ]
+        const config = await readConfigLoose()
+        const models = [...(await loadModels()), ...resolveConfigModels(config)]
+        const personas = await loadPersonas(models)
+        const entries = await Promise.all(
+          personas.map(async (persona) => ({
+            persona,
+            systemPrompt: await buildSystemPrompt(
+              new Agent({
+                model: persona.model ?? "",
+                tools: previewTools,
+                instructions: persona.instructions
+              })
+            )
+          }))
+        )
+        return html(personasPage(entries))
       },
       "/notes": async () => html(notesPage(await loadMemory())),
       "/notes/delete": {

@@ -8,7 +8,7 @@ import type {
 import type { ResolvedModel } from "../schemas/models"
 import type { SamplingParams } from "../schemas/personas"
 import { isDangerousCommand } from "./command-risk"
-import { config } from "./config"
+import { readConfigLoose } from "./config"
 import type { GeoLocation } from "./geo"
 import { lookupMyLocation } from "./geo"
 import { getLanguage } from "./i18n"
@@ -356,6 +356,55 @@ export function createSession(): Session {
 }
 
 /**
+ * Assembles the system prompt for a fresh session with the given agent:
+ * the agent's own instructions plus platform/location grounding and the
+ * tool-contract blocks for whichever built-in tools the agent carries
+ * (ask_user, run_command, memory), and any sticky memory notes. Returns
+ * `undefined` if every block is empty (an agent with no instructions and
+ * none of the built-in tools). Pulled out of {@link run} so callers that
+ * only want to preview the prompt — e.g. the web UI's persona debug page —
+ * don't have to run a real session to see it.
+ */
+export async function buildSystemPrompt(
+  agent: Agent
+): Promise<string | undefined> {
+  const toolNames = new Set(
+    // @ts-ignore
+    agent.tools.map((t) => t.definition.function.name)
+  )
+  const hasMemory = toolNames.has(REMEMBER_NOTE_TOOL)
+  const stickyNotes = hasMemory
+    ? Object.entries(await loadMemory()).filter(([, note]) => note.sticky)
+    : []
+  const stickyBlock =
+    stickyNotes.length > 0
+      ? `Known context about this user/project (from persistent memory):\n${stickyNotes
+          .map(([key, note]) => `- [${key}] ${note.content}`)
+          .join("\n")}`
+      : undefined
+
+  const { location } = await readConfigLoose()
+  const locationBlock = location
+    ? locationInstructions(await lookupMyLocation())
+    : undefined
+
+  return (
+    [
+      agent.instructions,
+      PLATFORM_INSTRUCTIONS,
+      locationBlock,
+      toolNames.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
+      toolNames.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
+      hasMemory ? MEMORY_INSTRUCTIONS : undefined,
+      stickyBlock,
+      getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
+    ]
+      .filter(Boolean)
+      .join("\n\n") || undefined
+  )
+}
+
+/**
  * Runs an {@link Agent} on a prompt to completion, looping through
  * tool calls until the model asks the user a question (via the
  * {@link ASK_USER_TOOL} tool) or returns a final message.
@@ -385,34 +434,7 @@ export async function* run(
   const messages = session.messages
 
   if (messages.length === 0) {
-    const hasMemory = toolsByName.has(REMEMBER_NOTE_TOOL)
-    const stickyNotes = hasMemory
-      ? Object.entries(await loadMemory()).filter(([, note]) => note.sticky)
-      : []
-    const stickyBlock =
-      stickyNotes.length > 0
-        ? `Known context about this user/project (from persistent memory):\n${stickyNotes
-            .map(([key, note]) => `- [${key}] ${note.content}`)
-            .join("\n")}`
-        : undefined
-
-    const { location } = await config()
-    const locationBlock = location
-      ? locationInstructions(await lookupMyLocation())
-      : undefined
-
-    const system = [
-      agent.instructions,
-      PLATFORM_INSTRUCTIONS,
-      locationBlock,
-      toolsByName.has(ASK_USER_TOOL) ? ASK_USER_INSTRUCTIONS : undefined,
-      toolsByName.has(RUN_COMMAND_TOOL) ? RUN_COMMAND_INSTRUCTIONS : undefined,
-      hasMemory ? MEMORY_INSTRUCTIONS : undefined,
-      stickyBlock,
-      getLanguage() === "hu" ? HUNGARIAN_REPLY_INSTRUCTIONS : undefined
-    ]
-      .filter(Boolean)
-      .join("\n\n")
+    const system = await buildSystemPrompt(agent)
     if (system) messages.push({ role: "system", content: system })
   }
 

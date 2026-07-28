@@ -1,4 +1,5 @@
 import type { MemoryStore } from "../schemas/memory"
+import type { Persona } from "../schemas/personas"
 import type { PersistedSession, SessionMeta } from "../schemas/session"
 import type { GameResult } from "./memory-store"
 
@@ -41,6 +42,7 @@ export function maskSecrets(value: unknown, keyHint = ""): unknown {
 
 const TABS = [
   ["/", "Config"],
+  ["/personas", "Personas"],
   ["/notes", "Notes"],
   ["/sessions", "Sessions"],
   ["/game", "Game"]
@@ -145,6 +147,40 @@ export function notesPage(store: MemoryStore): string {
       ? `<p class="empty">No notes.</p>`
       : `<table><thead><tr><th>Key</th><th>Content</th><th>Importance</th><th>Tags</th><th>Used</th><th>Last used</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
   return layout("Notes", "/notes", `<h1>Notes (${entries.length})</h1>${body}`)
+}
+
+export function personasPage(
+  entries: { persona: Persona; systemPrompt: string | undefined }[]
+): string {
+  const sections = entries
+    .map(({ persona, systemPrompt }) => {
+      const promptBlock = systemPrompt
+        ? `<pre><code>${escapeHtml(systemPrompt)}</code></pre>`
+        : `<p class="empty">No system prompt (no instructions and no built-in tool contracts apply).</p>`
+      return `<details open>
+<summary>${escapeHtml(persona.label)} <code>${escapeHtml(persona.id)}</code></summary>
+${promptBlock}
+</details>`
+    })
+    .join("")
+  const body =
+    entries.length === 0 ? `<p class="empty">No personas.</p>` : sections
+  return layout(
+    "Personas",
+    "/personas",
+    `<h1>Personas (${entries.length})</h1>
+<p class="meta">Generated system prompt per persona, as it would be sent on the first message of a new session (assumes the default toolset: ask_user, run_command, memory).</p>
+${body}`
+  )
+}
+
+export function unconfiguredPersonasPage(): string {
+  return layout(
+    "Personas",
+    "/personas",
+    `<h1>Personas</h1>
+<p class="empty">No config.json yet — run the setup wizard (or \`kaja\`) once, then reload this page.</p>`
+  )
 }
 
 export function sessionsPage(metas: SessionMeta[]): string {
