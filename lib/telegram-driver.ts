@@ -60,6 +60,12 @@ export type TelegramSender = {
     callbackQueryId: string,
     opts?: { text?: string }
   ): Promise<void>
+  /** Sends a photo either from a local file (tool_image events) or a remote URL (display_image events). */
+  sendPhoto(
+    chatId: number,
+    photo: { path: string } | { url: string },
+    opts?: { caption?: string }
+  ): Promise<void>
 }
 
 export type TelegramDriverConfig = {
@@ -280,6 +286,19 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
     }
   }
 
+  /** Log-and-continue like editSafely: a failed photo upload shouldn't abort the turn's text stream. */
+  async function sendPhotoSafely(
+    chatId: number,
+    photo: { path: string } | { url: string },
+    caption?: string
+  ) {
+    try {
+      await sender.sendPhoto(chatId, photo, caption ? { caption } : undefined)
+    } catch (error) {
+      log.warn({ error }, "Telegram photo send failed")
+    }
+  }
+
   /**
    * Renders and sends the authoritative final text for a turn, via
    * `edit` (the same dedupe-guarded editor the turn's EditThrottle uses —
@@ -385,6 +404,16 @@ export function createTelegramDriver(config: TelegramDriverConfig) {
         }
 
         state.events.push(event)
+
+        if (event.type === "tool_image") {
+          await sendPhotoSafely(chatId, { path: event.path })
+          continue
+        }
+
+        if (event.type === "display_image") {
+          await sendPhotoSafely(chatId, { url: event.url }, event.alt)
+          continue
+        }
 
         if (event.type === "confirm_command") {
           throttle.cancel()

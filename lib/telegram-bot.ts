@@ -1,4 +1,4 @@
-import { Bot, GrammyError, InlineKeyboard } from "grammy"
+import { Bot, GrammyError, InlineKeyboard, InputFile } from "grammy"
 import type { KajaTelegram } from "../schemas/config"
 import type { ResolvedModel } from "../schemas/models"
 import type { Agent } from "./agents"
@@ -97,6 +97,15 @@ export function createTelegramBot(config: CreateTelegramBotConfig) {
       },
       async answerCallbackQuery(callbackQueryId, opts) {
         await bot.api.answerCallbackQuery(callbackQueryId, { text: opts?.text })
+      },
+      async sendPhoto(chatId, photo, opts) {
+        await withRateLimitRetry(() =>
+          bot.api.sendPhoto(
+            chatId,
+            "path" in photo ? new InputFile(photo.path) : photo.url,
+            opts?.caption ? { caption: opts.caption } : undefined
+          )
+        )
       }
     }
   })

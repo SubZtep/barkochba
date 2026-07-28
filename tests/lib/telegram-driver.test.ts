@@ -2,7 +2,7 @@ import { beforeEach, expect, test } from "bun:test"
 import { mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { Agent } from "../../lib/agents"
+import type { Agent, Tool } from "../../lib/agents"
 import type {
   InlineKeyboardLike,
   TelegramSender
@@ -29,7 +29,7 @@ writeFileSync(
 )
 
 const { invalidateConfigCache } = await import("../../lib/config")
-const { askUserTool, runCommandTool } = await import("../../lib/agents")
+const { askUserTool, runCommandTool, tool } = await import("../../lib/agents")
 const { getDb } = await import("../../lib/memory-store")
 const { createSessionRow, loadLatestSessionRowForOwner } = await import(
   "../../lib/session-store"
@@ -79,11 +79,14 @@ function fakeClient(script: FakeMessage[]) {
   }
 }
 
-function fakeAgent(script: FakeMessage[]): Agent {
+function fakeAgent(
+  script: FakeMessage[],
+  extraTools: Tool<never>[] = []
+): Agent {
   return {
     name: "Tester",
     model: "fake-model",
-    tools: [askUserTool, runCommandTool],
+    tools: [askUserTool, runCommandTool, ...extraTools],
     client: fakeClient(script)
   } as unknown as Agent
 }
@@ -105,6 +108,11 @@ function fakeSender() {
     replyMarkup?: InlineKeyboardLike
   }[] = []
   const answered: { callbackQueryId: string; text?: string }[] = []
+  const photos: {
+    chatId: number
+    photo: { path: string } | { url: string }
+    caption?: string
+  }[] = []
   const sender: TelegramSender = {
     async sendMessage(chatId, text, opts) {
       const messageId = nextMessageId++
@@ -116,16 +124,20 @@ function fakeSender() {
     },
     async answerCallbackQuery(callbackQueryId, opts) {
       answered.push({ callbackQueryId, text: opts?.text })
+    },
+    async sendPhoto(chatId, photo, opts) {
+      photos.push({ chatId, photo, caption: opts?.caption })
     }
   }
-  return { sender, sent, edited, answered }
+  return { sender, sent, edited, answered, photos }
 }
 
 /** One driver, one scripted fake LLM conversation, one allowlist. */
 function makeDriver(
   script: FakeMessage[],
   sender: TelegramSender,
-  allowedUserIds: number[]
+  allowedUserIds: number[],
+  extraTools: Tool<never>[] = []
 ) {
   return createTelegramDriver({
     agentConfig: { model: "fake-model", tools: [askUserTool, runCommandTool] },
@@ -133,7 +145,7 @@ function makeDriver(
     models: [],
     allowedUserIds,
     sender,
-    createAgent: () => fakeAgent(script)
+    createAgent: () => fakeAgent(script, extraTools)
   })
 }
 
@@ -152,6 +164,48 @@ test("first message from an allowed user creates a session and finalizes the rep
   const saved = await loadLatestSessionRowForOwner(telegramOwner(42))
   expect(saved).toBeDefined()
   expect(saved!.owner).toBe(telegramOwner(42))
+})
+
+test("tool_image and display_image events are delivered as photos", async () => {
+  const imagePath = join(tmpdir(), "kaja-test-telegram-photo.png")
+  writeFileSync(imagePath, "not-a-real-png")
+  const imageTool = tool<Record<string, never>>({
+    name: "make_picture",
+    description: "test tool that returns images",
+    parameters: { type: "object", properties: {} },
+    execute: async () => ({
+      text: "made a picture",
+      images: [{ path: imagePath, mimeType: "image/png" }],
+      displayImage: { url: "https://example.com/pic.png", alt: "a preview" }
+    })
+  })
+  const { sender, photos, edited } = fakeSender()
+  const driver = makeDriver(
+    [
+      {
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "make_picture", arguments: "{}" }
+          }
+        ]
+      },
+      { content: "Here is your picture." }
+    ],
+    sender,
+    [42],
+    [imageTool]
+  )
+
+  await driver.handleMessage(42, 100, "draw me something")
+
+  expect(photos).toHaveLength(2)
+  expect(photos[0]!.photo).toEqual({ url: "https://example.com/pic.png" })
+  expect(photos[0]!.caption).toBe("a preview")
+  expect(photos[1]!.photo).toEqual({ path: imagePath })
+  expect(edited.at(-1)!.text).toBe("Here is your picture.")
 })
 
 test("a message from a disallowed user produces zero sender calls", async () => {
