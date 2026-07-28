@@ -19,6 +19,7 @@ export async function runTelegramCli(deps: {
   tools: Tool<any>[]
   personas: Persona[]
   models: ResolvedModel[]
+  initialPersona?: Persona
 }): Promise<number> {
   const { telegram } = deps.config
   if (!telegram) {
@@ -31,7 +32,8 @@ export async function runTelegramCli(deps: {
     ...telegram,
     agentConfig: { model: deps.config.llm.model, tools: deps.tools },
     personas: deps.personas,
-    models: deps.models
+    models: deps.models,
+    initialPersona: deps.initialPersona
   })
 
   // Owns its own SIGINT/SIGTERM handling for bot.stop() rather than teaching
