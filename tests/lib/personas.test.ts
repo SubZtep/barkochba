@@ -45,5 +45,5 @@ test("writes default template personas on first run when the directory is missin
   process.env.XDG_CONFIG_HOME = emptyConfigDir
   const personas = await loadPersonas(models)
   const ids = personas.map((p) => p.id).sort()
-  expect(ids).toEqual(["barkochba", "care", "default"])
+  expect(ids).toEqual(["barkochba", "care", "default", "onboarding"])
 })
