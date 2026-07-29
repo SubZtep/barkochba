@@ -15,7 +15,7 @@ const server = Bun.serve({
     const url = new URL(req.url)
     if (url.pathname === "/chat/completions") {
       const body = (await req.json()) as { model: string }
-      if (body.model === "up-model") {
+      if (body.model === "up-model" || body.model === "tts-model") {
         return Response.json({
           id: "x",
           choices: [{ message: { role: "assistant", content: "hi" } }]
@@ -33,7 +33,7 @@ const server = Bun.serve({
       return new Response("model not found", { status: 404 })
     }
     if (url.pathname === "/models") {
-      return Response.json({ data: [] })
+      return Response.json({ data: [{ id: "tts-model" }] })
     }
     return new Response("not found", { status: 404 })
   }
@@ -54,6 +54,7 @@ test("shows persona, grouped models with availability, and stats", async () => {
           { id: "down-model", label: "Down Model", task: "chat", baseUrl },
           { id: "tts-model", task: "text-to-speech", baseUrl }
         ]}
+        activeModelId="up-model"
         brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={3}
@@ -67,9 +68,12 @@ test("shows persona, grouped models with availability, and stats", async () => {
 
   const frame = t.lastFrame()
   expect(frame).toContain("Kaja")
-  expect(frame).toContain("Up Model")
-  expect(frame).toContain("Down Model")
-  expect(frame).toContain("tts-model")
+  // Among chat models, only the active one gets a live check and stays
+  // "up"; a non-active chat model stays at its default "pending" icon.
+  // Non-chat tasks (tts here) are still checked as before.
+  expect(frame).toContain("✓ Up Model")
+  expect(frame).toContain("○ Down Model")
+  expect(frame).toContain("✓ tts-model")
   expect(frame).toContain("/data/kaja/memory.sqlite")
   expect(frame).toContain("/home/kaja/project")
   expect(frame).toContain("3")
@@ -93,6 +97,7 @@ test("retries a failed check and settles on available once it succeeds", async (
             baseUrl
           }
         ]}
+        activeModelId="flaky-model"
         brainPath="/data/kaja/memory.sqlite"
         cwd="/home/kaja/project"
         sessionCount={0}

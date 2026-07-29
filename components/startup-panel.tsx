@@ -16,6 +16,8 @@ function taskLabel(task: ResolvedModel["task"]) {
       return t("startup.taskStt")
     case "embedding":
       return t("startup.taskEmbedding")
+    case "rerank":
+      return t("startup.taskRerank")
     case "image-generation":
       return t("startup.taskImageGen")
   }
@@ -23,10 +25,13 @@ function taskLabel(task: ResolvedModel["task"]) {
 
 // Display order for the grouped task sections, independent of the order
 // models are merged in (models.toml entries land before config.json's stt,
-// which would otherwise put stt before tts/image-generation).
+// which would otherwise put stt before tts/image-generation). rerank sits
+// right after embedding, mirroring the setup wizard's step order — the two
+// are the halves of the same retrieval pipeline.
 const TASK_ORDER: ResolvedModel["task"][] = [
   "chat",
   "embedding",
+  "rerank",
   "text-to-speech",
   "speech-to-text",
   "image-generation"
@@ -58,6 +63,7 @@ const MAX_ATTEMPTS = 3
 export function StartupPanel({
   persona,
   models,
+  activeModelId,
   mcpServers = [],
   brainPath,
   cwd,
@@ -67,6 +73,8 @@ export function StartupPanel({
 }: {
   persona: string
   models: ResolvedModel[]
+  /** Id of the chat model actually in use right now. Among chat-task models, only this one gets a live reachability check — the rest stay at their default "pending" icon. Non-chat tasks (tts, stt, embedding, image-generation) are always checked, since there's no notion of an "active" one among them. */
+  activeModelId?: string
   mcpServers?: { id: string; toolCount: number }[]
   brainPath: string
   cwd: string
@@ -98,13 +106,15 @@ export function StartupPanel({
       })
     }
 
-    for (const [index, model] of models.entries()) attempt(index, model, 1)
+    for (const [index, model] of models.entries())
+      if (model.task !== "chat" || model.id === activeModelId)
+        attempt(index, model, 1)
 
     return () => {
       cancelled = true
       for (const timer of timers) clearTimeout(timer)
     }
-  }, [models])
+  }, [models, activeModelId])
 
   const grouped = models.reduce<Map<ResolvedModel["task"], number[]>>(
     (acc, model, index) => {

@@ -69,11 +69,11 @@ type FieldName =
 type GroupName =
   | "llm"
   | "embedding"
+  | "rerank"
   | "stt"
   | "tts"
   | "location"
   | "webSearch"
-  | "rerank"
   | "imageGen"
 
 // Each group's fields, its zod shape for per-field validation, whether the
@@ -102,6 +102,13 @@ const GROUPS: {
     fields: ["embeddingBaseUrl", "embeddingApiKey", "embeddingModel"]
   },
   {
+    name: "rerank",
+    nameKey: "wizard.groupRerank",
+    optional: true,
+    descriptionKey: "wizard.groupRerankHint",
+    fields: ["rerankModel", "rerankBaseUrl", "rerankApiKey"]
+  },
+  {
     name: "stt",
     nameKey: "wizard.groupStt",
     optional: true,
@@ -124,12 +131,6 @@ const GROUPS: {
     nameKey: "wizard.groupWebSearch",
     optional: true,
     fields: ["webSearchApiKey"]
-  },
-  {
-    name: "rerank",
-    nameKey: "wizard.groupRerank",
-    optional: true,
-    fields: ["rerankModel", "rerankBaseUrl", "rerankApiKey"]
   },
   {
     name: "imageGen",

@@ -172,6 +172,7 @@ export default function App({
           <StartupPanel
             persona={persona.label}
             models={models}
+            activeModelId={model}
             mcpServers={mcpServers}
             brainPath={brainPath}
             cwd={process.cwd()}
