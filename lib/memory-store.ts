@@ -93,6 +93,8 @@ export async function getDb(): Promise<Database> {
   db = new Database(dbPath, { create: true })
   dbPathInUse = dbPath
   db.exec("PRAGMA journal_mode = WAL")
+  db.exec("PRAGMA synchronous = NORMAL") // safe pairing w/ WAL, faster than FULL
+  db.exec("PRAGMA busy_timeout = 5000") // wait up to 5s on lock instead of throwing
   db.exec(
     "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)"
   )

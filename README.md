@@ -42,7 +42,8 @@ Prefer editing files directly? Config lives in `~/.config/kaja/`:
 
 * [`config.json`](docs/config/config.json) — One required group ( `llm` ) and
   several optional ones ( `embedding` , `rerank` , `imageGen` , `stt` , `tts` ,
-  `location` , `webSearch` ). Leaving a group out just disables that feature.
+  `location` , `webSearch` , `telegram` ). Leaving a group out just disables
+  that feature.
 * [`mcp.toml`](docs/config/mcp.toml) — Model Context Protocol servers for the agent.
 * [`models.toml`](docs/config/models.fireworks.toml) — Every chat/embedding/
   rerank/image-generation model your provider offers, so you can switch
@@ -52,7 +53,8 @@ Prefer editing files directly? Config lives in `~/.config/kaja/`:
   [Ollama](docs/config/models.ollama.toml) examples).
 * [`personas/`](docs/config/personas) — Preconfigured agent behaviours, one
   `.toml` file per persona (filename minus extension is the persona id, e.g.
-  `barkochba.toml` -> `barkochba`).
+  `barkochba.toml` -> `barkochba`). Give a persona a `when` clause and Kaja
+  switches to it on its own when the conversation calls for it.
 
 <details>
 <summary>How the wizard and models.toml fit together</summary>
@@ -88,9 +90,59 @@ Voice caveat for Hungarian: dictation needs the multilingual whisper model on th
 
 set `stt.model` / `stt.language` in the config file to override), and spoken replies stay with the configured Kokoro voice (no Hungarian voice) unless `tts.model` / `tts.voice` point somewhere Hungarian-capable.
 
+## Personas
+
+Each `.toml` under `~/.config/kaja/personas/` is one behaviour: a `label`, the
+`instructions` that become the system prompt, and optionally a `model` to pin,
+`dataset` to collect, and sampling params.
+
+Switching is automatic. Add a `when` clause describing the persona's territory
+and Kaja moves itself there mid-conversation when the topic clearly matches:
+
+```toml
+label = "Self-care companion"
+when = "the user talks about their day, feelings, mood, or personal struggles"
+instructions = """..."""
+```
+
+Every persona with a `when` is offered to the model as a switch target, so
+mentioning your day can hand the conversation to the self-care companion, and
+asking for a guessing game can hand it to the barkochba guesser — no command
+needed. The switch is announced in the timeline as it happens. Personas without
+a `when` are never auto-selected; pick those from the slash menu — note that
+picking one there starts a fresh conversation, while an automatic switch keeps
+the current one going. A persona that pins a `model` swaps the model too;
+otherwise the current one is kept.
+
 ## Voice & dictation
 
 Voice features (the optional `stt` / `tts` config groups) need [speaches](https://speaches.ai) for STT/TTS and `ffmpeg` / `ffplay` for mic and playback.
+
+## Telegram
+
+Chat with Kaja from Telegram instead of the terminal, reusing the same
+personas, tools and models:
+
+```bash
+kaja telegram
+```
+
+Runs a long-polling bot until you stop it (Ctrl+C). The wizard doesn't cover
+this — add a `telegram` group to `config.json` by hand:
+
+```json
+"telegram": {
+  "botToken": "123456789:AAH...",
+  "allowedUserIds": [YOUR_NUMERIC_ID]
+}
+```
+
+Get `botToken` from [@BotFather](https://t.me/BotFather) ( `/newbot` ) and your
+numeric id from [@userinfobot](https://t.me/userinfobot) — the allowlist takes
+user ids, not `@usernames`, and messages from anyone else are ignored. Since
+the bot can run tools, treat it as granting whoever is on that list the same
+reach the terminal app has; shell commands come back as approve/decline
+buttons. See the [setup guide](docs/telegram.md) for the full walkthrough.
 
 ## Develop
 
