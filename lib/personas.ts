@@ -13,6 +13,9 @@ import CARE_TEMPLATE from "../docs/config/personas/care.toml" with {
 import DEFAULT_TEMPLATE from "../docs/config/personas/default.toml" with {
   type: "text"
 }
+import ONBOARDING_TEMPLATE from "../docs/config/personas/onboarding.toml" with {
+  type: "text"
+}
 import type { ResolvedModel } from "../schemas/models"
 import {
   type Persona,
@@ -27,7 +30,8 @@ export type { Persona }
 const TEMPLATES: Record<string, string> = {
   default: DEFAULT_TEMPLATE,
   barkochba: BARKOCHBA_TEMPLATE,
-  care: CARE_TEMPLATE
+  care: CARE_TEMPLATE,
+  onboarding: ONBOARDING_TEMPLATE
 }
 
 /** Pulls a persona's optional sampling overrides into an Agent-shaped object. */
